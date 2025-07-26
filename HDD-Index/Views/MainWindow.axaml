@@ -14,7 +14,13 @@
              to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel/>
     </Design.DataContext>
+    
+    <StackPanel Margin="20" Spacing="10">
+        <TreeDataGrid Source="{Binding RepoNodeSource}"
+        />
+        <Button Content="显示当前选中行" Command="{Binding ShowRepoNode}"></Button>
+    </StackPanel>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    
 
 </Window>
