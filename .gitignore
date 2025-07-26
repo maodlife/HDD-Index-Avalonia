@@ -55,3 +55,4 @@ nunit-*.xml
 /HDD-Index/.idea
 HDD-Index/HDD-Index.sln.DotSettings.user
 .DS_Store
+ConvertOldJsonFiles/ConvertOldJsonFiles.sln.DotSettings.user
