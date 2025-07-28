@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace HDD_Index.Models;
@@ -18,7 +19,12 @@ public class FileNode : TreeNodeBase
 /// <summary>
 /// 存储这个磁盘文件节点对应声明持有了哪个Repository中的节点
 /// </summary>
-public class DeclareRepoNodeData
+public class DeclareRepoNodeData : ICloneable
 {
     public string RepoNodePath { get; set; }
+    
+    public object Clone()
+    {
+        return this.MemberwiseClone();
+    }
 }

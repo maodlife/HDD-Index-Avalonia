@@ -13,21 +13,29 @@ public class TreeNodeBaseVM
 
     public string Name { get; set; }
     public bool IsDirectory { get; set; }
-    
+
     public TreeNodeBase TreeNode { get; set; }
 
-    public static TreeNodeBaseVM Create(TreeNodeBase treeNode)
+    public static T Create<T>(TreeNodeBase treeNode)
+        where T : TreeNodeBaseVM, new()
     {
-        var vm = new TreeNodeBaseVM();
-        vm.Name = treeNode.Name;
-        vm.IsDirectory = treeNode.IsDirectory;
-        vm.TreeNode = treeNode;
+        var vm = new T
+        {
+            Name = treeNode.Name,
+            IsDirectory = treeNode.IsDirectory,
+            TreeNode = treeNode
+        };
         foreach (var child in treeNode.Children)
         {
-            var childVm = Create(child);
+            var childVm = Create<T>(child);
             vm.Children.Add(childVm);
         }
 
         return vm;
+    }
+
+    protected virtual void AddChild(TreeNodeBase child)
+    {
+        
     }
 }

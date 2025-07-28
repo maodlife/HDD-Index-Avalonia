@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace HDD_Index.Models;
@@ -14,8 +15,13 @@ public class RepoNode : TreeNodeBase
 /// <summary>
 /// 用于存储这个节点(及其子树)存储在哪个FileNode的信息
 /// </summary>
-public class SaveFileNodeData
+public class SaveFileNodeData : ICloneable
 {
     public string DiskLabel { get; set; }
     public string FileNodePath { get; set; }
+    
+    public object Clone()
+    {
+        return this.MemberwiseClone();
+    }
 }
