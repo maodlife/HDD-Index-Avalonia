@@ -8,6 +8,7 @@ using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Selection;
 using HDD_Index.Models;
 using ReactiveUI;
+using ReactiveUI.Fody.Helpers;
 
 namespace HDD_Index.ViewModels;
 
@@ -41,11 +42,11 @@ public class MainWindowViewModel : ViewModelBase
     /// <summary>
     /// 当前实际用于View动态绑定的source
     /// </summary>
-    public HierarchicalTreeDataGridSource<FileNodeVM> _currFileNodeSource;
+    [Reactive]
     public HierarchicalTreeDataGridSource<FileNodeVM> CurrFileNodeSource
     {
-        get => _currFileNodeSource;
-        set => this.RaiseAndSetIfChanged(ref _currFileNodeSource, value);
+        get;
+        set;
     }
 
     #endregion
