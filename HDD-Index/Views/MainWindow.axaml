@@ -21,6 +21,17 @@
                 Source="{Binding RepoNodeSource}"
                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
                 ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            <Grid Grid.Row="1" ColumnDefinitions="*,*,*">
+                <TextBox Text="保存了该节点的磁盘:"></TextBox>
+                <ComboBox Grid.Column="1"
+                          ItemsSource="{Binding CurrRepoNodeSaveFileNodes}"
+                          SelectedItem="{Binding SelectedSaveFileNodeLabel}">
+                </ComboBox>
+                <Button Grid.Column="2"
+                        Content="跳转"
+                        Command="{Binding JumpToSaveFileNode}">
+                </Button>
+            </Grid>
         </Grid>
 
         <Grid
@@ -28,13 +39,13 @@
             Margin="20"
             RowDefinitions="Auto,*,Auto">
             <ComboBox Grid.Row="0"
-                ItemsSource="{Binding DiskLabels}"
-                SelectedItem="{Binding SelectedDiskLabel}">
+                      ItemsSource="{Binding DiskLabels}"
+                      SelectedItem="{Binding SelectedDiskLabel}">
             </ComboBox>
             <TreeDataGrid Grid.Row="1"
-                Source="{Binding CurrFileNodeSource}"
-                ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                          Source="{Binding CurrFileNodeSource}"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto" />
         </Grid>
     </Grid>
 

@@ -8,6 +8,7 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Selection;
+using DynamicData;
 using HDD_Index.Models;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
@@ -26,11 +27,27 @@ public class MainWindowViewModel : ViewModelBase
     public RepoNode RepoNodeRoot { get; set; }
     public RepoNodeVM RepoNodeVm { get; set; }
 
+    [Reactive]
     public HierarchicalTreeDataGridSource<RepoNodeVM> RepoNodeSource
     {
         get;
         set;
     }
+
+    public ReactiveCommand<RepoNodeVM, Unit> RepoNodeSelectedCommand
+    {
+        get;
+        set;
+    }
+
+    /// <summary>
+    /// combobox中要显示的保存了当前repo节点的磁盘名
+    /// </summary>
+    public ObservableCollection<string>
+        CurrRepoNodeSaveFileNodes { get; set; } =
+        new ObservableCollection<string>();
+
+    [Reactive] public string SelectedSaveFileNodeLabel { get; set; }
 
     #endregion
 
@@ -59,19 +76,29 @@ public class MainWindowViewModel : ViewModelBase
 
     public ReactiveCommand<string, Unit> DiskLabelSelectedCommand { get; set; }
 
-    #endregion
+    #endregion File Data
 
     #region 初始化
 
     public MainWindowViewModel()
     {
-        InitCommand();
         InitRepoData();
         InitFileData();
+        InitCommand();
     }
 
     private void InitCommand()
     {
+        RepoNodeSelectedCommand = ReactiveCommand.Create<RepoNodeVM>(vm =>
+        {
+            SelectRepoNode(vm.RepoNode);
+        });
+
+        this.WhenAnyValue(x =>
+                x.RepoNodeSource.RowSelection.SelectedItem)
+            .Where(x => x != null)
+            .InvokeCommand(RepoNodeSelectedCommand);
+
         DiskLabelSelectedCommand =
             ReactiveCommand.Create<string>(ChangeDiskLabel);
 
@@ -153,11 +180,93 @@ public class MainWindowViewModel : ViewModelBase
             .Find(x => x.FileData.DiskLabel == diskLabel);
         if (found == null)
             return;
+        CurrShowFileNodeIndex = FileDataVmBundles.IndexOf(found);
         SelectedDiskLabel = diskLabel;
         CurrFileNodeSource = found.RepoNodeSource;
     }
 
+    private void SelectRepoNode(RepoNode repoNode)
+    {
+        CurrRepoNodeSaveFileNodes.Clear();
+        foreach (var saveFileNodeData in repoNode.SaveFileNodeDatas)
+        {
+            CurrRepoNodeSaveFileNodes.Add(saveFileNodeData.DiskLabel);
+        }
+
+        if (CurrRepoNodeSaveFileNodes.Count > 0)
+        {
+            SelectedSaveFileNodeLabel = CurrRepoNodeSaveFileNodes[0];
+        }
+    }
+
+    public void JumpToSaveFileNode()
+    {
+        var selectRepoNode = RepoNodeSource
+            ?.RowSelection
+            ?.SelectedItem
+            ?.RepoNode ?? null;
+        var selectDiskLabel = SelectedSaveFileNodeLabel;
+        if (selectRepoNode == null || string.IsNullOrEmpty(selectDiskLabel))
+            return;
+        var foundSaveData = selectRepoNode.SaveFileNodeDatas
+            .Find(x => x.DiskLabel == selectDiskLabel);
+        if (foundSaveData == null)
+            return;
+        ChangeDiskLabel(selectDiskLabel);
+        var target = FindFileNodeVmByPath(
+            FileDataVmBundles[CurrShowFileNodeIndex].FileNodeVm,
+            foundSaveData.FileNodePath,
+            out var indexPath);
+        if (indexPath != null)
+        {
+            CurrFileNodeSource.Expand(indexPath.Value);
+            CurrFileNodeSource?.RowSelection?.Select(indexPath.Value);
+        }
+    }
+
     #endregion
+
+    #region Utils
+
+    private FileNodeVM? FindFileNodeVmByPath(
+        FileNodeVM root,
+        string path,
+        out IndexPath? indexPath)
+    {
+        var nameList = path.Split('/');
+        indexPath = null;
+        if (nameList.Length == 0)
+            return null;
+        var ret = root;
+        if (ret.Name != nameList[0])
+            return null;
+        List<int> indexes = new List<int>();
+        indexes.Add(0);
+        for (var i = 1; i < nameList.Length; i++)
+        {
+            var name = nameList[i];
+            for (var j = 0; j < ret.Children.Count; j++)
+            {
+                var child = ret.Children[j];
+                if (child.Name == name)
+                {
+                    ret = child;
+                    indexes.Add(j);
+                    break;
+                }
+            }
+
+            if (ret.Name != name)
+            {
+                return null;
+            }
+        }
+
+        indexPath = new IndexPath(indexes);
+        return ret;
+    }
+
+    #endregion Utils
 
     #region 测试功能
 
