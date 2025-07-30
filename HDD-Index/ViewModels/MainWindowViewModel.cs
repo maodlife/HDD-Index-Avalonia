@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Reactive;
+using System.Reactive.Linq;
 using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
@@ -49,14 +51,33 @@ public class MainWindowViewModel : ViewModelBase
         set;
     }
 
+    [Reactive]
+    public ObservableCollection<string> DiskLabels { get; set; } =
+        new ObservableCollection<string>();
+
+    [Reactive] public string SelectedDiskLabel { get; set; }
+
+    public ReactiveCommand<string, Unit> DiskLabelSelectedCommand { get; set; }
+
     #endregion
 
     #region 初始化
 
     public MainWindowViewModel()
     {
+        InitCommand();
         InitRepoData();
         InitFileData();
+    }
+
+    private void InitCommand()
+    {
+        DiskLabelSelectedCommand =
+            ReactiveCommand.Create<string>(ChangeDiskLabel);
+
+        this.WhenAnyValue(x => x.SelectedDiskLabel)
+            .Where(x => x != null)
+            .InvokeCommand(DiskLabelSelectedCommand);
     }
 
     private void InitRepoData()
@@ -73,10 +94,12 @@ public class MainWindowViewModel : ViewModelBase
                 Columns =
                 {
                     new HierarchicalExpanderColumn<RepoNodeVM>(
-                        new TextColumn<RepoNodeVM, string>("Name",
+                        new TextColumn<RepoNodeVM, string>(
+                            "Name",
                             x => x.Name),
                         x => x.Children),
-                    new TextColumn<RepoNodeVM, string>("存储数",
+                    new TextColumn<RepoNodeVM, string>(
+                        "存储数",
                         x => x.SaveFileNodeCntString)
                 }
             };
@@ -91,14 +114,47 @@ public class MainWindowViewModel : ViewModelBase
                 continue;
             var json = File.ReadAllText(file);
             var bundle =
-                FileDataVMBundle.Create(Path.GetFileNameWithoutExtension(file),
+                FileDataVMBundle.Create(
+                    Path.GetFileNameWithoutExtension(file),
                     json);
             FileDataVmBundles.Add(bundle);
         }
 
+        FileDataVmBundles.Sort((lhs, rhs)
+            => String.Compare(
+                lhs.FileData.DiskLabel,
+                rhs.FileData.DiskLabel,
+                StringComparison.Ordinal));
+
+        foreach (var item in FileDataVmBundles)
+        {
+            DiskLabels.Add(item.FileData.DiskLabel);
+        }
+
         // 默认显示第一个
         if (FileDataVmBundles.Count > 0)
+        {
             CurrFileNodeSource = FileDataVmBundles[0].RepoNodeSource;
+            SelectedDiskLabel = DiskLabels[0];
+        }
+    }
+
+    #endregion
+
+    #region 功能
+
+    /// <summary>
+    /// 可能是用户主动切换，也可能是从repo跳转时自动切换
+    /// </summary>
+    /// <param name="diskLabel"></param>
+    private void ChangeDiskLabel(string diskLabel)
+    {
+        var found = FileDataVmBundles
+            .Find(x => x.FileData.DiskLabel == diskLabel);
+        if (found == null)
+            return;
+        SelectedDiskLabel = diskLabel;
+        CurrFileNodeSource = found.RepoNodeSource;
     }
 
     #endregion

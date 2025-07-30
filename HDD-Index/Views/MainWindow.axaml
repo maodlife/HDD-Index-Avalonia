@@ -21,21 +21,20 @@
                 Source="{Binding RepoNodeSource}"
                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
                 ScrollViewer.VerticalScrollBarVisibility="Auto" />
-            <Button Grid.Row="1" Content="显示当前选中行" Command="{Binding ShowRepoNode}"></Button>
         </Grid>
 
         <Grid
             Grid.Column="1"
             Margin="20"
-            RowDefinitions="*,Auto">
-            <TreeDataGrid
+            RowDefinitions="Auto,*,Auto">
+            <ComboBox Grid.Row="0"
+                ItemsSource="{Binding DiskLabels}"
+                SelectedItem="{Binding SelectedDiskLabel}">
+            </ComboBox>
+            <TreeDataGrid Grid.Row="1"
                 Source="{Binding CurrFileNodeSource}"
                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
                 ScrollViewer.VerticalScrollBarVisibility="Auto" />
-            <Button Grid.Row="1"
-                    Content="切换下一个"
-                    Command="{Binding ChangeNextDisk}">
-            </Button>
         </Grid>
     </Grid>
 
