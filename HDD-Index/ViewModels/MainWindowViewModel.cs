@@ -48,7 +48,7 @@ public class MainWindowViewModel : ViewModelBase
         new ObservableCollection<string>();
 
     [Reactive] public string SelectedSaveFileNodeLabel { get; set; }
-    
+
     [Reactive] public bool AutoJumpToSaveFileNode { get; set; } = false;
 
     #endregion
@@ -59,6 +59,9 @@ public class MainWindowViewModel : ViewModelBase
         new List<FileDataVMBundle>();
 
     public int CurrShowFileNodeIndex { get; set; } = 0;
+
+    public ObservableCollection<FileNodeVM> FileNodeVm { get; set; }
+        = new ObservableCollection<FileNodeVM>();
 
     /// <summary>
     /// 当前实际用于View动态绑定的source
@@ -173,9 +176,28 @@ public class MainWindowViewModel : ViewModelBase
         // 默认显示第一个
         if (FileDataVmBundles.Count > 0)
         {
-            CurrFileNodeSource = FileDataVmBundles[0].RepoNodeSource;
+            ChangeFileNodeVM(FileDataVmBundles[0].FileNodeVm);
             SelectedDiskLabel = DiskLabels[0];
         }
+
+        CurrFileNodeSource =
+            new HierarchicalTreeDataGridSource<FileNodeVM>(FileNodeVm)
+            {
+                Columns =
+                {
+                    new HierarchicalExpanderColumn<FileNodeVM>(
+                        new TextColumn<FileNodeVM, string>(
+                            "Name",
+                            x => x.Name),
+                        x => x.Children),
+                }
+            };
+    }
+
+    private void ChangeFileNodeVM(FileNodeVM targetFileNodeVm)
+    {
+        FileNodeVm.Clear();
+        FileNodeVm.Add(targetFileNodeVm);
     }
 
     #endregion
@@ -194,7 +216,7 @@ public class MainWindowViewModel : ViewModelBase
             return;
         CurrShowFileNodeIndex = FileDataVmBundles.IndexOf(found);
         SelectedDiskLabel = diskLabel;
-        CurrFileNodeSource = found.RepoNodeSource;
+        ChangeFileNodeVM(found.FileNodeVm);
     }
 
     private void SelectRepoNode(RepoNode repoNode)
@@ -205,11 +227,13 @@ public class MainWindowViewModel : ViewModelBase
         {
             CurrRepoNodeSaveFileNodes.Add(saveFileNodeData.DiskLabel);
         }
+
         // 默认选择第一个
         if (CurrRepoNodeSaveFileNodes.Count > 0)
         {
             SelectedSaveFileNodeLabel = CurrRepoNodeSaveFileNodes[0];
         }
+
         // 浏览模式下，直接给file tree切过去
         if (IsViewMode)
             JumpToSaveFileNode();
@@ -294,21 +318,6 @@ public class MainWindowViewModel : ViewModelBase
         var rowSelection = RepoNodeSource.RowSelection;
         var select = rowSelection?.SelectedItem ?? null;
         Console.WriteLine(select?.Name ?? "");
-    }
-
-    public void ChangeNextDisk()
-    {
-        if (CurrShowFileNodeIndex + 1 < FileDataVmBundles.Count)
-        {
-            CurrShowFileNodeIndex++;
-        }
-        else
-        {
-            CurrShowFileNodeIndex = 0;
-        }
-
-        CurrFileNodeSource =
-            FileDataVmBundles[CurrShowFileNodeIndex].RepoNodeSource;
     }
 
     #endregion
