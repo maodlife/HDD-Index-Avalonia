@@ -8,6 +8,8 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Selection;
+using Avalonia.Controls.Templates;
+using Avalonia.Media;
 using DynamicData;
 using HDD_Index.Models;
 using ReactiveUI;
@@ -186,10 +188,15 @@ public class MainWindowViewModel : ViewModelBase
                 Columns =
                 {
                     new HierarchicalExpanderColumn<FileNodeVM>(
-                        new TextColumn<FileNodeVM, string>(
+                        new TemplateColumn<FileNodeVM>(
                             "Name",
-                            x => x.Name),
-                        x => x.Children),
+                            new FuncDataTemplate<FileNodeVM>(
+                                (x, ns) => new TextBlock
+                                {
+                                    Text = x?.Name,
+                                    Foreground = x?.NameBrushes,
+                                })),
+                        x => x.Children)
                 }
             };
     }

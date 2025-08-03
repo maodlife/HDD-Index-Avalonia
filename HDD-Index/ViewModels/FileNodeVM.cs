@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Avalonia.Media;
 using HDD_Index.Models;
 
 namespace HDD_Index.ViewModels;
@@ -15,6 +16,17 @@ public class FileNodeVM
 
     public List<DeclareRepoNodeData> DeclareRepoNodeDatas { get; set; } =
         new List<DeclareRepoNodeData>();
+
+    public IBrush NameBrushes
+    {
+        get
+        {
+            if (DeclareRepoNodeDatas.Count == 0)
+                return Brushes.Black;
+            else
+                return Brushes.Green;
+        }
+    }
 
     public static FileNodeVM Create(FileNode fileNode)
     {

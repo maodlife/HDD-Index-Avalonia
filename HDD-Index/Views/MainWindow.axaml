@@ -84,7 +84,6 @@
                               SelectedItem="{Binding SelectedDiskLabel}">
                     </ComboBox>
                     <TreeDataGrid Grid.Row="1"
-                                  Name="FileTreeDataGrid"
                                   Source="{Binding CurrFileNodeSource}"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
