@@ -21,8 +21,10 @@
         <TabItem Header="浏览">
             <TabControl Margin="0">
                 <TabItem Header="Repository">
-                    <Grid Margin="20" RowDefinitions="*,Auto">
-                        <TreeDataGrid
+                    <Grid Margin="20" RowDefinitions="Auto, *">
+                        <TextBox Grid.Row="0"
+                                 Text="{Binding RepoNodePathString}"></TextBox>
+                        <TreeDataGrid Grid.Row="1"
                             Source="{Binding RepoNodeSource}"
                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
                             ScrollViewer.VerticalScrollBarVisibility="Auto" />

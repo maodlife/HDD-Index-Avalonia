@@ -55,6 +55,8 @@ public class MainWindowViewModel : ViewModelBase
 
     [Reactive] public bool AutoJumpToSaveFileNode { get; set; } = false;
 
+    [Reactive] public string RepoNodePathString { get; set; }
+    
     #endregion
 
     #region File Data
@@ -148,7 +150,7 @@ public class MainWindowViewModel : ViewModelBase
     {
         var repoNodeFilePath = Path.Combine(folderPath, repoFileName);
         var json = File.ReadAllText(repoNodeFilePath);
-        RepoNodeRoot = JsonSerializer.Deserialize<RepoNode>(json);
+        RepoNodeRoot = RepoNode.CreateByJson(json);
 
         RepoNodeVm = RepoNodeVM.Create(RepoNodeRoot);
 
@@ -248,6 +250,8 @@ public class MainWindowViewModel : ViewModelBase
 
     private void OnSelectRepoNode(RepoNode repoNode)
     {
+        RepoNodePathString = repoNode.GetPath();
+        
         // 更新显示当前存储了当前repo node的节点
         CurrRepoNodeSaveFileNodes.Clear();
         foreach (var saveFileNodeData in repoNode.SaveFileNodeDatas)
