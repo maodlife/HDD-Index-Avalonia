@@ -118,7 +118,7 @@ public class MainWindowViewModel : ViewModelBase
     {
         RepoNodeSelectedCommand = ReactiveCommand.Create<RepoNodeVM>(vm =>
         {
-            SelectRepoNode(vm.RepoNode);
+            OnSelectRepoNode(vm.RepoNode);
         });
 
         this.WhenAnyValue(x =>
@@ -128,7 +128,7 @@ public class MainWindowViewModel : ViewModelBase
         
         FileNodeSelectedCommand = ReactiveCommand.Create<FileNodeVM>(vm =>
         {
-            SelectFileNode(vm.FileNode);
+            OnSelectFileNode(vm.FileNode);
         });
 
         this.WhenAnyValue(x =>
@@ -246,7 +246,7 @@ public class MainWindowViewModel : ViewModelBase
         ChangeFileNodeVM(found.FileNodeVm);
     }
 
-    private void SelectRepoNode(RepoNode repoNode)
+    private void OnSelectRepoNode(RepoNode repoNode)
     {
         // 更新显示当前存储了当前repo node的节点
         CurrRepoNodeSaveFileNodes.Clear();
@@ -261,17 +261,17 @@ public class MainWindowViewModel : ViewModelBase
             SelectedSaveFileNodeLabel = CurrRepoNodeSaveFileNodes[0];
         }
 
-        // 浏览模式下，直接给file tree切过去
-        if (IsViewMode)
-            JumpToSaveFileNode();
-        // 编辑模式下，勾选了自动跳转时，直接跳过去
-        if (IsEditMode & AutoJumpToSaveFileNode)
-            JumpToSaveFileNode();
+        if ((IsViewMode || (IsEditMode && AutoJumpToSaveFileNode))
+            && !CheckRepoNodeAndFileNodeIsSync())
+        {
+            JumpToDefaultSaveFileNode();
+        }
     }
-
-    private void SelectFileNode(FileNode fileNode)
+    
+    private void OnSelectFileNode(FileNode fileNode)
     {
-        if (IsViewMode || (IsEditMode & AutoJumpToDeclareRepoNode))
+        if (IsViewMode || (IsEditMode && AutoJumpToDeclareRepoNode)
+            && !CheckRepoNodeAndFileNodeIsSync())
         {
             // 自动选中对应的声明持有的repo node
             var repoNodePath = fileNode.DeclareRepoNodeDatas
@@ -288,8 +288,16 @@ public class MainWindowViewModel : ViewModelBase
             }
         }
     }
-
-    public void JumpToSaveFileNode()
+    
+    public void JumpToDefaultSaveFileNode()
+    {
+        JumpToCurrSelectSaveFileNode();
+    }
+    
+    /// <summary>
+    /// 跳转到当前选择的file node
+    /// </summary>
+    public void JumpToCurrSelectSaveFileNode()
     {
         var selectRepoNode = RepoNodeSource
             ?.RowSelection
@@ -340,6 +348,32 @@ public class MainWindowViewModel : ViewModelBase
             path,
             out indexPath);
         return ret as FileNodeVM;
+    }
+
+    /// <summary>
+    /// 检查当前选中的repo node和file node是否同步，防止循环跳转
+    /// </summary>
+    private bool CheckRepoNodeAndFileNodeIsSync()
+    {
+        var repoNode = RepoNodeSource.RowSelection
+            ?.SelectedItem?.RepoNode ?? null;
+        var fileNode = CurrFileNodeSource.RowSelection
+            ?.SelectedItem?.FileNode ?? null;
+        if (repoNode == null && fileNode == null)
+            return true;
+        if (repoNode == null || fileNode == null)
+            return false;
+        if (fileNode.DeclareRepoNodeDatas.Count == 0)
+            return false;
+        foreach (var declareRepoNodeData in fileNode.DeclareRepoNodeDatas)
+        {
+            var foundRepoNode = TreeNodeUtils.GetNodeByPathFromRoot(
+                RepoNodeRoot,
+                declareRepoNodeData.RepoNodePath);
+            if (repoNode == foundRepoNode)
+                return true;
+        }
+        return false;
     }
 
     #endregion Utils
