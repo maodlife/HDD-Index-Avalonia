@@ -5,11 +5,8 @@ using HDD_Index.Models;
 
 namespace HDD_Index.ViewModels;
 
-public class FileNodeVM
+public class FileNodeVM : TreeNodeVMBase<FileNodeVM>
 {
-    public ObservableCollection<FileNodeVM> Children { get; set; } = new();
-
-    public string Name { get; set; }
     public bool IsDirectory { get; set; }
 
     public FileNode FileNode { get; set; }

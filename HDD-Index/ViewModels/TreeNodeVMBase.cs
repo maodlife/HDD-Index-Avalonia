@@ -1,0 +1,50 @@
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using Avalonia.Controls;
+
+namespace HDD_Index.ViewModels;
+
+public class TreeNodeVMBase<T> where T : TreeNodeVMBase<T>
+{
+    public string Name { get; set; }
+    public ObservableCollection<T> Children { get; set; }
+        = new ObservableCollection<T>();
+    
+    public static TreeNodeVMBase<T>? FindTreeNodeVmByPath(
+        TreeNodeVMBase<T> root,
+        string path,
+        out IndexPath? indexPath)
+    {
+        var nameList = path.Split('/');
+        indexPath = null;
+        if (nameList.Length == 0)
+            return null;
+        var ret = root;
+        if (ret.Name != nameList[0])
+            return null;
+        List<int> indexes = new List<int>();
+        indexes.Add(0);
+        for (var i = 1; i < nameList.Length; i++)
+        {
+            var name = nameList[i];
+            for (var j = 0; j < ret.Children.Count; j++)
+            {
+                var child = ret.Children[j];
+                if (child.Name == name)
+                {
+                    ret = child;
+                    indexes.Add(j);
+                    break;
+                }
+            }
+
+            if (ret.Name != name)
+            {
+                return null;
+            }
+        }
+
+        indexPath = new IndexPath(indexes);
+        return ret;
+    }
+}

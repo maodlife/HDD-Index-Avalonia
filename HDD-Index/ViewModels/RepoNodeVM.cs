@@ -4,12 +4,10 @@ using HDD_Index.Models;
 
 namespace HDD_Index.ViewModels;
 
-public class RepoNodeVM
+public class RepoNodeVM : TreeNodeVMBase<RepoNodeVM>
 {
     #region Properties
 
-    public ObservableCollection<RepoNodeVM> Children { get; set; } = new();
-    public string Name { get; set; }
     public bool IsDirectory { get; set; }
     public RepoNode RepoNode { get; set; }
 

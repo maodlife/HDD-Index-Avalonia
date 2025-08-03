@@ -74,6 +74,12 @@ public class MainWindowViewModel : ViewModelBase
         get;
         set;
     }
+    
+    public ReactiveCommand<FileNodeVM, Unit> FileNodeSelectedCommand
+    {
+        get;
+        set;
+    }
 
     [Reactive]
     public ObservableCollection<string> DiskLabels { get; set; } =
@@ -83,6 +89,8 @@ public class MainWindowViewModel : ViewModelBase
 
     public ReactiveCommand<string, Unit> DiskLabelSelectedCommand { get; set; }
 
+    [Reactive] public bool AutoJumpToDeclareRepoNode { get; set; } = false;
+    
     #endregion File Data
 
     #region View Mode Tab
@@ -115,6 +123,16 @@ public class MainWindowViewModel : ViewModelBase
                 x.RepoNodeSource.RowSelection.SelectedItem)
             .Where(x => x != null)
             .InvokeCommand(RepoNodeSelectedCommand);
+        
+        FileNodeSelectedCommand = ReactiveCommand.Create<FileNodeVM>(vm =>
+        {
+            SelectFileNode(vm.FileNode);
+        });
+
+        this.WhenAnyValue(x =>
+                x.CurrFileNodeSource.RowSelection.SelectedItem)
+            .Where(x => x != null)
+            .InvokeCommand(FileNodeSelectedCommand);
 
         DiskLabelSelectedCommand =
             ReactiveCommand.Create<string>(ChangeDiskLabel);
@@ -249,6 +267,15 @@ public class MainWindowViewModel : ViewModelBase
             JumpToSaveFileNode();
     }
 
+    private void SelectFileNode(FileNode fileNode)
+    {
+        if (IsViewMode || (IsEditMode & AutoJumpToDeclareRepoNode))
+        {
+            // 自动选中对应的声明持有的repo node
+            
+        }
+    }
+
     public void JumpToSaveFileNode()
     {
         var selectRepoNode = RepoNodeSource
@@ -277,43 +304,29 @@ public class MainWindowViewModel : ViewModelBase
     #endregion
 
     #region Utils
+    
+    private RepoNodeVM? FindRepoNodeVmByPath(
+        RepoNodeVM root,
+        string path,
+        out IndexPath? indexPath)
+    {
+        var ret = TreeNodeVMBase<RepoNodeVM>.FindTreeNodeVmByPath(
+            root,
+            path,
+            out indexPath);
+        return ret as RepoNodeVM;
+    }
 
     private FileNodeVM? FindFileNodeVmByPath(
         FileNodeVM root,
         string path,
         out IndexPath? indexPath)
     {
-        var nameList = path.Split('/');
-        indexPath = null;
-        if (nameList.Length == 0)
-            return null;
-        var ret = root;
-        if (ret.Name != nameList[0])
-            return null;
-        List<int> indexes = new List<int>();
-        indexes.Add(0);
-        for (var i = 1; i < nameList.Length; i++)
-        {
-            var name = nameList[i];
-            for (var j = 0; j < ret.Children.Count; j++)
-            {
-                var child = ret.Children[j];
-                if (child.Name == name)
-                {
-                    ret = child;
-                    indexes.Add(j);
-                    break;
-                }
-            }
-
-            if (ret.Name != name)
-            {
-                return null;
-            }
-        }
-
-        indexPath = new IndexPath(indexes);
-        return ret;
+        var ret = TreeNodeVMBase<FileNodeVM>.FindTreeNodeVmByPath(
+            root,
+            path,
+            out indexPath);
+        return ret as FileNodeVM;
     }
 
     #endregion Utils
