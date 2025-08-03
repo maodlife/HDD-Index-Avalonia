@@ -91,8 +91,13 @@
                             <behaviors:ScrollToSelectedItemBehavior />
                         </Interaction.Behaviors>
                     </TreeDataGrid>
+                    <Grid Grid.Row="2">
+                        <CheckBox Content="自动跳转到持有的节点"
+                                  IsChecked="{Binding AutoJumpToDeclareRepoNode}">
+                        </CheckBox>
+                    </Grid>
 
-                </Grid>
+                    </Grid>
             </Grid>
         </TabItem>
     </TabControl>

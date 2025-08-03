@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Text.Json;
@@ -11,6 +12,7 @@ using Avalonia.Controls.Selection;
 using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using DynamicData;
+using DynamicData.Kernel;
 using HDD_Index.Models;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
@@ -272,7 +274,18 @@ public class MainWindowViewModel : ViewModelBase
         if (IsViewMode || (IsEditMode & AutoJumpToDeclareRepoNode))
         {
             // 自动选中对应的声明持有的repo node
-            
+            var repoNodePath = fileNode.DeclareRepoNodeDatas
+                .FirstOrDefault()
+                ?.RepoNodePath ?? string.Empty;
+            var target = FindRepoNodeVmByPath(
+                RepoNodeVm,
+                repoNodePath,
+                out var indexPath);
+            if (indexPath != null)
+            {
+                RepoNodeSource.Expand(indexPath.Value);
+                RepoNodeSource?.RowSelection?.Select(indexPath.Value);
+            }
         }
     }
 
