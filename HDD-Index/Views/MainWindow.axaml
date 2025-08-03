@@ -16,7 +16,8 @@
         <vm:MainWindowViewModel />
     </Design.DataContext>
 
-    <TabControl Margin="5">
+    <TabControl Margin="5"
+                SelectedIndex="{Binding ViewModeTabIndex}">
         <TabItem Header="浏览">
             <TabControl Margin="0">
                 <TabItem Header="Repository">
@@ -56,11 +57,8 @@
                         Source="{Binding RepoNodeSource}"
                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
                         ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <Interaction.Behaviors>
-                            <behaviors:ScrollToSelectedItemBehavior />
-                        </Interaction.Behaviors>
                     </TreeDataGrid>
-                    <Grid Grid.Row="1" ColumnDefinitions="*,*,*">
+                    <Grid Grid.Row="1" ColumnDefinitions="*,*,*, *">
                         <TextBox Text="保存了该节点的磁盘:"></TextBox>
                         <ComboBox Grid.Column="1"
                                   ItemsSource="{Binding CurrRepoNodeSaveFileNodes}"
@@ -70,6 +68,10 @@
                                 Content="跳转"
                                 Command="{Binding JumpToSaveFileNode}">
                         </Button>
+                        <CheckBox Grid.Column="3"
+                                  Content="自动跳转"
+                                  IsChecked="{Binding AutoJumpToSaveFileNode}">
+                        </CheckBox>
                     </Grid>
                 </Grid>
 

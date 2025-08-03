@@ -48,6 +48,8 @@ public class MainWindowViewModel : ViewModelBase
         new ObservableCollection<string>();
 
     [Reactive] public string SelectedSaveFileNodeLabel { get; set; }
+    
+    [Reactive] public bool AutoJumpToSaveFileNode { get; set; } = false;
 
     #endregion
 
@@ -77,6 +79,16 @@ public class MainWindowViewModel : ViewModelBase
     public ReactiveCommand<string, Unit> DiskLabelSelectedCommand { get; set; }
 
     #endregion File Data
+
+    #region View Mode Tab
+
+    // 选择了浏览还是编辑
+    [Reactive] public int ViewModeTabIndex { get; set; } = 0;
+
+    public bool IsViewMode => ViewModeTabIndex == 0;
+    public bool IsEditMode => ViewModeTabIndex == 1;
+
+    #endregion
 
     #region 初始化
 
@@ -187,16 +199,23 @@ public class MainWindowViewModel : ViewModelBase
 
     private void SelectRepoNode(RepoNode repoNode)
     {
+        // 更新显示当前存储了当前repo node的节点
         CurrRepoNodeSaveFileNodes.Clear();
         foreach (var saveFileNodeData in repoNode.SaveFileNodeDatas)
         {
             CurrRepoNodeSaveFileNodes.Add(saveFileNodeData.DiskLabel);
         }
-
+        // 默认选择第一个
         if (CurrRepoNodeSaveFileNodes.Count > 0)
         {
             SelectedSaveFileNodeLabel = CurrRepoNodeSaveFileNodes[0];
         }
+        // 浏览模式下，直接给file tree切过去
+        if (IsViewMode)
+            JumpToSaveFileNode();
+        // 编辑模式下，勾选了自动跳转时，直接跳过去
+        if (IsEditMode & AutoJumpToSaveFileNode)
+            JumpToSaveFileNode();
     }
 
     public void JumpToSaveFileNode()
