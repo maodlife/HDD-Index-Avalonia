@@ -56,7 +56,13 @@ public class MainWindowViewModel : ViewModelBase
     [Reactive] public bool AutoJumpToSaveFileNode { get; set; } = false;
 
     [Reactive] public string RepoNodePathString { get; set; }
-    
+
+    public ReactiveCommand<string, Unit> RepoNodePathStringChangeCommand
+    {
+        get;
+        set;
+    }
+
     #endregion
 
     #region File Data
@@ -78,7 +84,7 @@ public class MainWindowViewModel : ViewModelBase
         get;
         set;
     }
-    
+
     public ReactiveCommand<FileNodeVM, Unit> FileNodeSelectedCommand
     {
         get;
@@ -94,7 +100,7 @@ public class MainWindowViewModel : ViewModelBase
     public ReactiveCommand<string, Unit> DiskLabelSelectedCommand { get; set; }
 
     [Reactive] public bool AutoJumpToDeclareRepoNode { get; set; } = false;
-    
+
     #endregion File Data
 
     #region View Mode Tab
@@ -118,6 +124,12 @@ public class MainWindowViewModel : ViewModelBase
 
     private void InitCommand()
     {
+        RepoNodePathStringChangeCommand =
+            ReactiveCommand.Create<string>(OnRepoNodePathChange);
+
+        this.WhenAnyValue(x => x.RepoNodePathString)
+            .InvokeCommand(RepoNodePathStringChangeCommand);
+
         RepoNodeSelectedCommand = ReactiveCommand.Create<RepoNodeVM>(vm =>
         {
             OnSelectRepoNode(vm.RepoNode);
@@ -127,7 +139,7 @@ public class MainWindowViewModel : ViewModelBase
                 x.RepoNodeSource.RowSelection.SelectedItem)
             .Where(x => x != null)
             .InvokeCommand(RepoNodeSelectedCommand);
-        
+
         FileNodeSelectedCommand = ReactiveCommand.Create<FileNodeVM>(vm =>
         {
             OnSelectFileNode(vm.FileNode);
@@ -212,8 +224,8 @@ public class MainWindowViewModel : ViewModelBase
                     new HierarchicalExpanderColumn<FileNodeVM>(
                         new TemplateColumn<FileNodeVM>(
                             "Name",
-                            new FuncDataTemplate<FileNodeVM>(
-                                (x, ns) => new TextBlock
+                            new FuncDataTemplate<FileNodeVM>((x, ns) =>
+                                new TextBlock
                                 {
                                     Text = x?.Name,
                                     Foreground = x?.NameBrushes,
@@ -248,10 +260,27 @@ public class MainWindowViewModel : ViewModelBase
         ChangeFileNodeVM(found.FileNodeVm);
     }
 
+    private void OnRepoNodePathChange(string path)
+    {
+        var target = FindRepoNodeVmByPath(
+            RepoNodeVm,
+            path,
+            out var indexPath);
+        if (indexPath != null)
+        {
+            RepoNodeSource.Expand(indexPath.Value);
+            RepoNodeSource?.RowSelection?.Select(indexPath.Value);
+        }
+        else
+        {
+            RepoNodeSource?.RowSelection?.Clear();
+        }
+    }
+
     private void OnSelectRepoNode(RepoNode repoNode)
     {
         RepoNodePathString = repoNode.GetPath();
-        
+
         // 更新显示当前存储了当前repo node的节点
         CurrRepoNodeSaveFileNodes.Clear();
         foreach (var saveFileNodeData in repoNode.SaveFileNodeDatas)
@@ -271,7 +300,7 @@ public class MainWindowViewModel : ViewModelBase
             JumpToDefaultSaveFileNode();
         }
     }
-    
+
     private void OnSelectFileNode(FileNode fileNode)
     {
         if (IsViewMode || (IsEditMode && AutoJumpToDeclareRepoNode)
@@ -292,12 +321,12 @@ public class MainWindowViewModel : ViewModelBase
             }
         }
     }
-    
+
     public void JumpToDefaultSaveFileNode()
     {
         JumpToCurrSelectSaveFileNode();
     }
-    
+
     /// <summary>
     /// 跳转到当前选择的file node
     /// </summary>
@@ -329,7 +358,7 @@ public class MainWindowViewModel : ViewModelBase
     #endregion
 
     #region Utils
-    
+
     private RepoNodeVM? FindRepoNodeVmByPath(
         RepoNodeVM root,
         string path,
@@ -377,6 +406,7 @@ public class MainWindowViewModel : ViewModelBase
             if (repoNode == foundRepoNode)
                 return true;
         }
+
         return false;
     }
 

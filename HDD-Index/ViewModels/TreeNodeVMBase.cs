@@ -12,11 +12,13 @@ public class TreeNodeVMBase<T> where T : TreeNodeVMBase<T>
     
     public static TreeNodeVMBase<T>? FindTreeNodeVmByPath(
         TreeNodeVMBase<T> root,
-        string path,
+        string? path,
         out IndexPath? indexPath)
     {
-        var nameList = path.Split('/');
         indexPath = null;
+        if (path == null)
+            return null;
+        var nameList = path.Split('/');
         if (nameList.Length == 0)
             return null;
         var ret = root;
