@@ -13,6 +13,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using DynamicData;
 using DynamicData.Kernel;
+using HDD_Index.Messages;
 using HDD_Index.Models;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
@@ -279,6 +280,9 @@ public class MainWindowViewModel : ViewModelBase
 
     private void OnSelectRepoNode(RepoNode repoNode)
     {
+        // todo: test
+        MessageBus.Current.SendMessage(new TargetTreeRowMessage());
+        
         RepoNodePathString = repoNode.GetPath();
 
         // 更新显示当前存储了当前repo node的节点
