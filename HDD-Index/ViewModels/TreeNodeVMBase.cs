@@ -14,11 +14,9 @@ public class TreeNodeVMBase<T> where T : TreeNodeVMBase<T>
     public static TreeNodeVMBase<T>? FindTreeNodeVmByPath(
         TreeNodeVMBase<T> root,
         string? path,
-        out IndexPath? indexPath,
-        out IndexPath? parentPath)
+        out IndexPath? indexPath)
     {
         indexPath = null;
-        parentPath = null;
         if (path == null)
             return null;
         var nameList = path.Split('/');
@@ -49,10 +47,7 @@ public class TreeNodeVMBase<T> where T : TreeNodeVMBase<T>
             }
         }
 
-        var parentIndexes = indexes.Take(indexes.Count - 1);
-
         indexPath = new IndexPath(indexes);
-        parentPath = new IndexPath(parentIndexes);
         
         return ret;
     }
