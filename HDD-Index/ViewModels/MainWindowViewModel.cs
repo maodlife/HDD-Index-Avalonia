@@ -22,8 +22,9 @@ namespace HDD_Index.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
-    private static string folderPath =
-        "/Users/maodlife/Documents/HDD-Index/config/";
+    private readonly string _folderPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+        "HDD-Index/config/");
 
     private static string repoFileName = "RepoTreeData.txt";
 
@@ -161,8 +162,17 @@ public class MainWindowViewModel : ViewModelBase
 
     private void InitRepoData()
     {
-        var repoNodeFilePath = Path.Combine(folderPath, repoFileName);
-        var json = File.ReadAllText(repoNodeFilePath);
+        var repoNodeFilePath = Path.Combine(_folderPath, repoFileName);
+        string json;
+        try
+        {
+            json = File.ReadAllText(repoNodeFilePath);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("exception: " + ex.Message);
+            return;
+        }
         RepoNodeRoot = RepoNode.CreateByJson(json);
 
         RepoNodeVm = RepoNodeVM.Create(RepoNodeRoot);
@@ -186,7 +196,7 @@ public class MainWindowViewModel : ViewModelBase
 
     private void InitFileData()
     {
-        var files = Directory.GetFiles(folderPath);
+        var files = Directory.GetFiles(_folderPath);
         foreach (var file in files)
         {
             if (Path.GetFileName(file) == repoFileName)
