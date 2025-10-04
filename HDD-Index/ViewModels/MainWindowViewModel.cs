@@ -284,6 +284,10 @@ public class MainWindowViewModel : ViewModelBase
             var parent = indexPath.Value.Slice(0, indexPath.Value.Count - 1);
             RepoNodeSource.Expand(parent);
             RepoNodeSource?.RowSelection?.Select(indexPath.Value);
+            
+            // 滚动到选中
+            MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.ViewRepoTree));
+            MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.EditRepoTree));
         }
         else
         {
@@ -333,6 +337,10 @@ public class MainWindowViewModel : ViewModelBase
                 var parent = indexPath.Value.Slice(0, indexPath.Value.Count - 1);
                 RepoNodeSource.Expand(parent);
                 RepoNodeSource?.RowSelection?.Select(indexPath.Value);
+                
+                // 滚动到选中
+                MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.ViewRepoTree));
+                MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.EditRepoTree));
             }
         }
     }
