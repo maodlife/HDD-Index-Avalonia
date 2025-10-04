@@ -277,7 +277,8 @@ public class MainWindowViewModel : ViewModelBase
         var target = FindRepoNodeVmByPath(
             RepoNodeVm,
             path,
-            out var indexPath);
+            out var indexPath,
+            out var parentPath);
         if (indexPath != null)
         {
             RepoNodeSource.Expand(indexPath.Value);
@@ -325,7 +326,8 @@ public class MainWindowViewModel : ViewModelBase
             var target = FindRepoNodeVmByPath(
                 RepoNodeVm,
                 repoNodePath,
-                out var indexPath);
+                out var indexPath,
+                out var parentPath);
             if (indexPath != null)
             {
                 RepoNodeSource.Expand(indexPath.Value);
@@ -359,10 +361,11 @@ public class MainWindowViewModel : ViewModelBase
         var target = FindFileNodeVmByPath(
             FileDataVmBundles[CurrShowFileNodeIndex].FileNodeVm,
             foundSaveData.FileNodePath,
-            out var indexPath);
-        if (indexPath != null)
+            out var indexPath,
+            out var parentPath);
+        if (indexPath != null && parentPath != null)
         {
-            CurrFileNodeSource.Expand(indexPath.Value);
+            CurrFileNodeSource.Expand(parentPath.Value);
             CurrFileNodeSource?.RowSelection?.Select(indexPath.Value);
             
             // 滚动到选中
@@ -378,24 +381,28 @@ public class MainWindowViewModel : ViewModelBase
     private RepoNodeVM? FindRepoNodeVmByPath(
         RepoNodeVM root,
         string path,
-        out IndexPath? indexPath)
+        out IndexPath? indexPath,
+        out IndexPath? parentPath)
     {
         var ret = TreeNodeVMBase<RepoNodeVM>.FindTreeNodeVmByPath(
             root,
             path,
-            out indexPath);
+            out indexPath,
+            out parentPath);
         return ret as RepoNodeVM;
     }
 
     private FileNodeVM? FindFileNodeVmByPath(
         FileNodeVM root,
         string path,
-        out IndexPath? indexPath)
+        out IndexPath? indexPath,
+        out IndexPath? parentPath)
     {
         var ret = TreeNodeVMBase<FileNodeVM>.FindTreeNodeVmByPath(
             root,
             path,
-            out indexPath);
+            out indexPath,
+            out parentPath);
         return ret as FileNodeVM;
     }
 
