@@ -274,6 +274,7 @@ public class MainWindowViewModel : ViewModelBase
 
     private void OnRepoNodePathChange(string path)
     {
+        // todo: 选中RowSelection前检查是否已经一致，防止循环跳转。
         var target = FindRepoNodeVmByPath(
             RepoNodeVm,
             path,
