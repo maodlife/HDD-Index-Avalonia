@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:behaviors="clr-namespace:HDD_Index.Views.Behaviors"
+        xmlns:views="clr-namespace:HDD_Index.Views"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="HDD_Index.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -23,11 +24,17 @@
                 <TabItem Header="Repository">
                     <Grid Margin="20" RowDefinitions="Auto, *">
                         <TextBox Grid.Row="0"
-                                 Text="{Binding RepoNodePathString}"></TextBox>
+                                 Text="{Binding RepoNodePathString}">
+                        </TextBox>
                         <TreeDataGrid Grid.Row="1"
-                            Source="{Binding RepoNodeSource}"
-                            ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                            ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                                      Name="{x:Static views:ControlNames.ViewRepoTree}"
+                                      Source="{Binding RepoNodeSource}"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <Interaction.Behaviors>
+                                <behaviors:ScrollToSelectedItemBehavior />
+                            </Interaction.Behaviors>
+                        </TreeDataGrid>
                     </Grid>
                 </TabItem>
                 <TabItem Header="硬盘">
@@ -40,6 +47,7 @@
                                   SelectedItem="{Binding SelectedDiskLabel}">
                         </ComboBox>
                         <TreeDataGrid Grid.Row="1"
+                                      Name="{x:Static views:ControlNames.ViewFileTree}"
                                       Source="{Binding CurrFileNodeSource}"
                                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                       ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -56,9 +64,13 @@
             <Grid Margin="20" ColumnDefinitions="*, *">
                 <Grid Margin="20" RowDefinitions="*,Auto">
                     <TreeDataGrid
+                        Name="{x:Static views:ControlNames.EditRepoTree}"
                         Source="{Binding RepoNodeSource}"
                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
                         ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <Interaction.Behaviors>
+                            <behaviors:ScrollToSelectedItemBehavior />
+                        </Interaction.Behaviors>
                     </TreeDataGrid>
                     <Grid Grid.Row="1" ColumnDefinitions="*,*,*, *">
                         <TextBox Text="保存了该节点的磁盘:"></TextBox>
@@ -86,6 +98,7 @@
                               SelectedItem="{Binding SelectedDiskLabel}">
                     </ComboBox>
                     <TreeDataGrid Grid.Row="1"
+                                  Name="{x:Static views:ControlNames.EditFileTree}"
                                   Source="{Binding CurrFileNodeSource}"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -98,8 +111,7 @@
                                   IsChecked="{Binding AutoJumpToDeclareRepoNode}">
                         </CheckBox>
                     </Grid>
-
-                    </Grid>
+                </Grid>
             </Grid>
         </TabItem>
     </TabControl>

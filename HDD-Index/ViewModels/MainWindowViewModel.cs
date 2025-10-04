@@ -15,6 +15,7 @@ using DynamicData;
 using DynamicData.Kernel;
 using HDD_Index.Messages;
 using HDD_Index.Models;
+using HDD_Index.Views;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 
@@ -290,9 +291,6 @@ public class MainWindowViewModel : ViewModelBase
 
     private void OnSelectRepoNode(RepoNode repoNode)
     {
-        // todo: test
-        MessageBus.Current.SendMessage(new TargetTreeRowMessage());
-        
         RepoNodePathString = repoNode.GetPath();
 
         // 更新显示当前存储了当前repo node的节点
@@ -366,6 +364,10 @@ public class MainWindowViewModel : ViewModelBase
         {
             CurrFileNodeSource.Expand(indexPath.Value);
             CurrFileNodeSource?.RowSelection?.Select(indexPath.Value);
+            
+            // 滚动到选中
+            MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.ViewFileTree));
+            MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.EditFileTree));
         }
     }
 
