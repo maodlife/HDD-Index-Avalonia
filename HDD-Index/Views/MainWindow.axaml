@@ -16,6 +16,20 @@
              to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel />
     </Design.DataContext>
+    
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="_File">
+                <NativeMenuItem.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="New File Tree"
+                                        Command="{Binding OpenCreateNewFileTreeDialog}"/>
+                        <NativeMenuItem Header="Save All to Json Files" />
+                    </NativeMenu>
+                </NativeMenuItem.Menu>
+            </NativeMenuItem>
+        </NativeMenu>
+    </NativeMenu.Menu>
 
     <TabControl Margin="5"
                 SelectedIndex="{Binding ViewModeTabIndex}">

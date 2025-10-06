@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive;
@@ -381,6 +382,14 @@ public class MainWindowViewModel : ViewModelBase
             MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.ViewFileTree));
             MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.EditFileTree));
         }
+    }
+
+    /// <summary>
+    /// 打开弹窗，让用户选择文件夹和FileTree名
+    /// </summary>
+    public void OpenCreateNewFileTreeDialog()
+    {
+        Debug.WriteLine("OpenCreateNewFileTreeDialog");
     }
 
     #endregion
