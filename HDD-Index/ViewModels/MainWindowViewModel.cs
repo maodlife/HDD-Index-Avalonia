@@ -25,7 +25,7 @@ public class MainWindowViewModel : ViewModelBase
 {
     private readonly string _folderPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-        "HDD-Index/config/");
+        "HDD-Index-Test/TreeJsonFiles/");
 
     private static string repoFileName = "RepoTreeData.txt";
 
