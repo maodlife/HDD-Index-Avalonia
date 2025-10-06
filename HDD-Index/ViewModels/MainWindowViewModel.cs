@@ -7,7 +7,9 @@ using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Text.Json;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Selection;
 using Avalonia.Controls.Templates;
@@ -387,9 +389,27 @@ public class MainWindowViewModel : ViewModelBase
     /// <summary>
     /// 打开弹窗，让用户选择文件夹和FileTree名
     /// </summary>
-    public void OpenCreateNewFileTreeDialog()
+    public async void OpenCreateNewFileTreeDialog()
     {
         Debug.WriteLine("OpenCreateNewFileTreeDialog");
+        var dialog = new FolderSelectDialog
+        {
+            Title = "选择文件夹并填写标签",
+            Width = 450,
+            Height = 150,
+            DataContext = new FolderSelectDialogViewModel(),
+        };
+
+        var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?
+            .MainWindow;
+        // ShowDialog 的返回值就是 ViewModel 中传出的 Tuple<string?, string?>
+        var result = await dialog.ShowDialog<(string? path, string? tag)?>(window);
+
+        if (result is { path: not null, tag: not null })
+        {
+            Console.WriteLine($"选中的文件夹: {result?.path}");
+            Console.WriteLine($"填写的标签: {result?.tag}");
+        }
     }
 
     #endregion
