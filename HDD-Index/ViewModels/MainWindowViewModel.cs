@@ -397,7 +397,7 @@ public class MainWindowViewModel : ViewModelBase
             Title = "选择文件夹并填写标签",
             Width = 450,
             Height = 150,
-            DataContext = new FolderSelectDialogViewModel(),
+            // DataContext = new FolderSelectDialogViewModel(),
         };
 
         var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?

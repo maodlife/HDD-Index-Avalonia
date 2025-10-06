@@ -29,6 +29,8 @@ namespace HDD_Index.ViewModels;
 
 public class FolderSelectDialogViewModel : ViewModelBase
 {
+    public Window? Window { get; set; }
+    
     [Reactive]
     public string SelectedPath
     {
@@ -48,10 +50,12 @@ public class FolderSelectDialogViewModel : ViewModelBase
         && !string.IsNullOrWhiteSpace(TagText);
     
     public ICommand SelectFolderCommand { get; set; }
+    public ICommand ConfirmCommand { get; set; }
 
     public FolderSelectDialogViewModel()
     {
         SelectFolderCommand = new AsyncRelayCommand(SelectFolderAsync);
+        ConfirmCommand = new RelayCommand(Confirm);
     }
     
     private async Task SelectFolderAsync()
@@ -73,13 +77,8 @@ public class FolderSelectDialogViewModel : ViewModelBase
 
     private void Confirm()
     {
-        // 将结果通过 Window.DataContext 回传
-        var window =
-            (Application.Current?.ApplicationLifetime as
-                IClassicDesktopStyleApplicationLifetime)?
-            .MainWindow?.OwnedWindows
-            .FirstOrDefault(w => w.DataContext == this);
+        var ret = new ValueTuple<string, string>(SelectedPath, TagText);
 
-        window?.Close((SelectedPath, TagText));
+        this.Window?.Close(ret);
     }
 }

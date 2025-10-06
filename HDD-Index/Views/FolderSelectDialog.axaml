@@ -34,9 +34,10 @@
             <TextBox Width="300"
                      Watermark="请输入标签"
                      Text="{Binding TagText}"/>
+            <!-- todo: IsEnabled 绑定 -->
             <Button Content="确认"
-                    Command="{Binding Confirm}"
-                    IsEnabled="{Binding CanConfirm}"/>
+                    Command="{Binding ConfirmCommand}"
+                    IsEnabled="True"/>
         </StackPanel>
 
     </StackPanel>
