@@ -28,6 +28,11 @@ public class FileNode : TreeNodeBase
     {
         try
         {
+            if (IsFileHidden(path))
+            {
+                return null;
+            }
+            
             var fileName = Path.GetFileName(path);
             var fileNode = new FileNode()
             {
@@ -38,6 +43,10 @@ public class FileNode : TreeNodeBase
             // 遍历文件
             foreach (var file in Directory.GetFiles(path))
             {
+                if (IsFileHidden(file))
+                {
+                    continue;
+                }
                 var childFileName = Path.GetFileName(file);
                 var childFileNode = new FileNode()
                 {
@@ -51,7 +60,10 @@ public class FileNode : TreeNodeBase
             foreach (var dir in Directory.GetDirectories(path))
             {
                 var child = CreateByPath(dir);
-                fileNode.Children.Add(child);
+                if (child != null)
+                {
+                    fileNode.Children.Add(child);
+                }
             }
             
             return fileNode;
@@ -66,6 +78,26 @@ public class FileNode : TreeNodeBase
         }
         
         return null;
+    }
+    
+    private static bool IsFileHidden(string path)
+    {
+        string name = Path.GetFileName(path);
+        if (name.StartsWith('.')) // macOS/Linux 风格
+            return true;
+
+        try
+        {
+            var attributes = File.GetAttributes(path);
+            if ((attributes & FileAttributes.Hidden) != 0) // Windows 风格
+                return true;
+        }
+        catch
+        {
+            // 无法访问文件属性时忽略
+        }
+
+        return false;
     }
 }
 
