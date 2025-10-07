@@ -71,7 +71,10 @@ public class FolderSelectDialogViewModel : ViewModelBase
         var result = await dialog.ShowAsync(mainWindow);
         if (!string.IsNullOrEmpty(result))
         {
-            SelectedPath = result;
+            var path = result.TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+            SelectedPath = path;
         }
     }
 

@@ -409,6 +409,12 @@ public class MainWindowViewModel : ViewModelBase
         {
             Console.WriteLine($"选中的文件夹: {result?.path}");
             Console.WriteLine($"填写的标签: {result?.tag}");
+
+            var bundle = FileDataVMBundle.CreateByPath(
+                result?.tag ?? string.Empty,
+                result?.path ?? string.Empty);
+            FileDataVmBundles.Add(bundle);
+            DiskLabels.Add(bundle.FileData.DiskLabel);
         }
     }
 

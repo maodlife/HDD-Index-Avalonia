@@ -15,9 +15,26 @@ public class FileDataVMBundle
         var bundle = new FileDataVMBundle();
         bundle.FileData = new FileData();
         bundle.FileData.DiskLabel = diskLabel;
-        bundle.FileData.FileNodeRoot =
-            JsonSerializer.Deserialize<FileNode>(json);
-        bundle.FileNodeVm = FileNodeVM.Create(bundle.FileData.FileNodeRoot);
+        var root = FileNode.CreateByJson(json);
+        if (root != null)
+        {
+            bundle.FileData.FileNodeRoot = root;
+            bundle.FileNodeVm = FileNodeVM.Create(bundle.FileData.FileNodeRoot);
+        }
+        return bundle;
+    }
+    
+    public static FileDataVMBundle CreateByPath(string diskLabel, string path)
+    {
+        var bundle = new FileDataVMBundle();
+        bundle.FileData = new FileData();
+        bundle.FileData.DiskLabel = diskLabel;
+        var root = FileNode.CreateByPath(path);
+        if (root != null)
+        {
+            bundle.FileData.FileNodeRoot = root;
+            bundle.FileNodeVm = FileNodeVM.Create(bundle.FileData.FileNodeRoot);
+        }
         return bundle;
     }
 }
