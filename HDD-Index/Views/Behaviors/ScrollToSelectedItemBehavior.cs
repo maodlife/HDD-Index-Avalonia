@@ -1,13 +1,7 @@
 using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Threading;
 using Avalonia.Xaml.Interactions.Custom;
-using Avalonia.Xaml.Interactivity;
 using HDD_Index.Messages;
 using ReactiveUI;
 
