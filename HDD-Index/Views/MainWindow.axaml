@@ -16,7 +16,15 @@
              to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel />
     </Design.DataContext>
-    
+
+    <Window.Resources>
+        <ContextMenu x:Key="NodeContextMenu">
+            <MenuItem Header="输出路径到日志"
+                      Command="{Binding $parent[Window].DataContext.LogNodePathCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}" />
+        </ContextMenu>
+    </Window.Resources>
+
     <NativeMenu.Menu>
         <NativeMenu>
             <NativeMenuItem Header="_File">
@@ -48,6 +56,9 @@
                             <Interaction.Behaviors>
                                 <behaviors:ScrollToSelectedItemBehavior />
                             </Interaction.Behaviors>
+                            <TreeDataGrid.ContextMenu>
+                                <StaticResource ResourceKey="NodeContextMenu" />
+                            </TreeDataGrid.ContextMenu>
                         </TreeDataGrid>
                     </Grid>
                 </TabItem>
@@ -68,6 +79,9 @@
                             <Interaction.Behaviors>
                                 <behaviors:ScrollToSelectedItemBehavior />
                             </Interaction.Behaviors>
+                            <TreeDataGrid.ContextMenu>
+                                <StaticResource ResourceKey="NodeContextMenu" />
+                            </TreeDataGrid.ContextMenu>
                         </TreeDataGrid>
 
                     </Grid>
@@ -85,6 +99,9 @@
                         <Interaction.Behaviors>
                             <behaviors:ScrollToSelectedItemBehavior />
                         </Interaction.Behaviors>
+                        <TreeDataGrid.ContextMenu>
+                            <StaticResource ResourceKey="NodeContextMenu" />
+                        </TreeDataGrid.ContextMenu>
                     </TreeDataGrid>
                     <Grid Grid.Row="1" ColumnDefinitions="*,*,*, *">
                         <TextBox Text="保存了该节点的磁盘:"></TextBox>
@@ -119,6 +136,9 @@
                         <Interaction.Behaviors>
                             <behaviors:ScrollToSelectedItemBehavior />
                         </Interaction.Behaviors>
+                        <TreeDataGrid.ContextMenu>
+                            <StaticResource ResourceKey="NodeContextMenu" />
+                        </TreeDataGrid.ContextMenu>
                     </TreeDataGrid>
                     <Grid Grid.Row="2">
                         <CheckBox Content="自动跳转到持有的节点"

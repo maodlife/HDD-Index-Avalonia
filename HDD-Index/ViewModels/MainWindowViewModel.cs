@@ -107,6 +107,8 @@ public class MainWindowViewModel : ViewModelBase
 
     [Reactive] public bool AutoJumpToDeclareRepoNode { get; set; } = false;
 
+    public ReactiveCommand<object, Unit> LogNodePathCommand { get; set; }
+
     #endregion File Data
 
     #region View Mode Tab
@@ -162,6 +164,8 @@ public class MainWindowViewModel : ViewModelBase
         this.WhenAnyValue(x => x.SelectedDiskLabel)
             .Where(x => x != null)
             .InvokeCommand(DiskLabelSelectedCommand);
+
+        LogNodePathCommand = ReactiveCommand.Create<object>(LogNodePath);
     }
 
     private void InitRepoData()
@@ -383,6 +387,30 @@ public class MainWindowViewModel : ViewModelBase
             // 滚动到选中
             MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.ViewFileTree));
             MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.EditFileTree));
+        }
+    }
+
+    /// <summary>
+    /// 输出节点的路径到日志
+    /// </summary>
+    private void LogNodePath(object nodeVM)
+    {
+        if (nodeVM is RepoNodeVM repoNodeVM)
+        {
+            var path = repoNodeVM.RepoNode.GetPath();
+            Console.WriteLine($"仓库节点路径: {path}");
+            System.Diagnostics.Debug.WriteLine($"仓库节点路径: {path}");
+        }
+        else if (nodeVM is FileNodeVM fileNodeVM)
+        {
+            var path = fileNodeVM.FileNode.GetPath();
+            Console.WriteLine($"文件节点路径: {path}");
+            System.Diagnostics.Debug.WriteLine($"文件节点路径: {path}");
+        }
+        else
+        {
+            Console.WriteLine("未知节点类型");
+            System.Diagnostics.Debug.WriteLine("未知节点类型");
         }
     }
 
