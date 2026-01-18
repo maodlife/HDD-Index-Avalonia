@@ -18,10 +18,16 @@
     </Design.DataContext>
 
     <Window.Resources>
+        <vm:NodeTypeToVisibilityConverter x:Key="NodeTypeConverter" />
         <ContextMenu x:Key="NodeContextMenu">
             <MenuItem Header="输出路径到日志"
                       Command="{Binding $parent[Window].DataContext.LogNodePathCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}" />
+            <MenuItem Header="创建子文件夹"
+                      Command="{Binding $parent[Window].DataContext.CreateChildFolderCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
+                                  Converter={StaticResource NodeTypeConverter}}" />
         </ContextMenu>
     </Window.Resources>
 

@@ -109,6 +109,8 @@ public class MainWindowViewModel : ViewModelBase
 
     public ReactiveCommand<object, Unit> LogNodePathCommand { get; set; }
 
+    public ReactiveCommand<object, Unit> CreateChildFolderCommand { get; set; }
+
     #endregion File Data
 
     #region View Mode Tab
@@ -166,6 +168,8 @@ public class MainWindowViewModel : ViewModelBase
             .InvokeCommand(DiskLabelSelectedCommand);
 
         LogNodePathCommand = ReactiveCommand.Create<object>(LogNodePath);
+
+        CreateChildFolderCommand = ReactiveCommand.Create<object>(CreateChildFolder);
     }
 
     private void InitRepoData()
@@ -388,6 +392,43 @@ public class MainWindowViewModel : ViewModelBase
             MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.ViewFileTree));
             MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.EditFileTree));
         }
+    }
+
+    /// <summary>
+    /// 创建子文件夹
+    /// </summary>
+    private void CreateChildFolder(object nodeVM)
+    {
+        var repoNodeVM = (RepoNodeVM)nodeVM;
+
+        // 生成唯一的文件夹名称
+        string baseName = "新建文件夹";
+        string folderName = baseName;
+        int counter = 1;
+
+        while (repoNodeVM.Children.Any(c => c.Name == folderName))
+        {
+            folderName = $"{baseName} ({counter})";
+            counter++;
+        }
+
+        // 创建新的RepoNode
+        var newRepoNode = new RepoNode
+        {
+            Name = folderName,
+            IsDirectory = true
+        };
+
+        // 设置父子关系
+        newRepoNode.Parent = repoNodeVM.RepoNode;
+        repoNodeVM.RepoNode.Children.Add(newRepoNode);
+
+        // 创建对应的RepoNodeVM并添加到Children中
+        var newRepoNodeVM = RepoNodeVM.Create(newRepoNode);
+        repoNodeVM.Children.Add(newRepoNodeVM);
+
+        Console.WriteLine($"创建子文件夹: {folderName}");
+        System.Diagnostics.Debug.WriteLine($"创建子文件夹: {folderName}");
     }
 
     /// <summary>
