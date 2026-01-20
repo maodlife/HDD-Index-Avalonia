@@ -19,6 +19,7 @@
 
     <Window.Resources>
         <vm:NodeTypeToVisibilityConverter x:Key="NodeTypeConverter" />
+        <vm:RepoNodeOnlyVisibilityConverter x:Key="RepoNodeOnlyConverter" />
         <ContextMenu x:Key="NodeContextMenu">
             <MenuItem Header="输出路径到日志"
                       Command="{Binding $parent[Window].DataContext.LogNodePathCommand}"
@@ -28,6 +29,11 @@
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource NodeTypeConverter}}" />
+            <MenuItem Header="重命名"
+                      Command="{Binding $parent[Window].DataContext.RenameRepoNodeCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
+                                  Converter={StaticResource RepoNodeOnlyConverter}}" />
         </ContextMenu>
     </Window.Resources>
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -110,6 +111,8 @@ public class MainWindowViewModel : ViewModelBase
     public ReactiveCommand<object, Unit> LogNodePathCommand { get; set; }
 
     public ReactiveCommand<object, Unit> CreateChildFolderCommand { get; set; }
+    
+    public ReactiveCommand<object, Unit> RenameRepoNodeCommand { get; set; }
 
     #endregion File Data
 
@@ -170,6 +173,8 @@ public class MainWindowViewModel : ViewModelBase
         LogNodePathCommand = ReactiveCommand.Create<object>(LogNodePath);
 
         CreateChildFolderCommand = ReactiveCommand.Create<object>(CreateChildFolder);
+        
+        RenameRepoNodeCommand = ReactiveCommand.CreateFromTask<object>(RenameRepoNodeAsync);
     }
 
     private void InitRepoData()
@@ -429,6 +434,141 @@ public class MainWindowViewModel : ViewModelBase
 
         Console.WriteLine($"创建子文件夹: {folderName}");
         System.Diagnostics.Debug.WriteLine($"创建子文件夹: {folderName}");
+    }
+    
+    /// <summary>
+    /// 重命名 RepoNode 节点（仅对 Repo 节点生效）
+    /// </summary>
+    private async Task RenameRepoNodeAsync(object nodeVM)
+    {
+        if (nodeVM is not RepoNodeVM repoNodeVM)
+            return;
+
+        // 名称中包含 '/' 会破坏路径系统
+        var oldPath = repoNodeVM.RepoNode.GetPath();
+
+        var dialog = new RenameRepoNodeDialog(repoNodeVM.Name)
+        {
+            Title = "重命名",
+            Width = 420,
+            Height = 160,
+        };
+
+        var owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+
+        var result = await dialog.ShowDialog<string?>(owner);
+        if (string.IsNullOrWhiteSpace(result))
+            return; // 取消
+
+        var newName = result.Trim();
+        if (string.IsNullOrWhiteSpace(newName) || newName.Contains('/'))
+        {
+            Debug.WriteLine($"RenameRepoNodeAsync: invalid name '{newName}'");
+            return;
+        }
+
+        if (string.Equals(newName, repoNodeVM.Name, StringComparison.Ordinal))
+            return;
+
+        // 避免同级重名（会导致通过 path 查找不稳定）
+        var parent = repoNodeVM.RepoNode.Parent as RepoNode;
+        if (parent != null)
+        {
+            var hasConflict = parent.Children
+                .OfType<RepoNode>()
+                .Any(x => !ReferenceEquals(x, repoNodeVM.RepoNode)
+                          && string.Equals(x.Name, newName, StringComparison.Ordinal));
+            if (hasConflict)
+            {
+                Debug.WriteLine($"RenameRepoNodeAsync: sibling name conflict '{newName}'");
+                return;
+            }
+        }
+
+        // 真正改名：Model + VM
+        repoNodeVM.RepoNode.Name = newName;
+        repoNodeVM.Name = newName;
+
+        var newPath = repoNodeVM.RepoNode.GetPath();
+        UpdateRepoNodePathReferences(oldPath, newPath);
+
+        // 更新路径输入框（会触发重新定位/展开）
+        RepoNodePathString = newPath;
+
+        Debug.WriteLine($"RenameRepoNodeAsync: {oldPath} -> {newPath}");
+    }
+
+    private void UpdateRepoNodePathReferences(string oldPath, string newPath)
+    {
+        if (string.IsNullOrWhiteSpace(oldPath))
+            return;
+
+        foreach (var bundle in FileDataVmBundles)
+        {
+            if (bundle?.FileData?.FileNodeRoot != null)
+            {
+                UpdateDeclareRepoNodePaths(bundle.FileData.FileNodeRoot, oldPath, newPath);
+            }
+
+            if (bundle?.FileNodeVm != null)
+            {
+                UpdateDeclareRepoNodePaths(bundle.FileNodeVm, oldPath, newPath);
+            }
+        }
+    }
+
+    private static void UpdateDeclareRepoNodePaths(FileNode node, string oldPath, string newPath)
+    {
+        if (node.DeclareRepoNodeDatas != null)
+        {
+            foreach (var data in node.DeclareRepoNodeDatas)
+            {
+                if (data?.RepoNodePath == null)
+                    continue;
+
+                data.RepoNodePath = ReplacePathPrefix(data.RepoNodePath, oldPath, newPath);
+            }
+        }
+
+        foreach (var child in node.Children.OfType<FileNode>())
+        {
+            UpdateDeclareRepoNodePaths(child, oldPath, newPath);
+        }
+    }
+
+    private static void UpdateDeclareRepoNodePaths(FileNodeVM node, string oldPath, string newPath)
+    {
+        if (node.DeclareRepoNodeDatas != null)
+        {
+            foreach (var data in node.DeclareRepoNodeDatas)
+            {
+                if (data?.RepoNodePath == null)
+                    continue;
+
+                data.RepoNodePath = ReplacePathPrefix(data.RepoNodePath, oldPath, newPath);
+            }
+        }
+
+        foreach (var child in node.Children)
+        {
+            UpdateDeclareRepoNodePaths(child, oldPath, newPath);
+        }
+    }
+
+    private static string ReplacePathPrefix(string path, string oldPrefix, string newPrefix)
+    {
+        // 精确匹配：oldPrefix 或 oldPrefix/xxx
+        if (string.Equals(path, oldPrefix, StringComparison.Ordinal))
+            return newPrefix;
+
+        var boundary = oldPrefix.EndsWith("/", StringComparison.Ordinal) ? oldPrefix : (oldPrefix + "/");
+        if (path.StartsWith(boundary, StringComparison.Ordinal))
+        {
+            return newPrefix + path.Substring(oldPrefix.Length);
+        }
+
+        return path;
     }
 
     /// <summary>

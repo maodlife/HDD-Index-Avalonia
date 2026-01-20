@@ -2,12 +2,19 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Controls;
+using ReactiveUI;
 
 namespace HDD_Index.ViewModels;
 
-public class TreeNodeVMBase<T> where T : TreeNodeVMBase<T>
+public class TreeNodeVMBase<T> : ViewModelBase where T : TreeNodeVMBase<T>
 {
-    public string Name { get; set; }
+    private string _name = string.Empty;
+    
+    public string Name
+    {
+        get => _name;
+        set => this.RaiseAndSetIfChanged(ref _name, value);
+    }
     public ObservableCollection<T> Children { get; set; }
         = new ObservableCollection<T>();
     
