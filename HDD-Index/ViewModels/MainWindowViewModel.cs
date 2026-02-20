@@ -257,11 +257,12 @@ public class MainWindowViewModel : ViewModelBase
                         new TemplateColumn<FileNodeVM>(
                             "Name",
                             new FuncDataTemplate<FileNodeVM>((x, ns) =>
-                                new TextBlock
-                                {
-                                    Text = x?.Name,
-                                    Foreground = x?.NameBrushes,
-                                })),
+                            {
+                                var textBlock = new TextBlock();
+                                textBlock.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding("Name"));
+                                textBlock.Bind(TextBlock.ForegroundProperty, new Avalonia.Data.Binding("NameBrushes"));
+                                return textBlock;
+                            })),
                         x => x.Children)
                 }
             };
@@ -915,6 +916,16 @@ public class MainWindowViewModel : ViewModelBase
             var path = fileNodeVM.FileNode.GetPath();
             Console.WriteLine($"文件节点路径: {path}");
             System.Diagnostics.Debug.WriteLine($"文件节点路径: {path}");
+
+            var declareDatas = fileNodeVM.FileNode.DeclareRepoNodeDatas;
+            Console.WriteLine($"  DeclareRepoNodeDatas 数量: {declareDatas.Count}");
+            System.Diagnostics.Debug.WriteLine($"  DeclareRepoNodeDatas 数量: {declareDatas.Count}");
+            
+            foreach (var data in declareDatas)
+            {
+                Console.WriteLine($"    - RepoNodePath: {data.RepoNodePath}");
+                System.Diagnostics.Debug.WriteLine($"    - RepoNodePath: {data.RepoNodePath}");
+            }
         }
         else
         {

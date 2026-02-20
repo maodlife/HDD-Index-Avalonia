@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using HDD_Index.Models;
+using ReactiveUI;
 
 namespace HDD_Index.ViewModels;
 
@@ -11,8 +13,8 @@ public class RepoNodeVM : TreeNodeVMBase<RepoNodeVM>
     public bool IsDirectory { get; set; }
     public RepoNode RepoNode { get; set; }
 
-    public List<SaveFileNodeData> SaveFileNodeDatas { get; set; } =
-        new List<SaveFileNodeData>();
+    public ObservableCollection<SaveFileNodeData> SaveFileNodeDatas { get; set; } =
+        new ObservableCollection<SaveFileNodeData>();
 
     public int SaveFileNodeCnt => SaveFileNodeDatas.Count;
 
@@ -21,6 +23,17 @@ public class RepoNodeVM : TreeNodeVMBase<RepoNodeVM>
         : "";
 
     #endregion
+
+    public RepoNodeVM()
+    {
+        SaveFileNodeDatas.CollectionChanged += SaveFileNodeDatas_CollectionChanged;
+    }
+
+    private void SaveFileNodeDatas_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        this.RaisePropertyChanged(nameof(SaveFileNodeCnt));
+        this.RaisePropertyChanged(nameof(SaveFileNodeCntString));
+    }
 
     public static RepoNodeVM Create(RepoNode repoNode)
     {

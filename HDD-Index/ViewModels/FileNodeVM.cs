@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using Avalonia.Media;
 using HDD_Index.Models;
+using ReactiveUI;
 
 namespace HDD_Index.ViewModels;
 
@@ -11,8 +13,8 @@ public class FileNodeVM : TreeNodeVMBase<FileNodeVM>
 
     public FileNode FileNode { get; set; }
 
-    public List<DeclareRepoNodeData> DeclareRepoNodeDatas { get; set; } =
-        new List<DeclareRepoNodeData>();
+    public ObservableCollection<DeclareRepoNodeData> DeclareRepoNodeDatas { get; set; } =
+        new ObservableCollection<DeclareRepoNodeData>();
 
     public IBrush NameBrushes
     {
@@ -23,6 +25,16 @@ public class FileNodeVM : TreeNodeVMBase<FileNodeVM>
             else
                 return Brushes.Green;
         }
+    }
+
+    public FileNodeVM()
+    {
+        DeclareRepoNodeDatas.CollectionChanged += DeclareRepoNodeDatas_CollectionChanged;
+    }
+
+    private void DeclareRepoNodeDatas_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        this.RaisePropertyChanged(nameof(NameBrushes));
     }
 
     public static FileNodeVM Create(FileNode fileNode)
