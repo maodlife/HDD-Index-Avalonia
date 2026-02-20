@@ -34,6 +34,11 @@
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource RepoNodeOnlyConverter}}" />
+            <MenuItem Header="删除"
+                      Command="{Binding $parent[Window].DataContext.DeleteRepoNodeCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
+                                  Converter={StaticResource RepoNodeOnlyConverter}}" />
         </ContextMenu>
     </Window.Resources>
 

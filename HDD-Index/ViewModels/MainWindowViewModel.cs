@@ -113,6 +113,8 @@ public class MainWindowViewModel : ViewModelBase
     public ReactiveCommand<object, Unit> CreateChildFolderCommand { get; set; }
     
     public ReactiveCommand<object, Unit> RenameRepoNodeCommand { get; set; }
+    
+    public ReactiveCommand<object, Unit> DeleteRepoNodeCommand { get; set; }
 
     #endregion File Data
 
@@ -175,6 +177,8 @@ public class MainWindowViewModel : ViewModelBase
         CreateChildFolderCommand = ReactiveCommand.Create<object>(CreateChildFolder);
         
         RenameRepoNodeCommand = ReactiveCommand.CreateFromTask<object>(RenameRepoNodeAsync);
+        
+        DeleteRepoNodeCommand = ReactiveCommand.CreateFromTask<object>(DeleteRepoNodeAsync);
     }
 
     private void InitRepoData()
@@ -428,12 +432,129 @@ public class MainWindowViewModel : ViewModelBase
         newRepoNode.Parent = repoNodeVM.RepoNode;
         repoNodeVM.RepoNode.Children.Add(newRepoNode);
 
+        // 如果父节点已经被某些 FileNode 存储（声明持有），我们要去检查这些对应的 FileNode 中是否也刚好有这个同名的文件夹。
+        // 如果有，那么新创建的节点也应该自动带有对应的 SaveFileNodeDatas
+        if (repoNodeVM.RepoNode.SaveFileNodeDatas.Any())
+        {
+            foreach (var saveData in repoNodeVM.RepoNode.SaveFileNodeDatas)
+            {
+                var bundle = FileDataVmBundles.FirstOrDefault(b => b.FileData.DiskLabel == saveData.DiskLabel);
+                if (bundle != null)
+                {
+                    // 获取父节点对应的 FileNode
+                    var parentFileNodeVm = FindFileNodeVmByPath(bundle.FileNodeVm, saveData.FileNodePath, out _);
+                    if (parentFileNodeVm != null)
+                    {
+                        // 寻找 FileNode 中是否有同名的子节点
+                        var matchingChildFileNodeVm = parentFileNodeVm.Children.FirstOrDefault(c => c.Name == folderName);
+                        if (matchingChildFileNodeVm != null)
+                        {
+                            // 找到了同名子文件夹，建立联系
+                            var childFileNodePath = matchingChildFileNodeVm.FileNode.GetPath();
+                            var newSaveData = new SaveFileNodeData
+                            {
+                                DiskLabel = bundle.FileData.DiskLabel,
+                                FileNodePath = childFileNodePath
+                            };
+                            newRepoNode.SaveFileNodeDatas.Add(newSaveData);
+                            
+                            // 同步更新 FileNode 的声明数据
+                            var newDeclareData = new DeclareRepoNodeData
+                            {
+                                RepoNodePath = newRepoNode.GetPath()
+                            };
+                            matchingChildFileNodeVm.FileNode.DeclareRepoNodeDatas.Add(newDeclareData);
+                            matchingChildFileNodeVm.DeclareRepoNodeDatas.Add((DeclareRepoNodeData)newDeclareData.Clone());
+                        }
+                    }
+                }
+            }
+        }
+
         // 创建对应的RepoNodeVM并添加到Children中
         var newRepoNodeVM = RepoNodeVM.Create(newRepoNode);
         repoNodeVM.Children.Add(newRepoNodeVM);
 
+        // 我们在上面可能为 newRepoNode 添加了新的 SaveFileNodeDatas，所以需要在这里把它同步进 newRepoNodeVM 中
+        newRepoNodeVM.SaveFileNodeDatas.Clear();
+        foreach (var data in newRepoNode.SaveFileNodeDatas)
+        {
+            newRepoNodeVM.SaveFileNodeDatas.Add((SaveFileNodeData)data.Clone());
+        }
+
+        // 创建子文件夹后，原先声明持有其父节点（或祖先节点）的FileNode，
+        // 有可能因为没有同名的子节点而导致声明持有失效。
+        // 所以需要向上查找，对所有被声明持有的祖先节点重新进行合法性检查。
+        CheckAncestorsDeclarationStatus(repoNodeVM.RepoNode);
+
         Console.WriteLine($"创建子文件夹: {folderName}");
         System.Diagnostics.Debug.WriteLine($"创建子文件夹: {folderName}");
+    }
+
+    /// <summary>
+    /// 尝试为一个节点建立 SaveFileNodeDatas。
+    /// 逻辑：查看其父节点有哪些 SaveFileNodeDatas，然后在对应的 FileNode 中找是否有同名的子节点。
+    /// </summary>
+    private void TryEstablishSaveFileNodeDatasForNode(RepoNode node)
+    {
+        var parent = node.Parent as RepoNode;
+        if (parent == null || !parent.SaveFileNodeDatas.Any())
+            return;
+
+        foreach (var saveData in parent.SaveFileNodeDatas)
+        {
+            var bundle = FileDataVmBundles.FirstOrDefault(b => b.FileData.DiskLabel == saveData.DiskLabel);
+            if (bundle != null)
+            {
+                var parentFileNodeVm = FindFileNodeVmByPath(bundle.FileNodeVm, saveData.FileNodePath, out _);
+                if (parentFileNodeVm != null)
+                {
+                    var matchingChildFileNodeVm = parentFileNodeVm.Children.FirstOrDefault(c => c.Name == node.Name);
+                    
+                    // 检查是否已经存在（避免重复添加）
+                    bool alreadyExists = node.SaveFileNodeDatas.Any(d => d.DiskLabel == bundle.FileData.DiskLabel && d.FileNodePath == matchingChildFileNodeVm?.FileNode.GetPath());
+
+                    if (matchingChildFileNodeVm != null && !alreadyExists)
+                    {
+                        var childFileNodePath = matchingChildFileNodeVm.FileNode.GetPath();
+                        var newSaveData = new SaveFileNodeData
+                        {
+                            DiskLabel = bundle.FileData.DiskLabel,
+                            FileNodePath = childFileNodePath
+                        };
+                        node.SaveFileNodeDatas.Add(newSaveData);
+                        
+                        var newDeclareData = new DeclareRepoNodeData
+                        {
+                            RepoNodePath = node.GetPath()
+                        };
+                        matchingChildFileNodeVm.FileNode.DeclareRepoNodeDatas.Add(newDeclareData);
+                        matchingChildFileNodeVm.DeclareRepoNodeDatas.Add((DeclareRepoNodeData)newDeclareData.Clone());
+                        
+                        // 同时同步给当前的 VM (如果是通过重命名或其他操作调用此方法的)
+                        var repoNodeVm = FindRepoNodeVmByPath(RepoNodeVm, node.GetPath(), out _);
+                        if (repoNodeVm != null && !repoNodeVm.SaveFileNodeDatas.Any(d => d.DiskLabel == bundle.FileData.DiskLabel && d.FileNodePath == matchingChildFileNodeVm.FileNode.GetPath()))
+                        {
+                            repoNodeVm.SaveFileNodeDatas.Add((SaveFileNodeData)newSaveData.Clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void CheckAncestorsDeclarationStatus(RepoNode node)
+    {
+        var current = node;
+        while (current != null)
+        {
+            // 只需要检查当前节点自身的声明关系，不需要向下递归收集所有受影响节点
+            var specificAffectedNodes = GetAffectedFileNodes(current, includeDescendants: false);
+            
+            UpdateAffectedFileNodesDeclaration(specificAffectedNodes);
+            
+            current = current.Parent as RepoNode;
+        }
     }
     
     /// <summary>
@@ -493,10 +614,207 @@ public class MainWindowViewModel : ViewModelBase
         var newPath = repoNodeVM.RepoNode.GetPath();
         UpdateRepoNodePathReferences(oldPath, newPath);
 
+        // 获取需要检查更新的相关的 FileNode 信息
+        // (重命名可能导致原本符合声明的节点现在不符合了，需要被取消持有)
+        var affectedFileNodes = GetAffectedFileNodes(repoNodeVM.RepoNode, includeDescendants: false);
+        UpdateAffectedFileNodesDeclaration(affectedFileNodes);
+
+        // 如果重命名后，满足了父节点对应 FileNode 中的子文件夹名称，
+        // 则应该重新建立这个新建/重命名的文件夹的 SaveData 联系。
+        TryEstablishSaveFileNodeDatasForNode(repoNodeVM.RepoNode);
+        
+        // 同步可能的 SaveFileNodeDatas 更新到 VM
+        repoNodeVM.SaveFileNodeDatas.Clear();
+        foreach (var data in repoNodeVM.RepoNode.SaveFileNodeDatas)
+        {
+            repoNodeVM.SaveFileNodeDatas.Add((SaveFileNodeData)data.Clone());
+        }
+
+        // 重命名后，可能会破坏声明持有状态，或者使之前不符合的重新符合。
+        // 根据要求，修改名字后如果不满足则取消持有，因此要检查祖先的声明状态
+        CheckAncestorsDeclarationStatus(repoNodeVM.RepoNode);
+
+        // 也可以顺便尝试恢复那些因为曾经缺失该文件夹而丢失声明持有的祖先节点，
+        // 这里提供一个恢复逻辑的调用入口，如果有缓存或特定需求可以加上，
+        // 但根据目前的规则，主要处理因名称不对而掉落的问题。
+
         // 更新路径输入框（会触发重新定位/展开）
         RepoNodePathString = newPath;
 
         Debug.WriteLine($"RenameRepoNodeAsync: {oldPath} -> {newPath}");
+    }
+
+    /// <summary>
+    /// 删除 RepoNode 节点（仅对 Repo 节点生效）
+    /// </summary>
+    private async Task DeleteRepoNodeAsync(object nodeVM)
+    {
+        if (nodeVM is not RepoNodeVM repoNodeVM)
+            return;
+
+        if (repoNodeVM.RepoNode == RepoNodeRoot)
+        {
+            // 根节点不允许删除
+            Debug.WriteLine("DeleteRepoNodeAsync: Cannot delete root node.");
+            return;
+        }
+
+        var dialog = new DeleteConfirmDialog(repoNodeVM.Name)
+        {
+            Title = "确认删除",
+            Width = 400,
+            Height = 150,
+        };
+
+        var owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+
+        var result = await dialog.ShowDialog<bool>(owner);
+        if (!result)
+            return; // 取消或关闭弹窗
+
+        var parent = repoNodeVM.RepoNode.Parent as RepoNode;
+        if (parent == null)
+            return;
+
+        // 获取需要检查更新的相关的 FileNode 信息
+        // 任何存储了该节点或其子节点的 FileNode 都可能受到影响
+        var affectedFileNodes = GetAffectedFileNodes(repoNodeVM.RepoNode);
+
+        // 获取当前节点的祖先节点（它们可能会因为删除操作而改变了包含结构，需要重新检查声明状态）
+        // 因为是从该节点向下寻找声明关系的节点，如果删除了该节点，那么祖先节点包含的范围变小了，可能不再包含所有的FileNode，导致原本成功的声明失败。
+        var ancestors = new List<RepoNode>();
+        var currAncestor = parent;
+        while (currAncestor != null)
+        {
+            ancestors.Add(currAncestor);
+            currAncestor = currAncestor.Parent as RepoNode;
+        }
+
+        // Model 中删除
+        parent.Children.Remove(repoNodeVM.RepoNode);
+        
+        // VM 中删除
+        var parentVm = FindRepoNodeVmByPath(RepoNodeVm, parent.GetPath(), out _);
+        if (parentVm != null)
+        {
+            parentVm.Children.Remove(repoNodeVM);
+        }
+
+        // 更新受影响的 FileNodes 的声明状态
+        UpdateAffectedFileNodesDeclaration(affectedFileNodes);
+
+        // 检查祖先节点的声明状态
+        foreach (var ancestor in ancestors)
+        {
+            CheckAncestorsDeclarationStatus(ancestor);
+        }
+
+        Debug.WriteLine($"DeleteRepoNodeAsync: deleted {repoNodeVM.RepoNode.GetPath()}");
+    }
+
+    private List<(FileNode FileNode, RepoNode OriginalRepoNode)> GetAffectedFileNodes(RepoNode targetNode, bool includeDescendants = true)
+    {
+        var result = new List<(FileNode, RepoNode)>();
+        var targetPathExact = targetNode.GetPath();
+        var targetPathPrefix = targetPathExact + "/";
+
+        void CollectFromTree(FileNode fileNode)
+        {
+            if (fileNode.DeclareRepoNodeDatas != null)
+            {
+                foreach (var declareData in fileNode.DeclareRepoNodeDatas)
+                {
+                    bool isMatch = declareData.RepoNodePath == targetPathExact ||
+                                   (includeDescendants && declareData.RepoNodePath.StartsWith(targetPathPrefix, StringComparison.Ordinal));
+                                   
+                    if (isMatch)
+                    {
+                        var originalRepoNode = TreeNodeUtils.GetNodeByPathFromRoot(RepoNodeRoot, declareData.RepoNodePath) as RepoNode;
+                        if (originalRepoNode != null)
+                        {
+                            result.Add((fileNode, originalRepoNode));
+                        }
+                    }
+                }
+            }
+            
+            foreach (var child in fileNode.Children.OfType<FileNode>())
+            {
+                CollectFromTree(child);
+            }
+        }
+
+        foreach (var bundle in FileDataVmBundles)
+        {
+            if (bundle.FileData?.FileNodeRoot != null)
+            {
+                CollectFromTree(bundle.FileData.FileNodeRoot);
+            }
+        }
+        
+        return result;
+    }
+
+    private void UpdateAffectedFileNodesDeclaration(List<(FileNode FileNode, RepoNode OriginalRepoNode)> affectedNodes)
+    {
+        foreach (var (fileNode, repoNode) in affectedNodes)
+        {
+            // 找到声明这个 repo 节点的 declare 数据
+            var repoPath = repoNode.GetPath();
+            var declareData = fileNode.DeclareRepoNodeDatas.FirstOrDefault(d => d.RepoNodePath == repoPath);
+            
+            if (declareData != null)
+            {
+                // 由于节点已经被删除（或者其父节点被删除，从而它也不在树里了）
+                // 我们尝试从 Root 重新找这个节点。如果找不到，说明被删了，声明关系失效。
+                var currentRepoNodeInTree = TreeNodeUtils.GetNodeByPathFromRoot(RepoNodeRoot, repoPath) as RepoNode;
+                
+                // 如果在树上找不到了，或者找到了但检查状态不再符合条件
+                if (currentRepoNodeInTree == null || !TreeNodeUtils.CheckDeclarationStatus(currentRepoNodeInTree, fileNode))
+                {
+                    // 移除声明持有
+                    fileNode.DeclareRepoNodeDatas.Remove(declareData);
+                    
+                    // 如果这个 RepoNode 还活着，但是因为子树变化导致声明失效，
+                    // 那么这个 RepoNode 的 SaveFileNodeDatas 里面的相关信息也应该删掉。
+                    if (currentRepoNodeInTree != null)
+                    {
+                        var saveData = currentRepoNodeInTree.SaveFileNodeDatas.FirstOrDefault(d => d.FileNodePath == fileNode.GetPath());
+                        if (saveData != null)
+                        {
+                            currentRepoNodeInTree.SaveFileNodeDatas.Remove(saveData);
+                            // 同步 VM
+                            var repoNodeVm = FindRepoNodeVmByPath(RepoNodeVm, currentRepoNodeInTree.GetPath(), out _);
+                            if (repoNodeVm != null)
+                            {
+                                var vmSaveData = repoNodeVm.SaveFileNodeDatas.FirstOrDefault(d => d.FileNodePath == fileNode.GetPath());
+                                if (vmSaveData != null)
+                                {
+                                    repoNodeVm.SaveFileNodeDatas.Remove(vmSaveData);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 同步更新对应的 VM
+                    foreach (var bundle in FileDataVmBundles)
+                    {
+                        var vm = FindFileNodeVmByPath(bundle.FileNodeVm, fileNode.GetPath(), out _);
+                        if (vm != null)
+                        {
+                            var vmDeclareData = vm.DeclareRepoNodeDatas.FirstOrDefault(d => d.RepoNodePath == repoPath);
+                            if (vmDeclareData != null)
+                            {
+                                vm.DeclareRepoNodeDatas.Remove(vmDeclareData);
+                            }
+                        }
+                    }
+
+                    Debug.WriteLine($"Removed declaration: FileNode '{fileNode.GetPath()}' no longer holds RepoNode '{repoPath}'");
+                }
+            }
+        }
     }
 
     private void UpdateRepoNodePathReferences(string oldPath, string newPath)
@@ -581,6 +899,16 @@ public class MainWindowViewModel : ViewModelBase
             var path = repoNodeVM.RepoNode.GetPath();
             Console.WriteLine($"仓库节点路径: {path}");
             System.Diagnostics.Debug.WriteLine($"仓库节点路径: {path}");
+            
+            var saveDatas = repoNodeVM.RepoNode.SaveFileNodeDatas;
+            Console.WriteLine($"  SaveFileNodeDatas 数量: {saveDatas.Count}");
+            System.Diagnostics.Debug.WriteLine($"  SaveFileNodeDatas 数量: {saveDatas.Count}");
+            
+            foreach (var data in saveDatas)
+            {
+                Console.WriteLine($"    - DiskLabel: {data.DiskLabel}, FileNodePath: {data.FileNodePath}");
+                System.Diagnostics.Debug.WriteLine($"    - DiskLabel: {data.DiskLabel}, FileNodePath: {data.FileNodePath}");
+            }
         }
         else if (nodeVM is FileNodeVM fileNodeVM)
         {
