@@ -27,11 +27,7 @@ namespace HDD_Index.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
-    private readonly string _folderPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-        "HDD-Index-Test/TreeJsonFiles/");
-
-    private static string repoFileName = "RepoTreeData.txt";
+    private AppConfig _appConfig;
 
     #region Repo Data
 
@@ -132,9 +128,23 @@ public class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel()
     {
+        InitConfig();
         InitRepoData();
         InitFileData();
         InitCommand();
+    }
+
+    private void InitConfig()
+    {
+        var configPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "HDD-Index/config.json");
+        var content = File.ReadAllText(configPath);
+        var config = JsonSerializer.Deserialize<AppConfig>(content);
+        if (config != null)
+        {
+            _appConfig = config;
+        }
     }
 
     private void InitCommand()
@@ -183,7 +193,7 @@ public class MainWindowViewModel : ViewModelBase
 
     private void InitRepoData()
     {
-        var repoNodeFilePath = Path.Combine(_folderPath, repoFileName);
+        var repoNodeFilePath = Path.Combine(_appConfig.JsonFilePath, _appConfig.RepoFileName);
         string json;
         try
         {
@@ -217,10 +227,10 @@ public class MainWindowViewModel : ViewModelBase
 
     private void InitFileData()
     {
-        var files = Directory.GetFiles(_folderPath);
+        var files = Directory.GetFiles(_appConfig.JsonFilePath);
         foreach (var file in files)
         {
-            if (Path.GetFileName(file) == repoFileName)
+            if (Path.GetFileName(file) == _appConfig.RepoFileName)
                 continue;
             var json = File.ReadAllText(file);
             var bundle =
