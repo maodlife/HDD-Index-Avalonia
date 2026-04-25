@@ -22,20 +22,20 @@
         <vm:RepoNodeOnlyVisibilityConverter x:Key="RepoNodeOnlyConverter" />
         <ContextMenu x:Key="NodeContextMenu">
             <MenuItem Header="输出路径到日志"
-                      Command="{Binding $parent[Window].DataContext.LogNodePathCommand}"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.LogNodePathCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}" />
             <MenuItem Header="创建子文件夹"
-                      Command="{Binding $parent[Window].DataContext.CreateChildFolderCommand}"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.CreateChildFolderCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource NodeTypeConverter}}" />
             <MenuItem Header="重命名"
-                      Command="{Binding $parent[Window].DataContext.RenameRepoNodeCommand}"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.RenameRepoNodeCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource RepoNodeOnlyConverter}}" />
             <MenuItem Header="删除"
-                      Command="{Binding $parent[Window].DataContext.DeleteRepoNodeCommand}"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.DeleteRepoNodeCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource RepoNodeOnlyConverter}}" />
@@ -63,11 +63,11 @@
                 <TabItem Header="Repository">
                     <Grid Margin="20" RowDefinitions="Auto, *">
                         <TextBox Grid.Row="0"
-                                 Text="{Binding RepoNodePathString}">
+                                 Text="{Binding RepoBrowser.RepoNodePathString}">
                         </TextBox>
                         <TreeDataGrid Grid.Row="1"
                                       Name="{x:Static views:ControlNames.ViewRepoTree}"
-                                      Source="{Binding RepoNodeSource}"
+                                      Source="{Binding RepoBrowser.RepoNodeSource}"
                                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <Interaction.Behaviors>
@@ -85,12 +85,12 @@
                         Margin="20"
                         RowDefinitions="Auto,*,Auto">
                         <ComboBox Grid.Row="0"
-                                  ItemsSource="{Binding DiskLabels}"
-                                  SelectedItem="{Binding SelectedDiskLabel}">
+                                  ItemsSource="{Binding FileBrowser.DiskLabels}"
+                                  SelectedItem="{Binding FileBrowser.SelectedDiskLabel}">
                         </ComboBox>
                         <TreeDataGrid Grid.Row="1"
                                       Name="{x:Static views:ControlNames.ViewFileTree}"
-                                      Source="{Binding CurrFileNodeSource}"
+                                      Source="{Binding FileBrowser.CurrFileNodeSource}"
                                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <Interaction.Behaviors>
@@ -110,7 +110,7 @@
                 <Grid Margin="20" RowDefinitions="*,Auto">
                     <TreeDataGrid
                         Name="{x:Static views:ControlNames.EditRepoTree}"
-                        Source="{Binding RepoNodeSource}"
+                        Source="{Binding RepoBrowser.RepoNodeSource}"
                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
                         ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <Interaction.Behaviors>
@@ -123,16 +123,16 @@
                     <Grid Grid.Row="1" ColumnDefinitions="*,*,*, *">
                         <TextBox Text="保存了该节点的磁盘:"></TextBox>
                         <ComboBox Grid.Column="1"
-                                  ItemsSource="{Binding CurrRepoNodeSaveFileNodes}"
-                                  SelectedItem="{Binding SelectedSaveFileNodeLabel}">
+                                  ItemsSource="{Binding RepoBrowser.CurrRepoNodeSaveFileNodes}"
+                                  SelectedItem="{Binding RepoBrowser.SelectedSaveFileNodeLabel}">
                         </ComboBox>
                         <Button Grid.Column="2"
                                 Content="跳转"
-                                Command="{Binding JumpToCurrSelectSaveFileNode}">
+                                Command="{Binding RepositoryEditor.JumpToCurrSelectSaveFileNodeCommand}">
                         </Button>
                         <CheckBox Grid.Column="3"
                                   Content="自动跳转"
-                                  IsChecked="{Binding AutoJumpToSaveFileNode}">
+                                  IsChecked="{Binding RepositoryEditor.AutoJumpToSaveFileNode}">
                         </CheckBox>
                     </Grid>
                 </Grid>
@@ -142,12 +142,12 @@
                     Margin="20"
                     RowDefinitions="Auto,*,Auto">
                     <ComboBox Grid.Row="0"
-                              ItemsSource="{Binding DiskLabels}"
-                              SelectedItem="{Binding SelectedDiskLabel}">
+                              ItemsSource="{Binding FileBrowser.DiskLabels}"
+                              SelectedItem="{Binding FileBrowser.SelectedDiskLabel}">
                     </ComboBox>
                     <TreeDataGrid Grid.Row="1"
                                   Name="{x:Static views:ControlNames.EditFileTree}"
-                                  Source="{Binding CurrFileNodeSource}"
+                                  Source="{Binding FileBrowser.CurrFileNodeSource}"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <Interaction.Behaviors>
@@ -159,7 +159,7 @@
                     </TreeDataGrid>
                     <Grid Grid.Row="2">
                         <CheckBox Content="自动跳转到持有的节点"
-                                  IsChecked="{Binding AutoJumpToDeclareRepoNode}">
+                                  IsChecked="{Binding RepositoryEditor.AutoJumpToDeclareRepoNode}">
                         </CheckBox>
                     </Grid>
                 </Grid>
