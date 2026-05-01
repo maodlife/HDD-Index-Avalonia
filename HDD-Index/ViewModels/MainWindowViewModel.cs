@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
@@ -94,6 +95,10 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.CreateFromTask<object>(DeleteRepoNodeAsync);
         RepositoryEditor.JumpToCurrSelectSaveFileNodeCommand =
             ReactiveCommand.Create(JumpToCurrSelectSaveFileNode);
+        RepositoryEditor.OpenCurrentFileDataFolderCommand =
+            ReactiveCommand.Create(OpenCurrentFileDataFolder);
+        RepositoryEditor.OpenFileNodeInFolderCommand =
+            ReactiveCommand.Create<object>(OpenFileNodeInFolder);
     }
 
     private void ChangeDiskLabel(string diskLabel)
@@ -285,6 +290,74 @@ public class MainWindowViewModel : ViewModelBase
             Console.WriteLine("未知节点类型");
             Debug.WriteLine("未知节点类型");
         }
+    }
+
+    private void OpenCurrentFileDataFolder()
+    {
+        var localFolderPath = FileBrowser.CurrentFileData?.LocalFolderPath;
+        if (string.IsNullOrWhiteSpace(localFolderPath))
+            return;
+
+        OpenFolderInExplorer(localFolderPath);
+    }
+
+    private void OpenFileNodeInFolder(object nodeVM)
+    {
+        if (nodeVM is not FileNodeVM fileNodeVM)
+            return;
+
+        var localPath = GetLocalPath(fileNodeVM.FileNode);
+        if (string.IsNullOrWhiteSpace(localPath))
+            return;
+
+        OpenPathInExplorer(localPath, fileNodeVM.FileNode.Parent == null);
+    }
+
+    private string? GetLocalPath(FileNode fileNode)
+    {
+        var localFolderPath = FileBrowser.CurrentFileData?.LocalFolderPath;
+        if (string.IsNullOrWhiteSpace(localFolderPath))
+            return null;
+
+        var pathSegments = fileNode.GetPath()
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Skip(1)
+            .ToArray();
+        return pathSegments.Aggregate(localFolderPath, Path.Combine);
+    }
+
+    private static void OpenFolderInExplorer(string folderPath)
+    {
+        if (!Directory.Exists(folderPath))
+        {
+            Debug.WriteLine($"本地文件夹不存在: {folderPath}");
+            Console.WriteLine($"本地文件夹不存在: {folderPath}");
+            return;
+        }
+
+        StartExplorer($"\"{folderPath}\"");
+    }
+
+    private static void OpenPathInExplorer(string path, bool openFolderDirectly)
+    {
+        if (!File.Exists(path) && !Directory.Exists(path))
+        {
+            Debug.WriteLine($"本地路径不存在: {path}");
+            Console.WriteLine($"本地路径不存在: {path}");
+            return;
+        }
+
+        StartExplorer(openFolderDirectly ? $"\"{path}\"" : $"/select,\"{path}\"");
+    }
+
+    private static void StartExplorer(string arguments)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = arguments,
+            UseShellExecute = true
+        });
     }
 
     public async void OpenCreateNewFileTreeDialog()

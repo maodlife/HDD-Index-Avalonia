@@ -10,11 +10,15 @@ public class FileDataVMBundle
     public FileData FileData { get; set; }
     public FileNodeVM FileNodeVm { get; set; }
 
-    public static FileDataVMBundle Create(string diskLabel, string json)
+    public static FileDataVMBundle Create(
+        string diskLabel,
+        string json,
+        string localFolderPath = "")
     {
         var bundle = new FileDataVMBundle();
         bundle.FileData = new FileData();
         bundle.FileData.DiskLabel = diskLabel;
+        bundle.FileData.LocalFolderPath = localFolderPath;
         var root = FileNode.CreateByJson(json);
         if (root != null)
         {
@@ -29,6 +33,7 @@ public class FileDataVMBundle
         var bundle = new FileDataVMBundle();
         bundle.FileData = new FileData();
         bundle.FileData.DiskLabel = diskLabel;
+        bundle.FileData.LocalFolderPath = path;
         var root = FileNode.CreateByPath(path);
         if (root != null)
         {

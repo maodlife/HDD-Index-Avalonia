@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Reactive;
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
+using HDD_Index.Models;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 
@@ -24,6 +25,8 @@ public class FileBrowserViewModel : ViewModelBase
 
     [Reactive] public string SelectedDiskLabel { get; set; } = string.Empty;
 
+    [Reactive] public bool HasCurrentLocalFolderPath { get; set; }
+
     public ReactiveCommand<FileNodeVM, Unit> FileNodeSelectedCommand { get; set; }
         = ReactiveCommand.Create<FileNodeVM>(_ => { });
 
@@ -43,7 +46,13 @@ public class FileBrowserViewModel : ViewModelBase
         }
 
         CurrFileNodeSource = TreeDataGridSourceFactory.CreateFileSource(FileNodeVm);
+        UpdateCurrentLocalFolderPathState();
     }
+
+    public FileData? CurrentFileData =>
+        CurrShowFileNodeIndex >= 0 && CurrShowFileNodeIndex < FileDataVmBundles.Count
+            ? FileDataVmBundles[CurrShowFileNodeIndex].FileData
+            : null;
 
     public bool ChangeDiskLabel(string diskLabel)
     {
@@ -55,6 +64,7 @@ public class FileBrowserViewModel : ViewModelBase
         CurrShowFileNodeIndex = FileDataVmBundles.IndexOf(found);
         SelectedDiskLabel = diskLabel;
         ChangeFileNodeVM(found.FileNodeVm);
+        UpdateCurrentLocalFolderPathState();
         return true;
     }
 
@@ -62,11 +72,18 @@ public class FileBrowserViewModel : ViewModelBase
     {
         FileDataVmBundles.Add(bundle);
         DiskLabels.Add(bundle.FileData.DiskLabel);
+        UpdateCurrentLocalFolderPathState();
     }
 
     private void ChangeFileNodeVM(FileNodeVM targetFileNodeVm)
     {
         FileNodeVm.Clear();
         FileNodeVm.Add(targetFileNodeVm);
+    }
+
+    private void UpdateCurrentLocalFolderPathState()
+    {
+        HasCurrentLocalFolderPath =
+            !string.IsNullOrWhiteSpace(CurrentFileData?.LocalFolderPath);
     }
 }

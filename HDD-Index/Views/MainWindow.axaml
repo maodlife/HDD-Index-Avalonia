@@ -20,10 +20,17 @@
     <Window.Resources>
         <vm:NodeTypeToVisibilityConverter x:Key="NodeTypeConverter" />
         <vm:RepoNodeOnlyVisibilityConverter x:Key="RepoNodeOnlyConverter" />
+        <vm:FileNodeOnlyVisibilityConverter x:Key="FileNodeOnlyConverter" />
         <ContextMenu x:Key="NodeContextMenu">
             <MenuItem Header="输出路径到日志"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.LogNodePathCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}" />
+            <MenuItem Header="在文件夹中打开"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.OpenFileNodeInFolderCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsEnabled="{Binding $parent[Window].DataContext.FileBrowser.HasCurrentLocalFolderPath}"
+                      IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
+                                  Converter={StaticResource FileNodeOnlyConverter}}" />
             <MenuItem Header="创建子文件夹"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.CreateChildFolderCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
@@ -121,7 +128,7 @@
                         </TreeDataGrid.ContextMenu>
                     </TreeDataGrid>
                     <Grid Grid.Row="1" ColumnDefinitions="*,*,*, *">
-                        <TextBox Text="保存了该节点的磁盘:"></TextBox>
+                        <TextBlock Text="保存了该节点的磁盘:" />
                         <ComboBox Grid.Column="1"
                                   ItemsSource="{Binding RepoBrowser.CurrRepoNodeSaveFileNodes}"
                                   SelectedItem="{Binding RepoBrowser.SelectedSaveFileNodeLabel}">
@@ -141,10 +148,19 @@
                     Grid.Column="1"
                     Margin="20"
                     RowDefinitions="Auto,*,Auto">
-                    <ComboBox Grid.Row="0"
-                              ItemsSource="{Binding FileBrowser.DiskLabels}"
-                              SelectedItem="{Binding FileBrowser.SelectedDiskLabel}">
-                    </ComboBox>
+                    <Grid Grid.Row="0"
+                          ColumnDefinitions="*,Auto">
+                        <ComboBox Grid.Column="0"
+                                  ItemsSource="{Binding FileBrowser.DiskLabels}"
+                                  SelectedItem="{Binding FileBrowser.SelectedDiskLabel}">
+                        </ComboBox>
+                        <Button Grid.Column="1"
+                                Margin="8,0,0,0"
+                                Content="打开文件夹"
+                                Command="{Binding RepositoryEditor.OpenCurrentFileDataFolderCommand}"
+                                IsEnabled="{Binding FileBrowser.HasCurrentLocalFolderPath}">
+                        </Button>
+                    </Grid>
                     <TreeDataGrid Grid.Row="1"
                                   Name="{x:Static views:ControlNames.EditFileTree}"
                                   Source="{Binding FileBrowser.CurrFileNodeSource}"

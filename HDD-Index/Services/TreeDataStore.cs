@@ -24,24 +24,35 @@ public class TreeDataStore
     public List<FileDataVMBundle> LoadFileDataVmBundles(AppConfig appConfig)
     {
         var bundles = new List<FileDataVMBundle>();
+        if (appConfig.FileDataFiles.Count > 0)
+        {
+            foreach (var fileDataConfig in appConfig.FileDataFiles)
+            {
+                if (string.IsNullOrWhiteSpace(fileDataConfig.JsonFilePath))
+                    continue;
+
+                var file = Path.Combine(
+                    appConfig.JsonFilePath,
+                    fileDataConfig.JsonFilePath);
+                bundles.Add(CreateFileDataVmBundle(
+                    file,
+                    fileDataConfig.LocalFolderPath));
+            }
+
+            SortByDiskLabel(bundles);
+            return bundles;
+        }
+
         var files = Directory.GetFiles(appConfig.JsonFilePath);
         foreach (var file in files)
         {
             if (Path.GetFileName(file) == appConfig.RepoFileName)
                 continue;
 
-            var json = File.ReadAllText(file);
-            var bundle = FileDataVMBundle.Create(
-                Path.GetFileNameWithoutExtension(file),
-                json);
-            bundles.Add(bundle);
+            bundles.Add(CreateFileDataVmBundle(file));
         }
 
-        bundles.Sort((lhs, rhs) => string.Compare(
-            lhs.FileData.DiskLabel,
-            rhs.FileData.DiskLabel,
-            StringComparison.Ordinal));
-
+        SortByDiskLabel(bundles);
         return bundles;
     }
 
@@ -50,5 +61,24 @@ public class TreeDataStore
         string path)
     {
         return FileDataVMBundle.CreateByPath(diskLabel, path);
+    }
+
+    private static FileDataVMBundle CreateFileDataVmBundle(
+        string file,
+        string localFolderPath = "")
+    {
+        var json = File.ReadAllText(file);
+        return FileDataVMBundle.Create(
+            Path.GetFileNameWithoutExtension(file),
+            json,
+            localFolderPath);
+    }
+
+    private static void SortByDiskLabel(List<FileDataVMBundle> bundles)
+    {
+        bundles.Sort((lhs, rhs) => string.Compare(
+            lhs.FileData.DiskLabel,
+            rhs.FileData.DiskLabel,
+            StringComparison.Ordinal));
     }
 }
