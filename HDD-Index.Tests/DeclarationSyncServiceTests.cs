@@ -4,8 +4,17 @@ using HDD_Index.ViewModels;
 
 namespace HDD_Index.Tests;
 
+// 这个文件测试 DeclarationSyncService 维护“仓库树 RepoNode”和“文件树 FileNode”之间声明关系的规则。
+// 测试里的 Repo 树表示用户整理出来的目录结构，File 树表示某个磁盘里的真实文件结构。
+// DeclareRepoNodeData 表示“文件节点声明自己对应某个仓库节点”，SaveFileNodeData 表示“仓库节点记录自己保存在哪个磁盘文件节点”。
 public class DeclarationSyncServiceTests
 {
+    // 场景：
+    // 仓库树是 Root -> Movies，文件树是 Disk -> Movies；
+    // 文件树的 Movies 节点已经声明自己对应仓库树的 Movies 节点。
+    //
+    // 期望：
+    // CheckRepoNodeAndFileNodeIsSync 返回 true，说明这两个节点被认为是同步匹配的。
     [Fact]
     public void CheckRepoNodeAndFileNodeIsSync_ReturnsTrueWhenFileDeclaresSelectedRepo()
     {
@@ -26,6 +35,13 @@ public class DeclarationSyncServiceTests
         Assert.True(service.CheckRepoNodeAndFileNodeIsSync(repoNode, fileNode));
     }
 
+    // 场景：
+    // 仓库树是 Root -> Movies -> Anime，但文件树只有 Disk -> Movies；
+    // 文件树 Movies 节点声明了对应仓库树 Movies，仓库树 Movies 也保存了一条 DiskA 的文件节点记录。
+    //
+    // 期望：
+    // 因为文件树 Movies 下面缺少 Anime，当前文件节点已经不能完整匹配仓库子树；
+    // 更新受影响声明后，文件节点声明、仓库节点保存记录、FileNodeVM 上的声明副本都应该被移除。
     [Fact]
     public void UpdateAffectedFileNodesDeclaration_RemovesDeclarationWhenRepoSubtreeNoLongerMatches()
     {
@@ -61,6 +77,14 @@ public class DeclarationSyncServiceTests
         Assert.Empty(((FileNodeVM)bundle.FileNodeVm.Children[0]).DeclareRepoNodeDatas);
     }
 
+    // 场景：
+    // 同一个仓库节点 Movies 同时保存到两个磁盘：
+    // DiskA 的文件树只有 Movies，缺少 Anime，因此是无效匹配；
+    // DiskB 的文件树有 Movies -> Anime，因此仍然是有效匹配。
+    //
+    // 期望：
+    // 更新声明时只移除 DiskA 那一份无效关系；
+    // DiskB 上的声明和仓库节点中的 DiskB 保存记录都要保留。
     [Fact]
     public void UpdateAffectedFileNodesDeclaration_RemovesOnlyAffectedDiskWhenFilePathsMatch()
     {

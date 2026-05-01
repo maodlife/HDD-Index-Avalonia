@@ -4,8 +4,19 @@ using HDD_Index.ViewModels;
 
 namespace HDD_Index.Tests;
 
+// 这个文件测试 RepoTreeEditor 对“仓库树”的编辑行为。
+// 重点不是界面按钮本身，而是按钮背后会调用的业务逻辑：
+// 新建节点时如何命名、如何加入模型和 ViewModel、如何同步到对应的文件树声明。
 public class RepoTreeEditorTests
 {
+    // 场景：
+    // 1. 仓库根节点 Root 下面已经有一个“新建文件夹”。
+    // 2. 文件树 Disk 下面有一个同名候选节点“新建文件夹 (1)”。
+    // 3. Root 已经保存到 DiskA 的 Disk 根节点，因此新建子文件夹时可以尝试匹配文件树中的同名节点。
+    //
+    // 期望：
+    // 新建出的仓库节点名为“新建文件夹 (1)”，被加入 Root.Children；
+    // 同时它会记录一条 DiskA 的 SaveFileNodeData，文件树对应节点也会声明自己关联到这个仓库节点。
     [Fact]
     public void CreateChildFolder_AddsUniqueFolderAndEstablishesMatchingSaveData()
     {
@@ -37,6 +48,8 @@ public class RepoTreeEditorTests
         Assert.Equal(createdVm.RepoNode.GetPath(), ((FileNode)fileRoot.Children[0]).DeclareRepoNodeDatas[0].RepoNodePath);
     }
 
+    // 场景：Root 下面已经有 Movies 和 Books，尝试把 Movies 重命名成 Books。
+    // 期望：重命名失败，返回 false，并且原节点名字仍然保持 Movies。
     [Fact]
     public void RenameRepoNode_ReturnsFalseWhenSiblingNameConflicts()
     {

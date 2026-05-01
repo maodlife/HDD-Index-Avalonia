@@ -3,8 +3,12 @@ using HDD_Index.ViewModels;
 
 namespace HDD_Index.Tests;
 
+// 这个文件测试 TreeNavigationService 的“路径处理”和“按路径找树节点”能力。
+// 所有数据都在内存里手工构造，不依赖真实磁盘文件，也不启动 Avalonia 界面。
 public class TreeNavigationServiceTests
 {
+    // 场景：路径本身刚好等于旧前缀。
+    // 期望：整个路径被替换为新前缀。
     [Fact]
     public void ReplacePathPrefix_ReplacesExactPath()
     {
@@ -16,6 +20,8 @@ public class TreeNavigationServiceTests
         Assert.Equal("Root/Films", result);
     }
 
+    // 场景：路径是旧前缀下面的子路径。
+    // 期望：只替换前缀部分，后面的子路径 /Anime 保持不变。
     [Fact]
     public void ReplacePathPrefix_ReplacesDescendantPath()
     {
@@ -27,6 +33,8 @@ public class TreeNavigationServiceTests
         Assert.Equal("Root/Films/Anime", result);
     }
 
+    // 场景：路径开头文字相似，但不是同一个路径段，比如 MoviesArchive 不是 Movies 的子节点。
+    // 期望：不能误替换，原路径保持不变。
     [Fact]
     public void ReplacePathPrefix_DoesNotReplacePartialSegment()
     {
@@ -38,6 +46,8 @@ public class TreeNavigationServiceTests
         Assert.Equal("Root/MoviesArchive/Anime", result);
     }
 
+    // 场景：构造一棵 Repo 树 Root -> Books -> SciFi，并把它转换成 RepoNodeVM。
+    // 期望：按路径 Root/Books/SciFi 能找到 SciFi 节点，同时返回它在树中的索引路径 [0, 1, 0]。
     [Fact]
     public void FindRepoNodeVmByPath_ReturnsNodeAndIndexPath()
     {
