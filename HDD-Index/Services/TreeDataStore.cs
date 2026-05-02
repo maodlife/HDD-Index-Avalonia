@@ -64,9 +64,10 @@ public class TreeDataStore
 
     public FileDataVMBundle CreateFileDataVmBundleFromPath(
         string diskLabel,
-        string path)
+        string path,
+        string jsonFilePath)
     {
-        return FileDataVMBundle.CreateByPath(diskLabel, path);
+        return FileDataVMBundle.CreateByPath(diskLabel, path, jsonFilePath);
     }
 
     public string GetRepoFilePath(AppConfig appConfig)

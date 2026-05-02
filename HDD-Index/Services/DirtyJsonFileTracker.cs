@@ -8,9 +8,15 @@ public class DirtyJsonFileTracker
 {
     private readonly Dictionary<string, string> _filePathsByDiskLabel = new();
     private readonly HashSet<string> _dirtyFilePaths = new(StringComparer.OrdinalIgnoreCase);
+    private string _appConfigPath = string.Empty;
     private string _repoFilePath = string.Empty;
 
     public bool HasDirtyFiles => _dirtyFilePaths.Count > 0;
+
+    public void SetAppConfigPath(string appConfigPath)
+    {
+        _appConfigPath = appConfigPath;
+    }
 
     public void SetRepoFilePath(string repoFilePath)
     {
@@ -26,6 +32,12 @@ public class DirtyJsonFileTracker
         }
 
         _filePathsByDiskLabel[diskLabel] = jsonFilePath;
+    }
+
+    public void MarkAppConfigDirty()
+    {
+        if (!string.IsNullOrWhiteSpace(_appConfigPath))
+            _dirtyFilePaths.Add(_appConfigPath);
     }
 
     public void MarkRepoDirty()

@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
@@ -28,19 +29,22 @@ public class FileDataVMBundle
         return bundle;
     }
     
-    public static FileDataVMBundle CreateByPath(string diskLabel, string path)
+    public static FileDataVMBundle CreateByPath(
+        string diskLabel,
+        string path,
+        string jsonFilePath)
     {
         var bundle = new FileDataVMBundle();
         bundle.FileData = new FileData();
         bundle.FileData.DiskLabel = diskLabel;
         bundle.FileData.LocalFolderPath = path;
-        bundle.FileData.JsonFilePath = string.Empty;
+        bundle.FileData.JsonFilePath = jsonFilePath;
         var root = FileNode.CreateByPath(path);
-        if (root != null)
-        {
-            bundle.FileData.FileNodeRoot = root;
-            bundle.FileNodeVm = FileNodeVM.Create(bundle.FileData.FileNodeRoot);
-        }
+        if (root == null)
+            throw new InvalidOperationException($"无法创建文件树: {path}");
+
+        bundle.FileData.FileNodeRoot = root;
+        bundle.FileNodeVm = FileNodeVM.Create(bundle.FileData.FileNodeRoot);
         return bundle;
     }
 }

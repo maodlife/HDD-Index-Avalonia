@@ -36,14 +36,14 @@ public class FolderSelectDialogViewModel : ViewModelBase
     {
         get;
         set;
-    }
+    } = string.Empty;
 
     [Reactive]
     public string TagText
     {
         get;
         set;
-    }
+    } = string.Empty;
 
     public bool CanConfirm =>
         !string.IsNullOrWhiteSpace(SelectedPath)
@@ -56,6 +56,8 @@ public class FolderSelectDialogViewModel : ViewModelBase
     {
         SelectFolderCommand = new AsyncRelayCommand(SelectFolderAsync);
         ConfirmCommand = new RelayCommand(Confirm);
+        this.WhenAnyValue(x => x.SelectedPath, x => x.TagText)
+            .Subscribe(_ => this.RaisePropertyChanged(nameof(CanConfirm)));
     }
     
     private async Task SelectFolderAsync()
@@ -65,10 +67,13 @@ public class FolderSelectDialogViewModel : ViewModelBase
             Title = "选择文件夹",
         };
 
-        var mainWindow =
+        var owner = Window ??
             (Application.Current?.ApplicationLifetime as
                 IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-        var result = await dialog.ShowAsync(mainWindow);
+        if (owner == null)
+            return;
+
+        var result = await dialog.ShowAsync(owner);
         if (!string.IsNullOrEmpty(result))
         {
             var path = result.TrimEnd(
@@ -80,7 +85,12 @@ public class FolderSelectDialogViewModel : ViewModelBase
 
     private void Confirm()
     {
-        var ret = new ValueTuple<string, string>(SelectedPath, TagText);
+        if (!CanConfirm)
+            return;
+
+        var ret = new ValueTuple<string, string>(
+            SelectedPath.Trim(),
+            TagText.Trim());
 
         this.Window?.Close(ret);
     }

@@ -62,6 +62,7 @@ public class MainWindowViewModel : ViewModelBase
 
     private void InitDirtyTracker()
     {
+        _dirtyJsonFileTracker.SetAppConfigPath(_appConfigService.GetDefaultConfigPath());
         _dirtyJsonFileTracker.SetRepoFilePath(_treeDataStore.GetRepoFilePath(_appConfig));
         foreach (var bundle in FileBrowser.FileDataVmBundles)
         {
@@ -473,6 +474,11 @@ public class MainWindowViewModel : ViewModelBase
         var dirtySet = new HashSet<string>(
             dirtyFilePaths,
             StringComparer.OrdinalIgnoreCase);
+        var appConfigPath = _appConfigService.GetDefaultConfigPath();
+        var isAppConfigDirty = dirtySet.Contains(appConfigPath);
+        if (isAppConfigDirty)
+            _appConfigService.SaveDefault(_appConfig);
+
         if (dirtySet.Contains(_treeDataStore.GetRepoFilePath(_appConfig)))
             _treeDataStore.SaveRepoRoot(_appConfig, RepoBrowser.RepoNodeRoot);
 
@@ -482,6 +488,9 @@ public class MainWindowViewModel : ViewModelBase
             if (dirtySet.Contains(jsonFilePath))
                 _treeDataStore.SaveFileDataBundle(bundle);
         }
+
+        if (isAppConfigDirty)
+            _appConfig.IsDirty = false;
     }
 
     private void MarkRepoAndFileDirty(string diskLabel)
@@ -506,6 +515,14 @@ public class MainWindowViewModel : ViewModelBase
 
     private void MarkFileDirty(string diskLabel)
     {
+        _dirtyJsonFileTracker.MarkFileDirty(diskLabel);
+        RefreshHasDirtyFiles();
+    }
+
+    private void MarkAppConfigAndFileDirty(string diskLabel)
+    {
+        _appConfig.IsDirty = true;
+        _dirtyJsonFileTracker.MarkAppConfigDirty();
         _dirtyJsonFileTracker.MarkFileDirty(diskLabel);
         RefreshHasDirtyFiles();
     }
@@ -646,17 +663,85 @@ public class MainWindowViewModel : ViewModelBase
             Height = 150,
         };
 
-        var result = await dialog.ShowDialog<(string? path, string? tag)?>(GetMainWindow());
+        var owner = GetMainWindow();
+        if (owner == null)
+            return;
+
+        var result = await dialog.ShowDialog<(string? path, string? tag)?>(owner);
         if (result is not { path: not null, tag: not null })
             return;
 
-        Console.WriteLine($"选中的文件夹: {result?.path}");
-        Console.WriteLine($"填写的标签: {result?.tag}");
+        var selectedPath = result.Value.path.Trim();
+        var tag = result.Value.tag.Trim();
+        if (string.IsNullOrWhiteSpace(selectedPath)
+            || string.IsNullOrWhiteSpace(tag))
+        {
+            await ShowMessageAsync("请选择文件夹并填写标签。");
+            return;
+        }
+
+        if (!Directory.Exists(selectedPath))
+        {
+            await ShowMessageAsync($"选择的文件夹不存在：{selectedPath}");
+            return;
+        }
+
+        if (tag.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            await ShowMessageAsync("标签包含不能用于文件名的字符，请修改标签。");
+            return;
+        }
+
+        var relativeJsonFilePath = $"{tag}.json";
+        var jsonFilePath = Path.Combine(_appConfig.JsonFilePath, relativeJsonFilePath);
+        if (FileBrowser.FileDataVmBundles.Any(x =>
+                string.Equals(x.FileData.DiskLabel, tag, StringComparison.OrdinalIgnoreCase)))
+        {
+            await ShowMessageAsync($"已存在标签为 {tag} 的文件树，请修改标签。");
+            return;
+        }
+
+        if (File.Exists(jsonFilePath))
+        {
+            await ShowMessageAsync($"文件树 JSON 已存在：{jsonFilePath}");
+            return;
+        }
+
+        Console.WriteLine($"选中的文件夹: {selectedPath}");
+        Console.WriteLine($"填写的标签: {tag}");
 
         var bundle = _treeDataStore.CreateFileDataVmBundleFromPath(
-            result?.tag ?? string.Empty,
-            result?.path ?? string.Empty);
+            tag,
+            selectedPath,
+            jsonFilePath);
+        EnsureAppConfigFileDataFilesInitialized();
         FileBrowser.AddBundle(bundle);
+        _appConfig.FileDataFiles.Add(new FileDataFileConfig
+        {
+            JsonFilePath = relativeJsonFilePath,
+            LocalFolderPath = selectedPath
+        });
+        _dirtyJsonFileTracker.SetFileNodePath(tag, jsonFilePath);
+        MarkAppConfigAndFileDirty(tag);
+    }
+
+    private void EnsureAppConfigFileDataFilesInitialized()
+    {
+        if (_appConfig.FileDataFiles.Count > 0)
+            return;
+
+        foreach (var bundle in FileBrowser.FileDataVmBundles)
+        {
+            var jsonFilePath = bundle.FileData.JsonFilePath;
+            if (string.IsNullOrWhiteSpace(jsonFilePath))
+                continue;
+
+            _appConfig.FileDataFiles.Add(new FileDataFileConfig
+            {
+                JsonFilePath = Path.GetRelativePath(_appConfig.JsonFilePath, jsonFilePath),
+                LocalFolderPath = bundle.FileData.LocalFolderPath
+            });
+        }
     }
 
     public void ShowRepoNode()
