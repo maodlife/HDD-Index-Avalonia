@@ -24,6 +24,7 @@ public class MainWindowViewModel : ViewModelBase
 {
     private readonly AppConfigService _appConfigService = new();
     private readonly TreeDataStore _treeDataStore = new();
+    private readonly DirtyJsonFileTracker _dirtyJsonFileTracker = new();
     private readonly DeclarationSyncService _declarationSyncService;
     private readonly RepoTreeEditor _repoTreeEditor;
     private readonly AppConfig _appConfig;
@@ -33,9 +34,11 @@ public class MainWindowViewModel : ViewModelBase
     public RepositoryEditorViewModel RepositoryEditor { get; }
 
     [Reactive] public int ViewModeTabIndex { get; set; }
+    [Reactive] public bool HasDirtyFiles { get; set; }
 
     public bool IsViewMode => ViewModeTabIndex == 0;
     public bool IsEditMode => ViewModeTabIndex == 1;
+    public ReactiveCommand<Unit, Unit> SaveCommand { get; private set; } = null!;
 
     public MainWindowViewModel()
     {
@@ -43,9 +46,10 @@ public class MainWindowViewModel : ViewModelBase
 
         var repoNodeRoot = _treeDataStore.LoadRepoRoot(_appConfig);
         RepoBrowser = new RepoBrowserViewModel(repoNodeRoot);
-        FileBrowser = new FileBrowserViewModel(
-            _treeDataStore.LoadFileDataVmBundles(_appConfig));
+        var fileDataVmBundles = _treeDataStore.LoadFileDataVmBundles(_appConfig);
+        FileBrowser = new FileBrowserViewModel(fileDataVmBundles);
         RepositoryEditor = new RepositoryEditorViewModel();
+        InitDirtyTracker();
 
         _declarationSyncService = new DeclarationSyncService(
             RepoBrowser.RepoNodeRoot,
@@ -56,8 +60,23 @@ public class MainWindowViewModel : ViewModelBase
         InitCommand();
     }
 
+    private void InitDirtyTracker()
+    {
+        _dirtyJsonFileTracker.SetRepoFilePath(_treeDataStore.GetRepoFilePath(_appConfig));
+        foreach (var bundle in FileBrowser.FileDataVmBundles)
+        {
+            _dirtyJsonFileTracker.SetFileNodePath(
+                bundle.FileData.DiskLabel,
+                bundle.FileData.JsonFilePath);
+        }
+    }
+
     private void InitCommand()
     {
+        SaveCommand = ReactiveCommand.CreateFromTask(
+            async () => { await SaveDirtyFilesAsync(); },
+            this.WhenAnyValue(x => x.HasDirtyFiles));
+
         RepoBrowser.RepoNodePathStringChangeCommand =
             ReactiveCommand.Create<string>(OnRepoNodePathChange);
         RepoBrowser.WhenAnyValue(x => x.RepoNodePathString)
@@ -270,6 +289,7 @@ public class MainWindowViewModel : ViewModelBase
         }
 
         RepoBrowser.UpdateCurrentRepoNode(repoNode);
+        MarkRepoAndFileDirty(diskLabel);
     }
 
     private async Task AbandonDeclareHoldingAsync(object nodeVM)
@@ -309,6 +329,7 @@ public class MainWindowViewModel : ViewModelBase
             fileNodeVM.FileNode,
             diskLabel,
             selectedRepoNodePaths);
+        MarkRepoAndFileDirty(diskLabel);
 
         var currentRepoNode = RepoBrowser.RepoNodeSource.RowSelection
             ?.SelectedItem
@@ -359,6 +380,9 @@ public class MainWindowViewModel : ViewModelBase
             selectedStrategy.StrategyType,
             failures);
         RepoBrowser.UpdateCurrentRepoNode(repoNode);
+        MarkRepoDirty();
+        foreach (var diskLabel in failures.Select(x => x.DiskLabel).Distinct())
+            MarkFileDirty(diskLabel);
     }
 
     private void CreateChildFolder(object nodeVM)
@@ -368,6 +392,7 @@ public class MainWindowViewModel : ViewModelBase
 
         var createdVm = _repoTreeEditor.CreateChildFolder(repoNodeVM);
         Debug.WriteLine($"CreateChildFolder: {createdVm.RepoNode.GetPath()}");
+        MarkRepoAndAllFilesDirty();
     }
 
     private async Task RenameRepoNodeAsync(object nodeVM)
@@ -387,7 +412,10 @@ public class MainWindowViewModel : ViewModelBase
             return;
 
         if (_repoTreeEditor.RenameRepoNode(repoNodeVM, result))
+        {
             RepoBrowser.RepoNodePathString = repoNodeVM.RepoNode.GetPath();
+            MarkRepoAndAllFilesDirty();
+        }
     }
 
     private async Task DeleteRepoNodeAsync(object nodeVM)
@@ -406,10 +434,85 @@ public class MainWindowViewModel : ViewModelBase
         if (!result)
             return;
 
-        _repoTreeEditor.DeleteRepoNode(
+        if (_repoTreeEditor.DeleteRepoNode(
             repoNodeVM,
             RepoBrowser.RepoNodeRoot,
-            RepoBrowser.RepoNodeVm);
+            RepoBrowser.RepoNodeVm))
+        {
+            MarkRepoAndAllFilesDirty();
+        }
+    }
+
+    public IReadOnlyList<string> GetDirtyJsonFilePaths()
+    {
+        return _dirtyJsonFileTracker.GetDirtyFilePaths();
+    }
+
+    public async Task<bool> SaveDirtyFilesAsync()
+    {
+        var dirtyFilePaths = _dirtyJsonFileTracker.GetDirtyFilePaths();
+        if (dirtyFilePaths.Count == 0)
+            return true;
+
+        try
+        {
+            SaveDirtyJsonFiles(dirtyFilePaths);
+            _dirtyJsonFileTracker.ClearDirtyFiles(dirtyFilePaths);
+            RefreshHasDirtyFiles();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await ShowMessageAsync($"保存 JSON 文件失败：{ex.Message}");
+            return false;
+        }
+    }
+
+    private void SaveDirtyJsonFiles(IReadOnlyList<string> dirtyFilePaths)
+    {
+        var dirtySet = new HashSet<string>(
+            dirtyFilePaths,
+            StringComparer.OrdinalIgnoreCase);
+        if (dirtySet.Contains(_treeDataStore.GetRepoFilePath(_appConfig)))
+            _treeDataStore.SaveRepoRoot(_appConfig, RepoBrowser.RepoNodeRoot);
+
+        foreach (var bundle in FileBrowser.FileDataVmBundles)
+        {
+            var jsonFilePath = bundle.FileData.JsonFilePath;
+            if (dirtySet.Contains(jsonFilePath))
+                _treeDataStore.SaveFileDataBundle(bundle);
+        }
+    }
+
+    private void MarkRepoAndFileDirty(string diskLabel)
+    {
+        _dirtyJsonFileTracker.MarkRepoDirty();
+        _dirtyJsonFileTracker.MarkFileDirty(diskLabel);
+        RefreshHasDirtyFiles();
+    }
+
+    private void MarkRepoAndAllFilesDirty()
+    {
+        _dirtyJsonFileTracker.MarkRepoDirty();
+        _dirtyJsonFileTracker.MarkAllFileNodesDirty();
+        RefreshHasDirtyFiles();
+    }
+
+    private void MarkRepoDirty()
+    {
+        _dirtyJsonFileTracker.MarkRepoDirty();
+        RefreshHasDirtyFiles();
+    }
+
+    private void MarkFileDirty(string diskLabel)
+    {
+        _dirtyJsonFileTracker.MarkFileDirty(diskLabel);
+        RefreshHasDirtyFiles();
+    }
+
+    private void RefreshHasDirtyFiles()
+    {
+        HasDirtyFiles = _dirtyJsonFileTracker.HasDirtyFiles;
     }
 
     private bool CheckRepoNodeAndFileNodeIsSync()

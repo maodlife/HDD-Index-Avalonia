@@ -77,7 +77,9 @@
                     <NativeMenu>
                         <NativeMenuItem Header="New File Tree"
                                         Command="{Binding OpenCreateNewFileTreeDialog}"/>
-                        <NativeMenuItem Header="Save All to Json Files" />
+                        <NativeMenuItem Header="保存"
+                                        Command="{Binding SaveCommand}"
+                                        IsEnabled="{Binding HasDirtyFiles}" />
                     </NativeMenu>
                 </NativeMenuItem.Menu>
             </NativeMenuItem>

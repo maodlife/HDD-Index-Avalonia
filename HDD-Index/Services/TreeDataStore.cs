@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 using HDD_Index.Models;
 using HDD_Index.ViewModels;
 
@@ -8,11 +9,14 @@ namespace HDD_Index.Services;
 
 public class TreeDataStore
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true
+    };
+
     public RepoNode LoadRepoRoot(AppConfig appConfig)
     {
-        var repoNodeFilePath = Path.Combine(
-            appConfig.JsonFilePath,
-            appConfig.RepoFileName);
+        var repoNodeFilePath = GetRepoFilePath(appConfig);
         var json = File.ReadAllText(repoNodeFilePath);
         var root = RepoNode.CreateByJson(json);
         if (root == null)
@@ -63,15 +67,43 @@ public class TreeDataStore
         return FileDataVMBundle.CreateByPath(diskLabel, path);
     }
 
+    public string GetRepoFilePath(AppConfig appConfig)
+    {
+        return Path.Combine(
+            appConfig.JsonFilePath,
+            appConfig.RepoFileName);
+    }
+
+    public void SaveRepoRoot(AppConfig appConfig, RepoNode repoNodeRoot)
+    {
+        var json = JsonSerializer.Serialize(repoNodeRoot, JsonOptions);
+        File.WriteAllText(GetRepoFilePath(appConfig), json);
+    }
+
+    public void SaveFileDataBundle(FileDataVMBundle bundle)
+    {
+        var jsonFilePath = bundle.FileData.JsonFilePath;
+        if (string.IsNullOrWhiteSpace(jsonFilePath))
+            throw new InvalidOperationException(
+                $"无法保存磁盘 {bundle.FileData.DiskLabel}: 缺少 JSON 文件路径。");
+
+        var json = JsonSerializer.Serialize(
+            bundle.FileData.FileNodeRoot,
+            JsonOptions);
+        File.WriteAllText(jsonFilePath, json);
+    }
+
     private static FileDataVMBundle CreateFileDataVmBundle(
         string file,
         string localFolderPath = "")
     {
         var json = File.ReadAllText(file);
-        return FileDataVMBundle.Create(
+        var bundle = FileDataVMBundle.Create(
             Path.GetFileNameWithoutExtension(file),
             json,
             localFolderPath);
+        bundle.FileData.JsonFilePath = file;
+        return bundle;
     }
 
     private static void SortByDiskLabel(List<FileDataVMBundle> bundles)

@@ -34,6 +34,7 @@ public class FileDataVMBundle
         bundle.FileData = new FileData();
         bundle.FileData.DiskLabel = diskLabel;
         bundle.FileData.LocalFolderPath = path;
+        bundle.FileData.JsonFilePath = string.Empty;
         var root = FileNode.CreateByPath(path);
         if (root != null)
         {
