@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using HDD_Index.Models;
 using HDD_Index.ViewModels;
@@ -11,7 +12,8 @@ public class TreeDataStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     public RepoNode LoadRepoRoot(AppConfig appConfig)
