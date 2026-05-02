@@ -8,7 +8,7 @@ using ReactiveUI.Fody.Helpers;
 
 namespace HDD_Index.ViewModels;
 
-public class    HoldingDialogViewModel : ViewModelBase
+public class AbandonDeclareHoldingDialogViewModel : ViewModelBase
 {
     public Window? Window { get; set; }
 
