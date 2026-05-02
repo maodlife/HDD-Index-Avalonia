@@ -129,6 +129,8 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.Create(OpenCurrentFileDataFolder);
         RepositoryEditor.OpenFileNodeInFolderCommand =
             ReactiveCommand.Create<object>(OpenFileNodeInFolder);
+        RepositoryEditor.RefreshFileNodeFromLocalFolderCommand =
+            ReactiveCommand.CreateFromTask<object>(RefreshFileNodeFromLocalFolderAsync);
     }
 
     private void ChangeDiskLabel(string diskLabel)
@@ -371,7 +373,8 @@ public class MainWindowViewModel : ViewModelBase
         if (failures.Count > 0)
         {
             var confirmed = await ShowConfirmAsync(
-                BuildInvalidDeclareHoldingMessage(failures));
+                BuildInvalidDeclareHoldingMessage(failures),
+                "确认修改声明持有策略");
             if (!confirmed)
                 return;
         }
@@ -606,6 +609,66 @@ public class MainWindowViewModel : ViewModelBase
         OpenPathInExplorer(localPath, fileNodeVM.FileNode.Parent == null);
     }
 
+    private async Task RefreshFileNodeFromLocalFolderAsync(object nodeVM)
+    {
+        if (nodeVM is not FileNodeVM { IsDirectory: true } fileNodeVM)
+            return;
+
+        var diskLabel = FileBrowser.SelectedDiskLabel;
+        if (string.IsNullOrWhiteSpace(diskLabel))
+            return;
+
+        var localPath = GetLocalPath(fileNodeVM.FileNode);
+        if (string.IsNullOrWhiteSpace(localPath) || !Directory.Exists(localPath))
+        {
+            await ShowMessageAsync("对应的本地文件夹不存在，无法刷新。");
+            return;
+        }
+
+        var scannedFileNode = FileNode.CreateByPath(localPath);
+        if (scannedFileNode == null)
+        {
+            await ShowMessageAsync("读取本地文件夹失败。");
+            return;
+        }
+
+        var refreshedFileNode = _declarationSyncService.BuildRefreshedFileNodeSubtree(
+            fileNodeVM.FileNode,
+            scannedFileNode);
+        var failures = _declarationSyncService
+            .GetInvalidDeclareHoldingsAfterRefresh(
+                diskLabel,
+                fileNodeVM.FileNode,
+                refreshedFileNode);
+
+        if (failures.Count > 0)
+        {
+            var confirmed = await ShowConfirmAsync(
+                BuildRefreshInvalidDeclareHoldingMessage(failures),
+                "确认刷新文件树");
+            if (!confirmed)
+                return;
+        }
+
+        _declarationSyncService.ApplyFileNodeRefresh(
+            diskLabel,
+            fileNodeVM.FileNode,
+            fileNodeVM,
+            refreshedFileNode,
+            failures);
+
+        var currentRepoNode = RepoBrowser.RepoNodeSource.RowSelection
+            ?.SelectedItem
+            ?.RepoNode;
+        if (currentRepoNode != null)
+            RepoBrowser.UpdateCurrentRepoNode(currentRepoNode);
+
+        if (failures.Count > 0)
+            MarkRepoAndFileDirty(diskLabel);
+        else
+            MarkFileDirty(diskLabel);
+    }
+
     private string? GetLocalPath(FileNode fileNode)
     {
         var localFolderPath = FileBrowser.CurrentFileData?.LocalFolderPath;
@@ -771,7 +834,9 @@ public class MainWindowViewModel : ViewModelBase
         await dialog.ShowDialog(owner);
     }
 
-    private static async Task<bool> ShowConfirmAsync(string message)
+    private static async Task<bool> ShowConfirmAsync(
+        string message,
+        string title = "确认")
     {
         var owner = GetMainWindow();
         if (owner == null)
@@ -779,7 +844,7 @@ public class MainWindowViewModel : ViewModelBase
 
         var dialog = new ConfirmMessageDialog(message)
         {
-            Title = "确认修改声明持有策略",
+            Title = title,
             Width = 520,
             Height = 260,
         };
@@ -798,6 +863,27 @@ public class MainWindowViewModel : ViewModelBase
         {
             builder.AppendLine(
                 $"- [{failure.DiskLabel}] {failure.FileNodePath}");
+            if (!string.IsNullOrWhiteSpace(failure.FailureReason))
+                builder.AppendLine($"  {failure.FailureReason}");
+        }
+
+        return builder.ToString();
+    }
+
+    private static string BuildRefreshInvalidDeclareHoldingMessage(
+        IReadOnlyList<DeclareHoldingValidationFailure> failures)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("刷新后以下声明持有关系将不再成立。");
+        builder.AppendLine("点击确定会应用刷新并删除这些不通过的声明持有关系，点击取消则不做修改。");
+        builder.AppendLine();
+
+        foreach (var failure in failures)
+        {
+            builder.AppendLine(
+                $"- [{failure.DiskLabel}] {failure.FileNodePath}");
+            if (!string.IsNullOrWhiteSpace(failure.RepoNodePath))
+                builder.AppendLine($"  Repo: {failure.RepoNodePath}");
             if (!string.IsNullOrWhiteSpace(failure.FailureReason))
                 builder.AppendLine($"  {failure.FailureReason}");
         }

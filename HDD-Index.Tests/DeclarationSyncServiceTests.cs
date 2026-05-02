@@ -489,6 +489,115 @@ public class DeclarationSyncServiceTests
         Assert.Single(validBundle.FileNodeVm.Children[0].DeclareRepoNodeDatas);
     }
 
+    [Fact]
+    public void ApplyFileNodeRefresh_PreservesDeclarationWhenRefreshedSubtreeStillMatches()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo(
+                "Movies",
+                TestTreeFactory.RepoFile("movie.mkv")));
+        var repoNode = (RepoNode)repoRoot.Children[0];
+        var fileRoot = TestTreeFactory.File(
+            "Disk",
+            TestTreeFactory.File("Movies", TestTreeFactory.DiskFile("old.mkv")));
+        var fileNode = (FileNode)fileRoot.Children[0];
+        fileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = repoNode.GetPath()
+        });
+        repoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "DiskA",
+            FileNodePath = fileNode.GetPath()
+        });
+        var bundle = TestTreeFactory.Bundle("DiskA", fileRoot);
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var service = new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle> { bundle });
+        var scannedFileNode = TestTreeFactory.File(
+            "Movies",
+            TestTreeFactory.DiskFile("movie.mkv"),
+            TestTreeFactory.DiskFile("poster.jpg"));
+
+        var refreshedFileNode = service.BuildRefreshedFileNodeSubtree(
+            fileNode,
+            scannedFileNode);
+        var failures = service.GetInvalidDeclareHoldingsAfterRefresh(
+            "DiskA",
+            fileNode,
+            refreshedFileNode);
+        service.ApplyFileNodeRefresh(
+            "DiskA",
+            fileNode,
+            (FileNodeVM)bundle.FileNodeVm.Children[0],
+            refreshedFileNode,
+            failures);
+
+        Assert.Empty(failures);
+        Assert.Equal(new[] { "movie.mkv", "poster.jpg" },
+            fileNode.Children.OfType<FileNode>().Select(x => x.Name));
+        Assert.Single(fileNode.DeclareRepoNodeDatas);
+        Assert.Single(((FileNodeVM)bundle.FileNodeVm.Children[0]).DeclareRepoNodeDatas);
+        Assert.Single(repoNode.SaveFileNodeDatas);
+    }
+
+    [Fact]
+    public void ApplyFileNodeRefresh_RemovesInvalidBidirectionalDeclarationData()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo(
+                "Movies",
+                TestTreeFactory.RepoFile("movie.mkv")));
+        var repoNode = (RepoNode)repoRoot.Children[0];
+        var fileRoot = TestTreeFactory.File(
+            "Disk",
+            TestTreeFactory.File(
+                "Movies",
+                TestTreeFactory.DiskFile("movie.mkv")));
+        var fileNode = (FileNode)fileRoot.Children[0];
+        fileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = repoNode.GetPath()
+        });
+        repoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "DiskA",
+            FileNodePath = fileNode.GetPath()
+        });
+        var bundle = TestTreeFactory.Bundle("DiskA", fileRoot);
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var service = new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle> { bundle });
+        var scannedFileNode = TestTreeFactory.File("Movies");
+
+        var refreshedFileNode = service.BuildRefreshedFileNodeSubtree(
+            fileNode,
+            scannedFileNode);
+        var failures = service.GetInvalidDeclareHoldingsAfterRefresh(
+            "DiskA",
+            fileNode,
+            refreshedFileNode);
+        service.ApplyFileNodeRefresh(
+            "DiskA",
+            fileNode,
+            (FileNodeVM)bundle.FileNodeVm.Children[0],
+            refreshedFileNode,
+            failures);
+
+        Assert.Single(failures);
+        Assert.Empty(fileNode.Children);
+        Assert.Empty(fileNode.DeclareRepoNodeDatas);
+        Assert.Empty(((FileNodeVM)bundle.FileNodeVm.Children[0]).DeclareRepoNodeDatas);
+        Assert.Empty(repoNode.SaveFileNodeDatas);
+        Assert.Empty(((RepoNodeVM)repoRootVm.Children[0]).SaveFileNodeDatas);
+    }
+
     private static (
         RepoNode RepoNode,
         RepoNodeVM RepoNodeVm,

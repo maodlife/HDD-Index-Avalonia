@@ -168,6 +168,152 @@ public class DeclarationSyncService
         repoNodeVm?.RefreshDeclareHoldingStrategyName();
     }
 
+    public FileNode BuildRefreshedFileNodeSubtree(
+        FileNode currentFileNode,
+        FileNode scannedFileNode)
+    {
+        var refreshedFileNode = BuildRefreshedFileNodeSubtree(
+            currentFileNode,
+            scannedFileNode,
+            currentFileNode.Parent);
+        refreshedFileNode.Name = currentFileNode.Name;
+        refreshedFileNode.IsDirectory = currentFileNode.IsDirectory;
+        return refreshedFileNode;
+    }
+
+    public IReadOnlyList<DeclareHoldingValidationFailure> GetInvalidDeclareHoldingsAfterRefresh(
+        string diskLabel,
+        FileNode currentFileNode,
+        FileNode refreshedFileNode)
+    {
+        var failures = new List<DeclareHoldingValidationFailure>();
+        var seen = new HashSet<(string RepoPath, string FilePath)>();
+        var currentPath = currentFileNode.GetPath();
+        var currentPathPrefix = currentPath + "/";
+
+        void AddFailure(string repoPath, string filePath, string failureReason)
+        {
+            if (!seen.Add((repoPath, filePath)))
+                return;
+
+            failures.Add(new DeclareHoldingValidationFailure(
+                diskLabel,
+                filePath,
+                failureReason,
+                repoPath));
+        }
+
+        void CheckFileNodeDeclarations(FileNode fileNode)
+        {
+            foreach (var declareData in fileNode.DeclareRepoNodeDatas)
+            {
+                if (string.IsNullOrWhiteSpace(declareData.RepoNodePath))
+                    continue;
+
+                var repoNode = TreeNodeUtils.GetNodeByPathFromRoot(
+                    _repoNodeRoot,
+                    declareData.RepoNodePath) as RepoNode;
+                var filePath = fileNode.GetPath();
+                if (repoNode == null)
+                {
+                    AddFailure(
+                        declareData.RepoNodePath,
+                        filePath,
+                        "找不到对应的 RepoNode。");
+                    continue;
+                }
+
+                if (!TreeNodeUtils.CheckDeclarationStatus(repoNode, fileNode))
+                {
+                    AddFailure(
+                        declareData.RepoNodePath,
+                        filePath,
+                        "刷新后的 FileNode 不再满足声明持有策略。");
+                }
+            }
+
+            foreach (var child in fileNode.Children.OfType<FileNode>())
+                CheckFileNodeDeclarations(child);
+        }
+
+        CheckFileNodeDeclarations(refreshedFileNode);
+
+        foreach (var repoNode in EnumerateRepoNodes(_repoNodeRoot))
+        {
+            var repoPath = repoNode.GetPath();
+            foreach (var saveData in repoNode.SaveFileNodeDatas.ToList())
+            {
+                if (saveData.DiskLabel != diskLabel
+                    || !IsPathInSubtree(saveData.FileNodePath, currentPath, currentPathPrefix))
+                {
+                    continue;
+                }
+
+                var refreshedTarget = FindNodeInRefreshedSubtree(
+                    refreshedFileNode,
+                    currentPath,
+                    saveData.FileNodePath);
+                if (refreshedTarget == null)
+                {
+                    AddFailure(
+                        repoPath,
+                        saveData.FileNodePath,
+                        "刷新后的文件树中找不到对应的 FileNode。");
+                    continue;
+                }
+
+                var hasDeclaration = refreshedTarget.DeclareRepoNodeDatas
+                    .Any(d => d.RepoNodePath == repoPath);
+                if (!hasDeclaration)
+                {
+                    AddFailure(
+                        repoPath,
+                        saveData.FileNodePath,
+                        "刷新后的 FileNode 缺少对应的声明持有数据。");
+                }
+            }
+        }
+
+        return failures;
+    }
+
+    public void ApplyFileNodeRefresh(
+        string diskLabel,
+        FileNode currentFileNode,
+        FileNodeVM currentFileNodeVm,
+        FileNode refreshedFileNode,
+        IEnumerable<DeclareHoldingValidationFailure> failuresToRemove)
+    {
+        currentFileNode.Name = refreshedFileNode.Name;
+        currentFileNode.IsDirectory = refreshedFileNode.IsDirectory;
+        currentFileNode.DeclareRepoNodeDatas = refreshedFileNode.DeclareRepoNodeDatas
+            .Select(x => (DeclareRepoNodeData)x.Clone())
+            .ToList();
+        currentFileNode.Children.Clear();
+        foreach (var child in refreshedFileNode.Children.OfType<FileNode>())
+        {
+            child.Parent = currentFileNode;
+            currentFileNode.Children.Add(child);
+        }
+
+        currentFileNodeVm.Name = currentFileNode.Name;
+        currentFileNodeVm.IsDirectory = currentFileNode.IsDirectory;
+        currentFileNodeVm.FileNode = currentFileNode;
+        currentFileNodeVm.DeclareRepoNodeDatas.Clear();
+        foreach (var declareData in currentFileNode.DeclareRepoNodeDatas)
+        {
+            currentFileNodeVm.DeclareRepoNodeDatas.Add(
+                (DeclareRepoNodeData)declareData.Clone());
+        }
+
+        currentFileNodeVm.Children.Clear();
+        foreach (var child in currentFileNode.Children.OfType<FileNode>())
+            currentFileNodeVm.Children.Add(FileNodeVM.Create(child));
+
+        foreach (var failure in failuresToRemove)
+            RemoveDeclareHolding(failure.RepoNodePath, diskLabel, failure.FileNodePath);
+    }
+
     public void AbandonDeclareHoldings(
         FileNode fileNode,
         string diskLabel,
@@ -355,6 +501,86 @@ public class DeclarationSyncService
         }
     }
 
+    private static FileNode BuildRefreshedFileNodeSubtree(
+        FileNode? currentFileNode,
+        FileNode scannedFileNode,
+        TreeNodeBase? parent)
+    {
+        var refreshedFileNode = new FileNode
+        {
+            Name = scannedFileNode.Name,
+            IsDirectory = scannedFileNode.IsDirectory,
+            Parent = parent,
+            DeclareRepoNodeDatas = currentFileNode?.DeclareRepoNodeDatas
+                .Select(x => (DeclareRepoNodeData)x.Clone())
+                .ToList() ?? new List<DeclareRepoNodeData>()
+        };
+
+        var currentChildrenByName = currentFileNode?.Children
+            .OfType<FileNode>()
+            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase)
+            ?? new Dictionary<string, FileNode>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var scannedChild in scannedFileNode.Children.OfType<FileNode>())
+        {
+            currentChildrenByName.TryGetValue(scannedChild.Name, out var matchingCurrentChild);
+            refreshedFileNode.Children.Add(BuildRefreshedFileNodeSubtree(
+                matchingCurrentChild,
+                scannedChild,
+                refreshedFileNode));
+        }
+
+        return refreshedFileNode;
+    }
+
+    private static bool IsPathInSubtree(
+        string path,
+        string subtreePath,
+        string subtreePathPrefix)
+    {
+        return path == subtreePath
+               || path.StartsWith(subtreePathPrefix, StringComparison.Ordinal);
+    }
+
+    private static FileNode? FindNodeInRefreshedSubtree(
+        FileNode refreshedSubtreeRoot,
+        string refreshedSubtreePath,
+        string targetPath)
+    {
+        if (targetPath == refreshedSubtreePath)
+            return refreshedSubtreeRoot;
+
+        var subtreePathPrefix = refreshedSubtreePath + "/";
+        if (!targetPath.StartsWith(subtreePathPrefix, StringComparison.Ordinal))
+            return null;
+
+        var relativeSegments = targetPath
+            .Substring(subtreePathPrefix.Length)
+            .Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var current = refreshedSubtreeRoot;
+        foreach (var segment in relativeSegments)
+        {
+            current = current.Children
+                .OfType<FileNode>()
+                .FirstOrDefault(x => x.Name == segment);
+            if (current == null)
+                return null;
+        }
+
+        return current;
+    }
+
+    private static IEnumerable<RepoNode> EnumerateRepoNodes(RepoNode root)
+    {
+        yield return root;
+        foreach (var child in root.Children.OfType<RepoNode>())
+        {
+            foreach (var descendant in EnumerateRepoNodes(child))
+                yield return descendant;
+        }
+    }
+
     private void RemoveSaveFileNodeData(
         RepoNode repoNode,
         string diskLabel,
@@ -390,6 +616,29 @@ public class DeclarationSyncService
             fileNode!.DeclareRepoNodeDatas.Remove(declareData);
 
         RemoveSaveFileNodeData(repoNode, diskLabel, fileNodePath);
+        RemoveDeclareDataFromFileNodeVm(diskLabel, fileNodePath, repoPath);
+    }
+
+    private void RemoveDeclareHolding(
+        string repoPath,
+        string diskLabel,
+        string fileNodePath)
+    {
+        if (string.IsNullOrWhiteSpace(repoPath))
+            return;
+
+        var repoNode = TreeNodeUtils.GetNodeByPathFromRoot(
+            _repoNodeRoot,
+            repoPath) as RepoNode;
+        if (repoNode != null)
+            RemoveSaveFileNodeData(repoNode, diskLabel, fileNodePath);
+
+        var fileNode = FindFileNode(diskLabel, fileNodePath);
+        var declareData = fileNode?.DeclareRepoNodeDatas
+            .FirstOrDefault(d => d.RepoNodePath == repoPath);
+        if (declareData != null)
+            fileNode!.DeclareRepoNodeDatas.Remove(declareData);
+
         RemoveDeclareDataFromFileNodeVm(diskLabel, fileNodePath, repoPath);
     }
 
@@ -470,4 +719,5 @@ public class DeclarationSyncService
 public sealed record DeclareHoldingValidationFailure(
     string DiskLabel,
     string FileNodePath,
-    string FailureReason);
+    string FailureReason,
+    string RepoNodePath = "");
