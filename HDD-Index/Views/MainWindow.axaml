@@ -70,24 +70,19 @@
         </ContextMenu>
     </Window.Resources>
 
-    <NativeMenu.Menu>
-        <NativeMenu>
-            <NativeMenuItem Header="_File">
-                <NativeMenuItem.Menu>
-                    <NativeMenu>
-                        <NativeMenuItem Header="New File Tree"
-                                        Command="{Binding OpenCreateNewFileTreeDialog}"/>
-                        <NativeMenuItem Header="保存"
-                                        Command="{Binding SaveCommand}"
-                                        IsEnabled="{Binding HasDirtyFiles}" />
-                    </NativeMenu>
-                </NativeMenuItem.Menu>
-            </NativeMenuItem>
-        </NativeMenu>
-    </NativeMenu.Menu>
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="New File Tree"
+                          Command="{Binding OpenCreateNewFileTreeDialog}" />
+                <MenuItem Header="保存"
+                          Command="{Binding SaveCommand}"
+                          IsEnabled="{Binding HasDirtyFiles}" />
+            </MenuItem>
+        </Menu>
 
-    <TabControl Margin="5"
-                SelectedIndex="{Binding ViewModeTabIndex}">
+        <TabControl Margin="5"
+                    SelectedIndex="{Binding ViewModeTabIndex}">
         <TabItem Header="浏览">
             <TabControl Margin="0">
                 <TabItem Header="Repository">
@@ -204,6 +199,7 @@
                 </Grid>
             </Grid>
         </TabItem>
-    </TabControl>
+        </TabControl>
+    </DockPanel>
 
 </Window>
