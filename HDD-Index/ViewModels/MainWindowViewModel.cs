@@ -95,6 +95,8 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.CreateFromTask<object>(DeleteRepoNodeAsync);
         RepositoryEditor.JumpToCurrSelectSaveFileNodeCommand =
             ReactiveCommand.Create(JumpToCurrSelectSaveFileNode);
+        RepositoryEditor.JumpToDeclareRepoNodeCommand =
+            ReactiveCommand.Create<object>(JumpToDeclareRepoNode);
         RepositoryEditor.OpenCurrentFileDataFolderCommand =
             ReactiveCommand.Create(OpenCurrentFileDataFolder);
         RepositoryEditor.OpenFileNodeInFolderCommand =
@@ -144,6 +146,19 @@ public class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        JumpToDeclareRepoNode(fileNode);
+    }
+
+    private void JumpToDeclareRepoNode(object nodeVM)
+    {
+        if (nodeVM is not FileNodeVM fileNodeVM)
+            return;
+
+        JumpToDeclareRepoNode(fileNodeVM.FileNode);
+    }
+
+    private void JumpToDeclareRepoNode(FileNode fileNode)
+    {
         var repoNodePath = fileNode.DeclareRepoNodeDatas
             .FirstOrDefault()
             ?.RepoNodePath ?? string.Empty;

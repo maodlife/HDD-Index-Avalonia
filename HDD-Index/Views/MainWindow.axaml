@@ -21,6 +21,7 @@
         <vm:NodeTypeToVisibilityConverter x:Key="NodeTypeConverter" />
         <vm:RepoNodeOnlyVisibilityConverter x:Key="RepoNodeOnlyConverter" />
         <vm:FileNodeOnlyVisibilityConverter x:Key="FileNodeOnlyConverter" />
+        <vm:FileNodeCanJumpVisibilityConverter x:Key="FileNodeCanJumpConverter" />
         <ContextMenu x:Key="NodeContextMenu">
             <MenuItem Header="输出路径到日志"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.LogNodePathCommand}"
@@ -31,6 +32,11 @@
                       IsEnabled="{Binding $parent[Window].DataContext.FileBrowser.HasCurrentLocalFolderPath}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource FileNodeOnlyConverter}}" />
+            <MenuItem Header="跳转"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.JumpToDeclareRepoNodeCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
+                                  Converter={StaticResource FileNodeCanJumpConverter}}" />
             <MenuItem Header="创建子文件夹"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.CreateChildFolderCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
