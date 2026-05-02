@@ -93,6 +93,24 @@ public class RepoTreeEditor
         return true;
     }
 
+    public RepoNodeVM? CopyFileNodeSubtreeToRepoDirectory(
+        RepoNodeVM targetParentVm,
+        FileNode sourceFileNode)
+    {
+        if (!targetParentVm.RepoNode.IsDirectory
+            || HasChildNameConflict(targetParentVm.RepoNode, sourceFileNode.Name))
+        {
+            return null;
+        }
+
+        var copiedNode = CopyFileNodeToRepoNode(sourceFileNode, targetParentVm.RepoNode);
+        targetParentVm.RepoNode.Children.Add(copiedNode);
+
+        var copiedVm = RepoNodeVM.Create(copiedNode);
+        targetParentVm.Children.Add(copiedVm);
+        return copiedVm;
+    }
+
     private static string CreateUniqueChildFolderName(RepoNodeVM parentVm)
     {
         const string baseName = "新建文件夹";
@@ -117,6 +135,33 @@ public class RepoTreeEditor
             .OfType<RepoNode>()
             .Any(x => !ReferenceEquals(x, current)
                       && string.Equals(x.Name, newName, StringComparison.Ordinal));
+    }
+
+    private static bool HasChildNameConflict(RepoNode parent, string childName)
+    {
+        return parent.Children
+            .OfType<RepoNode>()
+            .Any(x => string.Equals(x.Name, childName, StringComparison.Ordinal));
+    }
+
+    private static RepoNode CopyFileNodeToRepoNode(FileNode source, RepoNode? parent)
+    {
+        var copiedNode = new RepoNode
+        {
+            Name = source.Name,
+            IsDirectory = source.IsDirectory,
+            Parent = parent
+        };
+
+        foreach (var sourceChild in source.Children.OfType<FileNode>())
+        {
+            if (HasChildNameConflict(copiedNode, sourceChild.Name))
+                continue;
+
+            copiedNode.Children.Add(CopyFileNodeToRepoNode(sourceChild, copiedNode));
+        }
+
+        return copiedNode;
     }
 
     private static List<RepoNode> CollectAncestors(RepoNode parent)

@@ -45,4 +45,7 @@ public class RepositoryEditorViewModel : ViewModelBase
 
     public ReactiveCommand<object, Unit> RefreshFileNodeFromLocalFolderCommand { get; set; }
         = ReactiveCommand.Create<object>(_ => { });
+
+    public ReactiveCommand<object, Unit> CopySelectedFileNodeToRepoNodeCommand { get; set; }
+        = ReactiveCommand.Create<object>(_ => { });
 }

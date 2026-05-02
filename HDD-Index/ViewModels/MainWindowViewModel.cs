@@ -100,6 +100,8 @@ public class MainWindowViewModel : ViewModelBase
             .Where(x => x != null)
             .Select(x => x!)
             .InvokeCommand(FileBrowser.FileNodeSelectedCommand);
+        FileBrowser.WhenAnyValue(x => x.CurrFileNodeSource.RowSelection.SelectedItem)
+            .Subscribe(x => FileBrowser.HasSelectedFileNode = x != null);
 
         FileBrowser.DiskLabelSelectedCommand =
             ReactiveCommand.Create<string>(ChangeDiskLabel);
@@ -131,6 +133,10 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.Create<object>(OpenFileNodeInFolder);
         RepositoryEditor.RefreshFileNodeFromLocalFolderCommand =
             ReactiveCommand.CreateFromTask<object>(RefreshFileNodeFromLocalFolderAsync);
+        RepositoryEditor.CopySelectedFileNodeToRepoNodeCommand =
+            ReactiveCommand.Create<object>(
+                CopySelectedFileNodeToRepoNode,
+                FileBrowser.WhenAnyValue(x => x.HasSelectedFileNode));
     }
 
     private void ChangeDiskLabel(string diskLabel)
@@ -397,6 +403,27 @@ public class MainWindowViewModel : ViewModelBase
         var createdVm = _repoTreeEditor.CreateChildFolder(repoNodeVM);
         Debug.WriteLine($"CreateChildFolder: {createdVm.RepoNode.GetPath()}");
         MarkRepoAndAllFilesDirty();
+    }
+
+    private void CopySelectedFileNodeToRepoNode(object nodeVM)
+    {
+        if (nodeVM is not RepoNodeVM { IsDirectory: true } repoNodeVM)
+            return;
+
+        var selectedFileNode = FileBrowser.CurrFileNodeSource
+            .RowSelection
+            ?.SelectedItem
+            ?.FileNode;
+        if (selectedFileNode == null)
+            return;
+
+        var copiedVm = _repoTreeEditor.CopyFileNodeSubtreeToRepoDirectory(
+            repoNodeVM,
+            selectedFileNode);
+        if (copiedVm == null)
+            return;
+
+        MarkRepoDirty();
     }
 
     private async Task RenameRepoNodeAsync(object nodeVM)

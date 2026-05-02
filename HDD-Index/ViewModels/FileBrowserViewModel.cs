@@ -27,6 +27,8 @@ public class FileBrowserViewModel : ViewModelBase
 
     [Reactive] public bool HasCurrentLocalFolderPath { get; set; }
 
+    [Reactive] public bool HasSelectedFileNode { get; set; }
+
     public ReactiveCommand<FileNodeVM, Unit> FileNodeSelectedCommand { get; set; }
         = ReactiveCommand.Create<FileNodeVM>(_ => { });
 

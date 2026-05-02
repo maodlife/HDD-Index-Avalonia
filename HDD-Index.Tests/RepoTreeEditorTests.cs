@@ -69,4 +69,77 @@ public class RepoTreeEditorTests
         Assert.False(renamed);
         Assert.Equal("Movies", repoRootVm.Children[0].Name);
     }
+
+    [Fact]
+    public void CopyFileNodeSubtreeToRepoDirectory_CopiesShapeWithoutDeclarationData()
+    {
+        var repoRoot = TestTreeFactory.Repo("Root");
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var source = TestTreeFactory.File(
+            "Movies",
+            TestTreeFactory.DiskFile("movie.mkv"),
+            TestTreeFactory.File("Extras", TestTreeFactory.DiskFile("poster.jpg")));
+        source.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = "Root/Movies"
+        });
+        var editor = CreateEditor(repoRoot, repoRootVm);
+
+        var copiedVm = editor.CopyFileNodeSubtreeToRepoDirectory(repoRootVm, source);
+
+        Assert.NotNull(copiedVm);
+        Assert.Equal("Movies", copiedVm.Name);
+        Assert.False(copiedVm.SaveFileNodeDatas.Any());
+        Assert.Equal(new[] { "movie.mkv", "Extras" },
+            copiedVm.Children.Select(x => x.Name));
+        Assert.False(((RepoNode)repoRoot.Children[0]).SaveFileNodeDatas.Any());
+        Assert.Null(((RepoNode)repoRoot.Children[0]).DeclareHoldingStrategyType);
+    }
+
+    [Fact]
+    public void CopyFileNodeSubtreeToRepoDirectory_SkipsRootWhenTargetHasSameName()
+    {
+        var repoRoot = TestTreeFactory.Repo("Root", TestTreeFactory.Repo("Movies"));
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var source = TestTreeFactory.File("Movies", TestTreeFactory.DiskFile("movie.mkv"));
+        var editor = CreateEditor(repoRoot, repoRootVm);
+
+        var copiedVm = editor.CopyFileNodeSubtreeToRepoDirectory(repoRootVm, source);
+
+        Assert.Null(copiedVm);
+        Assert.Single(repoRoot.Children);
+        Assert.Single(repoRootVm.Children);
+    }
+
+    [Fact]
+    public void CopyFileNodeSubtreeToRepoDirectory_SkipsConflictingSiblingsInsideSource()
+    {
+        var repoRoot = TestTreeFactory.Repo("Root");
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var source = TestTreeFactory.File(
+            "Movies",
+            TestTreeFactory.DiskFile("movie.mkv"),
+            TestTreeFactory.DiskFile("movie.mkv"),
+            TestTreeFactory.DiskFile("poster.jpg"));
+        var editor = CreateEditor(repoRoot, repoRootVm);
+
+        var copiedVm = editor.CopyFileNodeSubtreeToRepoDirectory(repoRootVm, source);
+
+        Assert.NotNull(copiedVm);
+        Assert.Equal(new[] { "movie.mkv", "poster.jpg" },
+            copiedVm.Children.Select(x => x.Name));
+        Assert.Equal(new[] { "movie.mkv", "poster.jpg" },
+            ((RepoNode)repoRoot.Children[0]).Children
+            .OfType<RepoNode>()
+            .Select(x => x.Name));
+    }
+
+    private static RepoTreeEditor CreateEditor(RepoNode repoRoot, RepoNodeVM repoRootVm)
+    {
+        var syncService = new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle>());
+        return new RepoTreeEditor(syncService);
+    }
 }

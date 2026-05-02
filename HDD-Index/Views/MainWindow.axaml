@@ -23,6 +23,7 @@
         <vm:FileNodeOnlyVisibilityConverter x:Key="FileNodeOnlyConverter" />
         <vm:FileDirectoryNodeOnlyVisibilityConverter x:Key="FileDirectoryNodeOnlyConverter" />
         <vm:FileNodeCanJumpVisibilityConverter x:Key="FileNodeCanJumpConverter" />
+        <vm:RepoDirectoryEditModeVisibilityConverter x:Key="RepoDirectoryEditModeConverter" />
         <ContextMenu x:Key="NodeContextMenu">
             <MenuItem Header="输出路径到日志"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.LogNodePathCommand}"
@@ -59,6 +60,17 @@
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource NodeTypeConverter}}" />
+            <MenuItem Header="拷贝右侧选中的结点"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.CopySelectedFileNodeToRepoNodeCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsEnabled="{Binding $parent[Window].DataContext.FileBrowser.HasSelectedFileNode}">
+                <MenuItem.IsVisible>
+                    <MultiBinding Converter="{StaticResource RepoDirectoryEditModeConverter}">
+                        <Binding Path="$parent[TreeDataGrid].RowSelection.SelectedItem" />
+                        <Binding Path="$parent[Window].DataContext.ViewModeTabIndex" />
+                    </MultiBinding>
+                </MenuItem.IsVisible>
+            </MenuItem>
             <MenuItem Header="修改声明持有的策略"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.ChangeDeclareHoldingStrategyCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
