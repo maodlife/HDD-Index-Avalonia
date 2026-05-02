@@ -168,6 +168,34 @@ public class DeclarationSyncService
         repoNodeVm?.RefreshDeclareHoldingStrategyName();
     }
 
+    public void AbandonDeclareHoldings(
+        FileNode fileNode,
+        string diskLabel,
+        IEnumerable<string> repoNodePaths)
+    {
+        if (string.IsNullOrWhiteSpace(diskLabel))
+            return;
+
+        var fileNodePath = fileNode.GetPath();
+        foreach (var repoNodePath in repoNodePaths
+                     .Where(x => !string.IsNullOrWhiteSpace(x))
+                     .Distinct())
+        {
+            var declareData = fileNode.DeclareRepoNodeDatas
+                .FirstOrDefault(d => d.RepoNodePath == repoNodePath);
+            if (declareData != null)
+                fileNode.DeclareRepoNodeDatas.Remove(declareData);
+
+            var repoNode = TreeNodeUtils.GetNodeByPathFromRoot(
+                _repoNodeRoot,
+                repoNodePath) as RepoNode;
+            if (repoNode != null)
+                RemoveSaveFileNodeData(repoNode, diskLabel, fileNodePath);
+
+            RemoveDeclareDataFromFileNodeVm(diskLabel, fileNodePath, repoNodePath);
+        }
+    }
+
     public void TryEstablishSaveFileNodeDatasForNode(RepoNode node)
     {
         var parent = node.Parent as RepoNode;

@@ -31,6 +31,9 @@ public class RepositoryEditorViewModel : ViewModelBase
     public ReactiveCommand<object, Unit> DeclareSelectedRepoNodeCommand { get; set; }
         = ReactiveCommand.Create<object>(_ => { });
 
+    public ReactiveCommand<object, Unit> AbandonDeclareHoldingCommand { get; set; }
+        = ReactiveCommand.Create<object>(_ => { });
+
     public ReactiveCommand<object, Unit> ChangeDeclareHoldingStrategyCommand { get; set; }
         = ReactiveCommand.Create<object>(_ => { });
 

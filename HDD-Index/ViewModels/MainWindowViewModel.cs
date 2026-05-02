@@ -101,6 +101,8 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.Create<object>(JumpToDeclareRepoNode);
         RepositoryEditor.DeclareSelectedRepoNodeCommand =
             ReactiveCommand.CreateFromTask<object>(DeclareSelectedRepoNodeAsync);
+        RepositoryEditor.AbandonDeclareHoldingCommand =
+            ReactiveCommand.CreateFromTask<object>(AbandonDeclareHoldingAsync);
         RepositoryEditor.ChangeDeclareHoldingStrategyCommand =
             ReactiveCommand.CreateFromTask<object>(ChangeDeclareHoldingStrategyAsync);
         RepositoryEditor.OpenCurrentFileDataFolderCommand =
@@ -268,6 +270,51 @@ public class MainWindowViewModel : ViewModelBase
         }
 
         RepoBrowser.UpdateCurrentRepoNode(repoNode);
+    }
+
+    private async Task AbandonDeclareHoldingAsync(object nodeVM)
+    {
+        if (nodeVM is not FileNodeVM fileNodeVM)
+            return;
+
+        var repoNodePaths = fileNodeVM.FileNode.DeclareRepoNodeDatas
+            .Select(x => x.RepoNodePath)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct()
+            .ToList();
+        if (repoNodePaths.Count == 0)
+            return;
+
+        var diskLabel = FileBrowser.SelectedDiskLabel;
+        if (string.IsNullOrWhiteSpace(diskLabel))
+            return;
+
+        var owner = GetMainWindow();
+        if (owner == null)
+            return;
+
+        var dialog = new AbandonDeclareHoldingDialog(repoNodePaths)
+        {
+            Title = "放弃声明持有",
+            Width = 520,
+            Height = 320,
+        };
+
+        var selectedRepoNodePaths =
+            await dialog.ShowDialog<List<string>?>(owner);
+        if (selectedRepoNodePaths == null || selectedRepoNodePaths.Count == 0)
+            return;
+
+        _declarationSyncService.AbandonDeclareHoldings(
+            fileNodeVM.FileNode,
+            diskLabel,
+            selectedRepoNodePaths);
+
+        var currentRepoNode = RepoBrowser.RepoNodeSource.RowSelection
+            ?.SelectedItem
+            ?.RepoNode;
+        if (currentRepoNode != null)
+            RepoBrowser.UpdateCurrentRepoNode(currentRepoNode);
     }
 
     private async Task ChangeDeclareHoldingStrategyAsync(object nodeVM)

@@ -271,6 +271,120 @@ public class DeclarationSyncServiceTests
         Assert.Single(validFileNode.DeclareRepoNodeDatas);
     }
 
+    [Fact]
+    public void AbandonDeclareHoldings_RemovesSelectedBidirectionalDeclarationData()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo("Movies"),
+            TestTreeFactory.Repo("Music"));
+        var moviesRepoNode = (RepoNode)repoRoot.Children[0];
+        var musicRepoNode = (RepoNode)repoRoot.Children[1];
+        var fileRoot = TestTreeFactory.File("Disk", TestTreeFactory.File("Media"));
+        var fileNode = (FileNode)fileRoot.Children[0];
+        var fileNodePath = fileNode.GetPath();
+        fileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = moviesRepoNode.GetPath()
+        });
+        fileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = musicRepoNode.GetPath()
+        });
+        moviesRepoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "DiskA",
+            FileNodePath = fileNodePath
+        });
+        musicRepoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "DiskA",
+            FileNodePath = fileNodePath
+        });
+        var bundle = TestTreeFactory.Bundle("DiskA", fileRoot);
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var fileNodeVm = (FileNodeVM)bundle.FileNodeVm.Children[0];
+        var moviesRepoNodeVm = (RepoNodeVM)repoRootVm.Children[0];
+        var musicRepoNodeVm = (RepoNodeVM)repoRootVm.Children[1];
+        var service = new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle> { bundle });
+
+        service.AbandonDeclareHoldings(
+            fileNode,
+            "DiskA",
+            new[] { moviesRepoNode.GetPath() });
+
+        Assert.DoesNotContain(fileNode.DeclareRepoNodeDatas,
+            x => x.RepoNodePath == moviesRepoNode.GetPath());
+        Assert.Contains(fileNode.DeclareRepoNodeDatas,
+            x => x.RepoNodePath == musicRepoNode.GetPath());
+        Assert.Empty(moviesRepoNode.SaveFileNodeDatas);
+        Assert.Single(musicRepoNode.SaveFileNodeDatas);
+        Assert.Empty(moviesRepoNodeVm.SaveFileNodeDatas);
+        Assert.Single(musicRepoNodeVm.SaveFileNodeDatas);
+        Assert.DoesNotContain(fileNodeVm.DeclareRepoNodeDatas,
+            x => x.RepoNodePath == moviesRepoNode.GetPath());
+        Assert.Contains(fileNodeVm.DeclareRepoNodeDatas,
+            x => x.RepoNodePath == musicRepoNode.GetPath());
+    }
+
+    [Fact]
+    public void AbandonDeclareHoldings_RemovesMultiplePathsAndIgnoresUnknownPaths()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo("Movies"),
+            TestTreeFactory.Repo("Music"));
+        var moviesRepoNode = (RepoNode)repoRoot.Children[0];
+        var musicRepoNode = (RepoNode)repoRoot.Children[1];
+        var fileRoot = TestTreeFactory.File("Disk", TestTreeFactory.File("Media"));
+        var fileNode = (FileNode)fileRoot.Children[0];
+        var fileNodePath = fileNode.GetPath();
+        fileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = moviesRepoNode.GetPath()
+        });
+        fileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = musicRepoNode.GetPath()
+        });
+        fileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = "Root/Missing"
+        });
+        moviesRepoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "DiskA",
+            FileNodePath = fileNodePath
+        });
+        musicRepoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "DiskA",
+            FileNodePath = fileNodePath
+        });
+        var bundle = TestTreeFactory.Bundle("DiskA", fileRoot);
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var fileNodeVm = (FileNodeVM)bundle.FileNodeVm.Children[0];
+        var service = new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle> { bundle });
+
+        service.AbandonDeclareHoldings(
+            fileNode,
+            "DiskA",
+            new[] { moviesRepoNode.GetPath(), musicRepoNode.GetPath(), "Root/Missing" });
+
+        Assert.Empty(fileNode.DeclareRepoNodeDatas);
+        Assert.Empty(fileNodeVm.DeclareRepoNodeDatas);
+        Assert.Empty(moviesRepoNode.SaveFileNodeDatas);
+        Assert.Empty(musicRepoNode.SaveFileNodeDatas);
+        Assert.Empty(((RepoNodeVM)repoRootVm.Children[0]).SaveFileNodeDatas);
+        Assert.Empty(((RepoNodeVM)repoRootVm.Children[1]).SaveFileNodeDatas);
+    }
+
     // 场景：
     // 仓库树是 Root -> Movies -> Anime，但文件树只有 Disk -> Movies；
     // 文件树 Movies 节点声明了对应仓库树 Movies，仓库树 Movies 也保存了一条 DiskA 的文件节点记录。
