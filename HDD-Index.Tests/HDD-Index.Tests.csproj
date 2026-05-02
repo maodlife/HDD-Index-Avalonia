@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- 测试项目使用的 .NET 版本，需要和主项目兼容。 -->
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>HDD_Index.Tests</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- 测试项目只用于运行测试，不会被打包发布。 -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- coverlet 用于收集测试覆盖率；Microsoft.NET.Test.Sdk 让 dotnet test 能发现和运行测试。 -->
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <!-- xUnit 是当前测试框架；runner.visualstudio 让 IDE 和 dotnet test 能执行 xUnit 测试。 -->
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 让测试文件可以直接使用 [Fact]、Assert 等 xUnit API，不必每个文件都写 using Xunit。 -->
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 引用主应用项目，所以测试代码可以直接调用 HDD-Index 里的服务、模型和 ViewModel。 -->
+    <ProjectReference Include="..\HDD-Index\HDD-Index.csproj" />
+  </ItemGroup>
+
+</Project>

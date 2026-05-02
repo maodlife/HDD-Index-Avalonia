@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HDD_Index.ViewModels"
+        xmlns:models="using:HDD_Index.Models"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="260"
+        x:Class="HDD_Index.Views.StrategySelectionDialog"
+        x:DataType="vm:StrategySelectionDialogViewModel"
+        Title="选择声明持有策略"
+        Width="420" Height="260"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:StrategySelectionDialogViewModel />
+    </Design.DataContext>
+
+    <StackPanel Margin="14" Spacing="12">
+        <TextBlock Text="请选择声明持有策略：" />
+        <ListBox ItemsSource="{Binding StrategyOptions}"
+                 SelectedItem="{Binding SelectedStrategyOption}"
+                 SelectionMode="Single"
+                 MinHeight="110">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="models:DeclareHoldingStrategyOption">
+                    <RadioButton Content="{Binding Name}"
+                                 IsChecked="{Binding IsSelected,
+                                                     RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                 IsHitTestVisible="False" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="10">
+            <Button Content="取消"
+                    Command="{Binding CancelCommand}" />
+            <Button Content="确定"
+                    Command="{Binding ConfirmCommand}" />
+        </StackPanel>
+    </StackPanel>
+</Window>

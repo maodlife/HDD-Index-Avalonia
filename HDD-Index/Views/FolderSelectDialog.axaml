@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HDD_Index.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="HDD_Index.Views.FolderSelectDialog"
+        x:DataType="vm:FolderSelectDialogViewModel"
+        Title="选择文件夹"
+        Width="450" Height="150"
+        WindowStartupLocation="CenterOwner">
+    
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:FolderSelectDialogViewModel />
+    </Design.DataContext>
+
+    <StackPanel Margin="10" Spacing="10">
+
+        <!-- 第一行：路径文本 + 按钮 -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBox Width="300"
+                     Text="{Binding SelectedPath}"
+                     IsReadOnly="False"
+                     Watermark="请选择一个文件夹"/>
+            <Button Content="选择文件夹"
+                    Command="{Binding SelectFolderCommand}"
+                    IsEnabled="True"/>
+        </StackPanel>
+
+        <!-- 第二行：标签输入 + 确认按钮 -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBox Width="300"
+                     Watermark="请输入标签"
+                     Text="{Binding TagText}"/>
+            <Button Content="确认"
+                    Command="{Binding ConfirmCommand}"
+                    IsEnabled="{Binding CanConfirm}"/>
+        </StackPanel>
+
+    </StackPanel>
+</Window>

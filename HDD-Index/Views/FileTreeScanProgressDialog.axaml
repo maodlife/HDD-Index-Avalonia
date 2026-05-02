@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HDD_Index.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="220"
+        x:Class="HDD_Index.Views.FileTreeScanProgressDialog"
+        x:DataType="vm:FileTreeScanProgressDialogViewModel"
+        Title="正在读取"
+        Width="520" Height="220"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:FileTreeScanProgressDialogViewModel />
+    </Design.DataContext>
+
+    <Grid Margin="14" RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <TextBlock Grid.Row="0"
+                   Text="{Binding StatusText}"
+                   FontSize="16"
+                   FontWeight="SemiBold" />
+
+        <ProgressBar Grid.Row="1"
+                     Margin="0,16,0,0"
+                     Minimum="0"
+                     Maximum="100"
+                     Value="{Binding ProgressValue}" />
+
+        <TextBlock Grid.Row="2"
+                   Margin="0,8,0,0"
+                   Text="{Binding ProgressText}"
+                   HorizontalAlignment="Right" />
+
+        <TextBlock Grid.Row="3"
+                   Margin="0,12,0,0"
+                   Text="{Binding CurrentPath}"
+                   TextWrapping="Wrap" />
+
+        <StackPanel Grid.Row="4"
+                    Margin="0,16,0,0"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button Content="取消"
+                    Command="{Binding CancelCommand}"
+                    IsEnabled="{Binding CanCancel}" />
+        </StackPanel>
+    </Grid>
+</Window>
