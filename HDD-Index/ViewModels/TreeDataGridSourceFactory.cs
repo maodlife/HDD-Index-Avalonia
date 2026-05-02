@@ -21,7 +21,10 @@ public static class TreeDataGridSourceFactory
                     x => x.Children),
                 new TextColumn<RepoNodeVM, string>(
                     "存储数",
-                    x => x.SaveFileNodeCntString)
+                    x => x.SaveFileNodeCntString),
+                new TextColumn<RepoNodeVM, string>(
+                    "策略",
+                    x => x.DeclareHoldingStrategyName)
             }
         };
     }

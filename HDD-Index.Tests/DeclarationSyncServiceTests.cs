@@ -54,6 +54,8 @@ public class DeclarationSyncServiceTests
         var repoRootVm = RepoNodeVM.Create(repoRoot);
         var repoNodeVm = (RepoNodeVM)repoRootVm.Children[0];
         var fileNodeVm = (FileNodeVM)bundle.FileNodeVm.Children[0];
+        var propertyChangedNames = new List<string?>();
+        repoNodeVm.PropertyChanged += (_, e) => propertyChangedNames.Add(e.PropertyName);
         var service = new DeclarationSyncService(
             repoRoot,
             repoRootVm,
@@ -72,6 +74,8 @@ public class DeclarationSyncServiceTests
         Assert.True(result);
         Assert.Empty(failureReason);
         Assert.Equal(DeclareHoldingStrategyType.Default, repoNode.DeclareHoldingStrategyType);
+        Assert.Equal("默认", repoNodeVm.DeclareHoldingStrategyName);
+        Assert.Contains(nameof(RepoNodeVM.DeclareHoldingStrategyName), propertyChangedNames);
         Assert.Single(repoNode.SaveFileNodeDatas);
         Assert.Single(repoNodeVm.SaveFileNodeDatas);
         Assert.Single(fileNode.DeclareRepoNodeDatas);
@@ -158,6 +162,113 @@ public class DeclarationSyncServiceTests
         Assert.Empty(repoNodeVm.SaveFileNodeDatas);
         Assert.Empty(fileNode.DeclareRepoNodeDatas);
         Assert.Empty(fileNodeVm.DeclareRepoNodeDatas);
+    }
+
+    [Fact]
+    public void ApplyDeclareHoldingStrategy_UpdatesStrategyWhenNodeHasNoSaveData()
+    {
+        var repoRoot = TestTreeFactory.Repo("Root", TestTreeFactory.Repo("Movies"));
+        var repoNode = (RepoNode)repoRoot.Children[0];
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var repoNodeVm = (RepoNodeVM)repoRootVm.Children[0];
+        var propertyChangedNames = new List<string?>();
+        repoNodeVm.PropertyChanged += (_, e) => propertyChangedNames.Add(e.PropertyName);
+        var fileRoot = TestTreeFactory.File("Disk");
+        var service = new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle> { TestTreeFactory.Bundle("DiskA", fileRoot) });
+
+        var failures = service.GetInvalidSaveFileNodeDatasForStrategy(
+            repoNode,
+            DeclareHoldingStrategyType.BDRip);
+        service.ApplyDeclareHoldingStrategy(
+            repoNode,
+            DeclareHoldingStrategyType.BDRip,
+            failures);
+
+        Assert.Empty(failures);
+        Assert.Equal(DeclareHoldingStrategyType.BDRip, repoNode.DeclareHoldingStrategyType);
+        Assert.Equal("BDRip", repoNodeVm.DeclareHoldingStrategyName);
+        Assert.Contains(nameof(RepoNodeVM.DeclareHoldingStrategyName), propertyChangedNames);
+    }
+
+    [Fact]
+    public void GetInvalidSaveFileNodeDatasForStrategy_DoesNotMutateWhenCallerCancels()
+    {
+        var (repoNode, repoNodeVm, invalidFileNode, invalidFileNodeVm, _, service) =
+            CreateStrategyChangeScenario();
+
+        var failures = service.GetInvalidSaveFileNodeDatasForStrategy(
+            repoNode,
+            DeclareHoldingStrategyType.Default);
+
+        Assert.Single(failures);
+        Assert.Equal(DeclareHoldingStrategyType.BDRip, repoNode.DeclareHoldingStrategyType);
+        Assert.Equal("BDRip", repoNodeVm.DeclareHoldingStrategyName);
+        Assert.Equal(2, repoNode.SaveFileNodeDatas.Count);
+        Assert.Single(invalidFileNode.DeclareRepoNodeDatas);
+        Assert.Single(invalidFileNodeVm.DeclareRepoNodeDatas);
+    }
+
+    [Fact]
+    public void ApplyDeclareHoldingStrategy_RemovesInvalidBidirectionalDeclarationData()
+    {
+        var (
+            repoNode,
+            repoNodeVm,
+            invalidFileNode,
+            invalidFileNodeVm,
+            validFileNode,
+            service) = CreateStrategyChangeScenario();
+
+        var failures = service.GetInvalidSaveFileNodeDatasForStrategy(
+            repoNode,
+            DeclareHoldingStrategyType.Default);
+        service.ApplyDeclareHoldingStrategy(
+            repoNode,
+            DeclareHoldingStrategyType.Default,
+            failures);
+
+        Assert.Single(failures);
+        Assert.Equal(DeclareHoldingStrategyType.Default, repoNode.DeclareHoldingStrategyType);
+        Assert.Equal("默认", repoNodeVm.DeclareHoldingStrategyName);
+        Assert.Single(repoNode.SaveFileNodeDatas);
+        Assert.Single(repoNodeVm.SaveFileNodeDatas);
+        Assert.Equal(validFileNode.GetPath(), repoNode.SaveFileNodeDatas[0].FileNodePath);
+        Assert.Empty(invalidFileNode.DeclareRepoNodeDatas);
+        Assert.Empty(invalidFileNodeVm.DeclareRepoNodeDatas);
+        Assert.Single(validFileNode.DeclareRepoNodeDatas);
+    }
+
+    [Fact]
+    public void ApplyDeclareHoldingStrategy_ClearsStrategyAfterDefaultValidation()
+    {
+        var (
+            repoNode,
+            repoNodeVm,
+            invalidFileNode,
+            invalidFileNodeVm,
+            validFileNode,
+            service) = CreateStrategyChangeScenario();
+
+        var failures = service.GetInvalidSaveFileNodeDatasForStrategy(
+            repoNode,
+            strategyType: null);
+        service.ApplyDeclareHoldingStrategy(
+            repoNode,
+            strategyType: null,
+            failures);
+
+        Assert.Single(failures);
+        Assert.Null(repoNode.DeclareHoldingStrategyType);
+        Assert.Empty(repoNodeVm.DeclareHoldingStrategyName);
+        Assert.Single(repoNode.SaveFileNodeDatas);
+        Assert.Single(repoNodeVm.SaveFileNodeDatas);
+        Assert.Equal(validFileNode.GetPath(), repoNode.SaveFileNodeDatas[0].FileNodePath);
+        Assert.Empty(invalidFileNode.DeclareRepoNodeDatas);
+        Assert.Empty(invalidFileNodeVm.DeclareRepoNodeDatas);
+        Assert.Single(validFileNode.DeclareRepoNodeDatas);
     }
 
     // 场景：
@@ -262,5 +373,72 @@ public class DeclarationSyncServiceTests
         Assert.Contains(repoNode.SaveFileNodeDatas, x => x.DiskLabel == "DiskB");
         Assert.Empty(invalidBundle.FileNodeVm.Children[0].DeclareRepoNodeDatas);
         Assert.Single(validBundle.FileNodeVm.Children[0].DeclareRepoNodeDatas);
+    }
+
+    private static (
+        RepoNode RepoNode,
+        RepoNodeVM RepoNodeVm,
+        FileNode InvalidFileNode,
+        FileNodeVM InvalidFileNodeVm,
+        FileNode ValidFileNode,
+        DeclarationSyncService Service) CreateStrategyChangeScenario()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo(
+                "Movies",
+                TestTreeFactory.RepoFile("movie.mkv"),
+                TestTreeFactory.RepoFile("subtitle.ass")));
+        var repoNode = (RepoNode)repoRoot.Children[0];
+        repoNode.DeclareHoldingStrategyType = DeclareHoldingStrategyType.BDRip;
+
+        var invalidFileRoot = TestTreeFactory.File(
+            "Disk",
+            TestTreeFactory.File(
+                "Movies",
+                TestTreeFactory.DiskFile("movie.mkv")));
+        var invalidFileNode = (FileNode)invalidFileRoot.Children[0];
+        var validFileRoot = TestTreeFactory.File(
+            "Disk",
+            TestTreeFactory.File(
+                "Movies",
+                TestTreeFactory.DiskFile("movie.mkv"),
+                TestTreeFactory.DiskFile("subtitle.ass")));
+        var validFileNode = (FileNode)validFileRoot.Children[0];
+
+        invalidFileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = repoNode.GetPath()
+        });
+        validFileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = repoNode.GetPath()
+        });
+        repoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "DiskA",
+            FileNodePath = invalidFileNode.GetPath()
+        });
+        repoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "DiskB",
+            FileNodePath = validFileNode.GetPath()
+        });
+
+        var invalidBundle = TestTreeFactory.Bundle("DiskA", invalidFileRoot);
+        var validBundle = TestTreeFactory.Bundle("DiskB", validFileRoot);
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var service = new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle> { invalidBundle, validBundle });
+
+        return (
+            repoNode,
+            (RepoNodeVM)repoRootVm.Children[0],
+            invalidFileNode,
+            (FileNodeVM)invalidBundle.FileNodeVm.Children[0],
+            validFileNode,
+            service);
     }
 }

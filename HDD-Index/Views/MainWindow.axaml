@@ -47,6 +47,11 @@
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource NodeTypeConverter}}" />
+            <MenuItem Header="修改声明持有的策略"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.ChangeDeclareHoldingStrategyCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
+                                  Converter={StaticResource RepoNodeOnlyConverter}}" />
             <MenuItem Header="重命名"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.RenameRepoNodeCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"

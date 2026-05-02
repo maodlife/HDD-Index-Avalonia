@@ -26,18 +26,32 @@ public class StrategySelectionDialogViewModel : ViewModelBase
     }
 
     public StrategySelectionDialogViewModel(
-        IEnumerable<DeclareHoldingStrategyOption> strategyOptions)
+        IEnumerable<DeclareHoldingStrategyOption> strategyOptions,
+        bool includeClearOption = false,
+        DeclareHoldingStrategyType? selectedStrategyType = null)
     {
-        StrategyOptions = new ObservableCollection<DeclareHoldingStrategyOption>(
-            strategyOptions);
-        SelectedStrategyOption = StrategyOptions.FirstOrDefault();
+        var options = strategyOptions.ToList();
+        if (includeClearOption)
+            options.Insert(0, new DeclareHoldingStrategyOption(null, "清空"));
+
+        StrategyOptions = new ObservableCollection<DeclareHoldingStrategyOption>(options);
+        SelectedStrategyOption = StrategyOptions.FirstOrDefault(
+            x => x.Type == selectedStrategyType)
+            ?? StrategyOptions.FirstOrDefault();
         ConfirmCommand = new RelayCommand(Confirm);
         CancelCommand = new RelayCommand(Cancel);
     }
 
     private void Confirm()
     {
-        Window?.Close(SelectedStrategyOption?.Type);
+        if (SelectedStrategyOption == null)
+        {
+            Window?.Close(null);
+            return;
+        }
+
+        Window?.Close(new StrategySelectionDialogResult(
+            SelectedStrategyOption.Type));
     }
 
     private void Cancel()
@@ -45,3 +59,6 @@ public class StrategySelectionDialogViewModel : ViewModelBase
         Window?.Close(null);
     }
 }
+
+public sealed record StrategySelectionDialogResult(
+    DeclareHoldingStrategyType? StrategyType);

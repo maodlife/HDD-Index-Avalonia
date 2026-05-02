@@ -22,6 +22,13 @@ public class RepoNodeVM : TreeNodeVMBase<RepoNodeVM>
         ? this.SaveFileNodeCnt.ToString()
         : "";
 
+    public string DeclareHoldingStrategyName =>
+        RepoNode.DeclareHoldingStrategyType == null
+            ? string.Empty
+            : DeclareHoldingStrategyFactory
+                .Create(RepoNode.DeclareHoldingStrategyType.Value)
+                .Name;
+
     #endregion
 
     public RepoNodeVM()
@@ -33,6 +40,11 @@ public class RepoNodeVM : TreeNodeVMBase<RepoNodeVM>
     {
         this.RaisePropertyChanged(nameof(SaveFileNodeCnt));
         this.RaisePropertyChanged(nameof(SaveFileNodeCntString));
+    }
+
+    public void RefreshDeclareHoldingStrategyName()
+    {
+        this.RaisePropertyChanged(nameof(DeclareHoldingStrategyName));
     }
 
     public static RepoNodeVM Create(RepoNode repoNode)

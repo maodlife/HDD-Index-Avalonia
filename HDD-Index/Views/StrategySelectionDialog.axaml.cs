@@ -16,10 +16,15 @@ public partial class StrategySelectionDialog : Window
     }
 
     public StrategySelectionDialog(
-        IEnumerable<DeclareHoldingStrategyOption> strategyOptions)
+        IEnumerable<DeclareHoldingStrategyOption> strategyOptions,
+        bool includeClearOption = false,
+        DeclareHoldingStrategyType? selectedStrategyType = null)
     {
         InitializeComponent();
-        var vm = new StrategySelectionDialogViewModel(strategyOptions);
+        var vm = new StrategySelectionDialogViewModel(
+            strategyOptions,
+            includeClearOption,
+            selectedStrategyType);
         DataContext = vm;
         vm.Window = this;
     }

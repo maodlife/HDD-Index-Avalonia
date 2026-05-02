@@ -60,7 +60,10 @@ public class DeclarationSyncService
             return false;
 
         if (saveStrategyToRepoNode)
+        {
             repoNode.DeclareHoldingStrategyType = strategyType;
+            repoNodeVm.RefreshDeclareHoldingStrategyName();
+        }
 
         var fileNodePath = fileNode.GetPath();
         var repoNodePath = repoNode.GetPath();
@@ -109,6 +112,60 @@ public class DeclarationSyncService
 
         failureReason = string.Empty;
         return true;
+    }
+
+    public IReadOnlyList<DeclareHoldingValidationFailure> GetInvalidSaveFileNodeDatasForStrategy(
+        RepoNode repoNode,
+        DeclareHoldingStrategyType? strategyType)
+    {
+        var strategy = DeclareHoldingStrategyFactory.Create(
+            strategyType ?? DeclareHoldingStrategyType.Default);
+        var failures = new List<DeclareHoldingValidationFailure>();
+
+        foreach (var saveData in repoNode.SaveFileNodeDatas)
+        {
+            var fileNode = FindFileNode(saveData.DiskLabel, saveData.FileNodePath);
+            if (fileNode == null)
+            {
+                failures.Add(new DeclareHoldingValidationFailure(
+                    saveData.DiskLabel,
+                    saveData.FileNodePath,
+                    "找不到对应的 FileNode。"));
+                continue;
+            }
+
+            if (!strategy.CheckDeclareHolding(repoNode, fileNode, out var failureReason))
+            {
+                failures.Add(new DeclareHoldingValidationFailure(
+                    saveData.DiskLabel,
+                    saveData.FileNodePath,
+                    failureReason));
+            }
+        }
+
+        return failures;
+    }
+
+    public void ApplyDeclareHoldingStrategy(
+        RepoNode repoNode,
+        DeclareHoldingStrategyType? strategyType,
+        IEnumerable<DeclareHoldingValidationFailure> failuresToRemove)
+    {
+        repoNode.DeclareHoldingStrategyType = strategyType;
+
+        foreach (var failure in failuresToRemove.ToList())
+        {
+            RemoveDeclareHolding(
+                repoNode,
+                failure.DiskLabel,
+                failure.FileNodePath);
+        }
+
+        var repoNodeVm = TreeNavigationService.FindRepoNodeVmByPath(
+            _repoNodeVmRoot,
+            repoNode.GetPath(),
+            out _);
+        repoNodeVm?.RefreshDeclareHoldingStrategyName();
     }
 
     public void TryEstablishSaveFileNodeDatasForNode(RepoNode node)
@@ -292,6 +349,34 @@ public class DeclarationSyncService
             repoNodeVm!.SaveFileNodeDatas.Remove(vmSaveData);
     }
 
+    private void RemoveDeclareHolding(
+        RepoNode repoNode,
+        string diskLabel,
+        string fileNodePath)
+    {
+        var repoPath = repoNode.GetPath();
+        var fileNode = FindFileNode(diskLabel, fileNodePath);
+        var declareData = fileNode?.DeclareRepoNodeDatas
+            .FirstOrDefault(d => d.RepoNodePath == repoPath);
+        if (declareData != null)
+            fileNode!.DeclareRepoNodeDatas.Remove(declareData);
+
+        RemoveSaveFileNodeData(repoNode, diskLabel, fileNodePath);
+        RemoveDeclareDataFromFileNodeVm(diskLabel, fileNodePath, repoPath);
+    }
+
+    private FileNode? FindFileNode(string diskLabel, string fileNodePath)
+    {
+        var bundle = _fileDataVmBundles
+            .FirstOrDefault(b => b.FileData.DiskLabel == diskLabel);
+        if (bundle == null)
+            return null;
+
+        return TreeNodeUtils.GetNodeByPathFromRoot(
+            bundle.FileData.FileNodeRoot,
+            fileNodePath) as FileNode;
+    }
+
     private void RemoveDeclareDataFromFileNodeVm(
         string diskLabel,
         string fileNodePath,
@@ -353,3 +438,8 @@ public class DeclarationSyncService
             UpdateDeclareRepoNodePaths(child, oldPath, newPath);
     }
 }
+
+public sealed record DeclareHoldingValidationFailure(
+    string DiskLabel,
+    string FileNodePath,
+    string FailureReason);

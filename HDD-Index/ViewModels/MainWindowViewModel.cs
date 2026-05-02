@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -99,6 +101,8 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.Create<object>(JumpToDeclareRepoNode);
         RepositoryEditor.DeclareSelectedRepoNodeCommand =
             ReactiveCommand.CreateFromTask<object>(DeclareSelectedRepoNodeAsync);
+        RepositoryEditor.ChangeDeclareHoldingStrategyCommand =
+            ReactiveCommand.CreateFromTask<object>(ChangeDeclareHoldingStrategyAsync);
         RepositoryEditor.OpenCurrentFileDataFolderCommand =
             ReactiveCommand.Create(OpenCurrentFileDataFolder);
         RepositoryEditor.OpenFileNodeInFolderCommand =
@@ -238,11 +242,11 @@ public class MainWindowViewModel : ViewModelBase
             };
 
             var selectedStrategy =
-                await dialog.ShowDialog<DeclareHoldingStrategyType?>(owner);
-            if (selectedStrategy == null)
+                await dialog.ShowDialog<StrategySelectionDialogResult?>(owner);
+            if (selectedStrategy == null || selectedStrategy.StrategyType == null)
                 return;
 
-            strategyType = selectedStrategy;
+            strategyType = selectedStrategy.StrategyType;
             shouldSaveStrategy = true;
         }
 
@@ -263,6 +267,50 @@ public class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        RepoBrowser.UpdateCurrentRepoNode(repoNode);
+    }
+
+    private async Task ChangeDeclareHoldingStrategyAsync(object nodeVM)
+    {
+        if (nodeVM is not RepoNodeVM repoNodeVM)
+            return;
+
+        var owner = GetMainWindow();
+        if (owner == null)
+            return;
+
+        var repoNode = repoNodeVM.RepoNode;
+        var dialog = new StrategySelectionDialog(
+            DeclareHoldingStrategyFactory.GetAllOptions(),
+            includeClearOption: true,
+            selectedStrategyType: repoNode.DeclareHoldingStrategyType)
+        {
+            Title = "修改声明持有的策略",
+            Width = 420,
+            Height = 260,
+        };
+
+        var selectedStrategy =
+            await dialog.ShowDialog<StrategySelectionDialogResult?>(owner);
+        if (selectedStrategy == null)
+            return;
+
+        var failures = _declarationSyncService
+            .GetInvalidSaveFileNodeDatasForStrategy(
+                repoNode,
+                selectedStrategy.StrategyType);
+        if (failures.Count > 0)
+        {
+            var confirmed = await ShowConfirmAsync(
+                BuildInvalidDeclareHoldingMessage(failures));
+            if (!confirmed)
+                return;
+        }
+
+        _declarationSyncService.ApplyDeclareHoldingStrategy(
+            repoNode,
+            selectedStrategy.StrategyType,
+            failures);
         RepoBrowser.UpdateCurrentRepoNode(repoNode);
     }
 
@@ -486,6 +534,40 @@ public class MainWindowViewModel : ViewModelBase
             Height = 150,
         };
         await dialog.ShowDialog(owner);
+    }
+
+    private static async Task<bool> ShowConfirmAsync(string message)
+    {
+        var owner = GetMainWindow();
+        if (owner == null)
+            return false;
+
+        var dialog = new ConfirmMessageDialog(message)
+        {
+            Title = "确认修改声明持有策略",
+            Width = 520,
+            Height = 260,
+        };
+        return await dialog.ShowDialog<bool>(owner);
+    }
+
+    private static string BuildInvalidDeclareHoldingMessage(
+        IReadOnlyList<DeclareHoldingValidationFailure> failures)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("以下 FileNode 不满足新的声明持有策略。");
+        builder.AppendLine("点击确定会删除这些不通过的声明持有关系，点击取消则不做修改。");
+        builder.AppendLine();
+
+        foreach (var failure in failures)
+        {
+            builder.AppendLine(
+                $"- [{failure.DiskLabel}] {failure.FileNodePath}");
+            if (!string.IsNullOrWhiteSpace(failure.FailureReason))
+                builder.AppendLine($"  {failure.FailureReason}");
+        }
+
+        return builder.ToString();
     }
 
     private static void ScrollToRepoRows()

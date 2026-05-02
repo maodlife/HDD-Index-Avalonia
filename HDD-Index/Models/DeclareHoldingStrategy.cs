@@ -42,7 +42,7 @@ public static class DeclareHoldingStrategyFactory
 }
 
 public sealed record DeclareHoldingStrategyOption(
-    DeclareHoldingStrategyType Type,
+    DeclareHoldingStrategyType? Type,
     string Name);
 
 public class DefaultDeclareHoldingStrategy : IDeclareHoldingStrategy
