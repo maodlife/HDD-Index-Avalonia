@@ -9,6 +9,8 @@ namespace HDD_Index.Models;
 /// </summary>
 public class RepoNode : TreeNodeBase
 {
+    public DeclareHoldingStrategyType? DeclareHoldingStrategyType { get; set; }
+
     public List<SaveFileNodeData> SaveFileNodeDatas { get; set; } =
         new List<SaveFileNodeData>();
 

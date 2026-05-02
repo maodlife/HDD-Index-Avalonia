@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HDD_Index.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="150"
+        x:Class="HDD_Index.Views.MessageDialog"
+        x:DataType="vm:MessageDialogViewModel"
+        Title="提示"
+        Width="400" Height="150"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:MessageDialogViewModel />
+    </Design.DataContext>
+
+    <StackPanel Margin="14" Spacing="20">
+        <TextBlock Text="{Binding MessageText}" TextWrapping="Wrap" />
+
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button Content="确定"
+                    Command="{Binding ConfirmCommand}" />
+        </StackPanel>
+    </StackPanel>
+</Window>

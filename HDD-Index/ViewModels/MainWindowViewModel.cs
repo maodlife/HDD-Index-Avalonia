@@ -97,6 +97,8 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.Create(JumpToCurrSelectSaveFileNode);
         RepositoryEditor.JumpToDeclareRepoNodeCommand =
             ReactiveCommand.Create<object>(JumpToDeclareRepoNode);
+        RepositoryEditor.DeclareSelectedRepoNodeCommand =
+            ReactiveCommand.CreateFromTask<object>(DeclareSelectedRepoNodeAsync);
         RepositoryEditor.OpenCurrentFileDataFolderCommand =
             ReactiveCommand.Create(OpenCurrentFileDataFolder);
         RepositoryEditor.OpenFileNodeInFolderCommand =
@@ -201,6 +203,67 @@ public class MainWindowViewModel : ViewModelBase
         FileBrowser.CurrFileNodeSource.Expand(parent);
         FileBrowser.CurrFileNodeSource.RowSelection?.Select(indexPath.Value);
         ScrollToFileRows();
+    }
+
+    private async Task DeclareSelectedRepoNodeAsync(object nodeVM)
+    {
+        if (nodeVM is not FileNodeVM fileNodeVM)
+            return;
+
+        var repoNodeVM = RepoBrowser.RepoNodeSource
+            .RowSelection
+            ?.SelectedItem;
+        if (repoNodeVM == null)
+            return;
+
+        var diskLabel = FileBrowser.SelectedDiskLabel;
+        if (string.IsNullOrWhiteSpace(diskLabel))
+            return;
+
+        var repoNode = repoNodeVM.RepoNode;
+        var strategyType = repoNode.DeclareHoldingStrategyType;
+        var shouldSaveStrategy = false;
+        if (strategyType == null)
+        {
+            var owner = GetMainWindow();
+            if (owner == null)
+                return;
+
+            var dialog = new StrategySelectionDialog(
+                DeclareHoldingStrategyFactory.GetAllOptions())
+            {
+                Title = "选择声明持有策略",
+                Width = 420,
+                Height = 260,
+            };
+
+            var selectedStrategy =
+                await dialog.ShowDialog<DeclareHoldingStrategyType?>(owner);
+            if (selectedStrategy == null)
+                return;
+
+            strategyType = selectedStrategy;
+            shouldSaveStrategy = true;
+        }
+
+        if (!_declarationSyncService.TryDeclareHolding(
+                repoNode,
+                repoNodeVM,
+                fileNodeVM.FileNode,
+                fileNodeVM,
+                diskLabel,
+                strategyType.Value,
+                shouldSaveStrategy,
+                out var failureReason))
+        {
+            await ShowMessageAsync(
+                string.IsNullOrWhiteSpace(failureReason)
+                    ? "声明持有失败。"
+                    : failureReason);
+            return;
+        }
+
+        RepoBrowser.UpdateCurrentRepoNode(repoNode);
     }
 
     private void CreateChildFolder(object nodeVM)
@@ -408,6 +471,21 @@ public class MainWindowViewModel : ViewModelBase
     {
         return (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
             ?.MainWindow;
+    }
+
+    private static async Task ShowMessageAsync(string message)
+    {
+        var owner = GetMainWindow();
+        if (owner == null)
+            return;
+
+        var dialog = new MessageDialog(message)
+        {
+            Title = "提示",
+            Width = 400,
+            Height = 150,
+        };
+        await dialog.ShowDialog(owner);
     }
 
     private static void ScrollToRepoRows()

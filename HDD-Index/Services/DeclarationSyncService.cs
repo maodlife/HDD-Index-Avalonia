@@ -45,6 +45,72 @@ public class DeclarationSyncService
         return false;
     }
 
+    public bool TryDeclareHolding(
+        RepoNode repoNode,
+        RepoNodeVM repoNodeVm,
+        FileNode fileNode,
+        FileNodeVM fileNodeVm,
+        string diskLabel,
+        DeclareHoldingStrategyType strategyType,
+        bool saveStrategyToRepoNode,
+        out string failureReason)
+    {
+        var strategy = DeclareHoldingStrategyFactory.Create(strategyType);
+        if (!strategy.CheckDeclareHolding(repoNode, fileNode, out failureReason))
+            return false;
+
+        if (saveStrategyToRepoNode)
+            repoNode.DeclareHoldingStrategyType = strategyType;
+
+        var fileNodePath = fileNode.GetPath();
+        var repoNodePath = repoNode.GetPath();
+
+        var saveDataExists = repoNode.SaveFileNodeDatas.Any(
+            d => d.DiskLabel == diskLabel && d.FileNodePath == fileNodePath);
+        if (!saveDataExists)
+        {
+            repoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+            {
+                DiskLabel = diskLabel,
+                FileNodePath = fileNodePath
+            });
+        }
+
+        var vmSaveDataExists = repoNodeVm.SaveFileNodeDatas.Any(
+            d => d.DiskLabel == diskLabel && d.FileNodePath == fileNodePath);
+        if (!vmSaveDataExists)
+        {
+            repoNodeVm.SaveFileNodeDatas.Add(new SaveFileNodeData
+            {
+                DiskLabel = diskLabel,
+                FileNodePath = fileNodePath
+            });
+        }
+
+        var declareDataExists = fileNode.DeclareRepoNodeDatas.Any(
+            d => d.RepoNodePath == repoNodePath);
+        if (!declareDataExists)
+        {
+            fileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+            {
+                RepoNodePath = repoNodePath
+            });
+        }
+
+        var vmDeclareDataExists = fileNodeVm.DeclareRepoNodeDatas.Any(
+            d => d.RepoNodePath == repoNodePath);
+        if (!vmDeclareDataExists)
+        {
+            fileNodeVm.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+            {
+                RepoNodePath = repoNodePath
+            });
+        }
+
+        failureReason = string.Empty;
+        return true;
+    }
+
     public void TryEstablishSaveFileNodeDatasForNode(RepoNode node)
     {
         var parent = node.Parent as RepoNode;

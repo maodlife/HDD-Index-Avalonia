@@ -28,6 +28,9 @@ public class RepositoryEditorViewModel : ViewModelBase
     public ReactiveCommand<object, Unit> JumpToDeclareRepoNodeCommand { get; set; }
         = ReactiveCommand.Create<object>(_ => { });
 
+    public ReactiveCommand<object, Unit> DeclareSelectedRepoNodeCommand { get; set; }
+        = ReactiveCommand.Create<object>(_ => { });
+
     public ReactiveCommand<Unit, Unit> OpenCurrentFileDataFolderCommand { get; set; }
         = ReactiveCommand.Create(() => { });
 

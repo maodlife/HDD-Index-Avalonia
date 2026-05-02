@@ -26,6 +26,15 @@ internal static class TestTreeFactory
         return node;
     }
 
+    public static RepoNode RepoFile(string name)
+    {
+        return new RepoNode
+        {
+            Name = name,
+            IsDirectory = false
+        };
+    }
+
     // 构造一个 FileNode，并把传入的 children 挂到它下面。
     // FileNode 模拟真实磁盘文件树中的目录节点。
     public static FileNode File(string name, params FileNode[] children)
@@ -43,6 +52,15 @@ internal static class TestTreeFactory
         }
 
         return node;
+    }
+
+    public static FileNode DiskFile(string name)
+    {
+        return new FileNode
+        {
+            Name = name,
+            IsDirectory = false
+        };
     }
 
     // 把一棵 FileNode 树包装成测试用的 FileDataVMBundle。

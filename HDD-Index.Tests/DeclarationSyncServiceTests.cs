@@ -35,6 +35,131 @@ public class DeclarationSyncServiceTests
         Assert.True(service.CheckRepoNodeAndFileNodeIsSync(repoNode, fileNode));
     }
 
+    [Fact]
+    public void TryDeclareHolding_AddsModelAndVmDeclarationData()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo(
+                "Movies",
+                TestTreeFactory.RepoFile("movie.mkv")));
+        var repoNode = (RepoNode)repoRoot.Children[0];
+        var fileRoot = TestTreeFactory.File(
+            "Disk",
+            TestTreeFactory.File(
+                "Movies",
+                TestTreeFactory.DiskFile("movie.mkv")));
+        var fileNode = (FileNode)fileRoot.Children[0];
+        var bundle = TestTreeFactory.Bundle("DiskA", fileRoot);
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var repoNodeVm = (RepoNodeVM)repoRootVm.Children[0];
+        var fileNodeVm = (FileNodeVM)bundle.FileNodeVm.Children[0];
+        var service = new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle> { bundle });
+
+        var result = service.TryDeclareHolding(
+            repoNode,
+            repoNodeVm,
+            fileNode,
+            fileNodeVm,
+            "DiskA",
+            DeclareHoldingStrategyType.Default,
+            saveStrategyToRepoNode: true,
+            out var failureReason);
+
+        Assert.True(result);
+        Assert.Empty(failureReason);
+        Assert.Equal(DeclareHoldingStrategyType.Default, repoNode.DeclareHoldingStrategyType);
+        Assert.Single(repoNode.SaveFileNodeDatas);
+        Assert.Single(repoNodeVm.SaveFileNodeDatas);
+        Assert.Single(fileNode.DeclareRepoNodeDatas);
+        Assert.Single(fileNodeVm.DeclareRepoNodeDatas);
+        Assert.Equal(fileNode.GetPath(), repoNode.SaveFileNodeDatas[0].FileNodePath);
+        Assert.Equal(repoNode.GetPath(), fileNode.DeclareRepoNodeDatas[0].RepoNodePath);
+    }
+
+    [Fact]
+    public void TryDeclareHolding_DoesNotAddDuplicateDeclarationData()
+    {
+        var repoRoot = TestTreeFactory.Repo("Root", TestTreeFactory.Repo("Movies"));
+        var repoNode = (RepoNode)repoRoot.Children[0];
+        var fileRoot = TestTreeFactory.File("Disk", TestTreeFactory.File("Movies"));
+        var fileNode = (FileNode)fileRoot.Children[0];
+        var bundle = TestTreeFactory.Bundle("DiskA", fileRoot);
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var repoNodeVm = (RepoNodeVM)repoRootVm.Children[0];
+        var fileNodeVm = (FileNodeVM)bundle.FileNodeVm.Children[0];
+        var service = new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle> { bundle });
+
+        service.TryDeclareHolding(
+            repoNode,
+            repoNodeVm,
+            fileNode,
+            fileNodeVm,
+            "DiskA",
+            DeclareHoldingStrategyType.Default,
+            saveStrategyToRepoNode: true,
+            out _);
+        service.TryDeclareHolding(
+            repoNode,
+            repoNodeVm,
+            fileNode,
+            fileNodeVm,
+            "DiskA",
+            DeclareHoldingStrategyType.Default,
+            saveStrategyToRepoNode: false,
+            out _);
+
+        Assert.Single(repoNode.SaveFileNodeDatas);
+        Assert.Single(repoNodeVm.SaveFileNodeDatas);
+        Assert.Single(fileNode.DeclareRepoNodeDatas);
+        Assert.Single(fileNodeVm.DeclareRepoNodeDatas);
+    }
+
+    [Fact]
+    public void TryDeclareHolding_ReturnsFalseAndDoesNotSaveStrategyWhenValidationFails()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo(
+                "Movies",
+                TestTreeFactory.RepoFile("movie.mkv")));
+        var repoNode = (RepoNode)repoRoot.Children[0];
+        var fileRoot = TestTreeFactory.File("Disk", TestTreeFactory.File("Movies"));
+        var fileNode = (FileNode)fileRoot.Children[0];
+        var bundle = TestTreeFactory.Bundle("DiskA", fileRoot);
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var repoNodeVm = (RepoNodeVM)repoRootVm.Children[0];
+        var fileNodeVm = (FileNodeVM)bundle.FileNodeVm.Children[0];
+        var service = new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle> { bundle });
+
+        var result = service.TryDeclareHolding(
+            repoNode,
+            repoNodeVm,
+            fileNode,
+            fileNodeVm,
+            "DiskA",
+            DeclareHoldingStrategyType.Default,
+            saveStrategyToRepoNode: true,
+            out var failureReason);
+
+        Assert.False(result);
+        Assert.Contains("movie.mkv", failureReason);
+        Assert.Null(repoNode.DeclareHoldingStrategyType);
+        Assert.Empty(repoNode.SaveFileNodeDatas);
+        Assert.Empty(repoNodeVm.SaveFileNodeDatas);
+        Assert.Empty(fileNode.DeclareRepoNodeDatas);
+        Assert.Empty(fileNodeVm.DeclareRepoNodeDatas);
+    }
+
     // 场景：
     // 仓库树是 Root -> Movies -> Anime，但文件树只有 Disk -> Movies；
     // 文件树 Movies 节点声明了对应仓库树 Movies，仓库树 Movies 也保存了一条 DiskA 的文件节点记录。

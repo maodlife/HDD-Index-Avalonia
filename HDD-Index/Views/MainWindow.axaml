@@ -37,6 +37,11 @@
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource FileNodeCanJumpConverter}}" />
+            <MenuItem Header="声明持有左侧选中的节点"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.DeclareSelectedRepoNodeCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
+                                  Converter={StaticResource FileNodeOnlyConverter}}" />
             <MenuItem Header="创建子文件夹"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.CreateChildFolderCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
