@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -35,10 +36,12 @@ public class MainWindowViewModel : ViewModelBase
 
     [Reactive] public int ViewModeTabIndex { get; set; }
     [Reactive] public bool HasDirtyFiles { get; set; }
+    [Reactive] public bool IsFileTreeScanRunning { get; set; }
 
     public bool IsViewMode => ViewModeTabIndex == 0;
     public bool IsEditMode => ViewModeTabIndex == 1;
     public ReactiveCommand<Unit, Unit> SaveCommand { get; private set; } = null!;
+    public ReactiveCommand<Unit, Unit> OpenCreateNewFileTreeDialogCommand { get; private set; } = null!;
 
     public MainWindowViewModel()
     {
@@ -77,6 +80,12 @@ public class MainWindowViewModel : ViewModelBase
         SaveCommand = ReactiveCommand.CreateFromTask(
             async () => { await SaveDirtyFilesAsync(); },
             this.WhenAnyValue(x => x.HasDirtyFiles));
+        var canRunFileTreeScan = this.WhenAnyValue(x => x.IsFileTreeScanRunning)
+            .Select(isRunning => !isRunning);
+        OpenCreateNewFileTreeDialogCommand =
+            ReactiveCommand.CreateFromTask(
+                OpenCreateNewFileTreeDialogAsync,
+                canRunFileTreeScan);
 
         RepoBrowser.RepoNodePathStringChangeCommand =
             ReactiveCommand.Create<string>(OnRepoNodePathChange);
@@ -132,7 +141,9 @@ public class MainWindowViewModel : ViewModelBase
         RepositoryEditor.OpenFileNodeInFolderCommand =
             ReactiveCommand.Create<object>(OpenFileNodeInFolder);
         RepositoryEditor.RefreshFileNodeFromLocalFolderCommand =
-            ReactiveCommand.CreateFromTask<object>(RefreshFileNodeFromLocalFolderAsync);
+            ReactiveCommand.CreateFromTask<object>(
+                RefreshFileNodeFromLocalFolderAsync,
+                canRunFileTreeScan);
         RepositoryEditor.CopySelectedFileNodeToRepoNodeCommand =
             ReactiveCommand.Create<object>(
                 CopySelectedFileNodeToRepoNode,
@@ -652,21 +663,41 @@ public class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        var scannedFileNode = FileNode.CreateByPath(localPath);
-        if (scannedFileNode == null)
+        var scanResult = await RunFileTreeScanAsync((progress, cancellationToken) =>
+        {
+            var scannedFileNode = FileNode.CreateByPath(
+                localPath,
+                progress,
+                cancellationToken);
+            if (scannedFileNode == null)
+                return null;
+
+            var refreshedFileNode = _declarationSyncService.BuildRefreshedFileNodeSubtree(
+                fileNodeVM.FileNode,
+                scannedFileNode);
+            var failures = _declarationSyncService
+                .GetInvalidDeclareHoldingsAfterRefresh(
+                    diskLabel,
+                    fileNodeVM.FileNode,
+                    refreshedFileNode);
+
+            return new RefreshFileNodeScanResult(refreshedFileNode, failures);
+        });
+        if (scanResult.IsCancelled)
+            return;
+        if (scanResult.Error != null)
+        {
+            await ShowMessageAsync($"读取本地文件夹失败：{scanResult.Error.Message}");
+            return;
+        }
+        if (scanResult.Value == null)
         {
             await ShowMessageAsync("读取本地文件夹失败。");
             return;
         }
 
-        var refreshedFileNode = _declarationSyncService.BuildRefreshedFileNodeSubtree(
-            fileNodeVM.FileNode,
-            scannedFileNode);
-        var failures = _declarationSyncService
-            .GetInvalidDeclareHoldingsAfterRefresh(
-                diskLabel,
-                fileNodeVM.FileNode,
-                refreshedFileNode);
+        var refreshedFileNode = scanResult.Value.RefreshedFileNode;
+        var failures = scanResult.Value.Failures;
 
         if (failures.Count > 0)
         {
@@ -745,6 +776,11 @@ public class MainWindowViewModel : ViewModelBase
 
     public async void OpenCreateNewFileTreeDialog()
     {
+        await OpenCreateNewFileTreeDialogAsync();
+    }
+
+    private async Task OpenCreateNewFileTreeDialogAsync()
+    {
         Debug.WriteLine("OpenCreateNewFileTreeDialog");
         var dialog = new FolderSelectDialog
         {
@@ -800,10 +836,26 @@ public class MainWindowViewModel : ViewModelBase
         Console.WriteLine($"选中的文件夹: {selectedPath}");
         Console.WriteLine($"填写的标签: {tag}");
 
-        var bundle = _treeDataStore.CreateFileDataVmBundleFromPath(
-            tag,
-            selectedPath,
-            jsonFilePath);
+        var scanResult = await RunFileTreeScanAsync((progress, cancellationToken) =>
+            _treeDataStore.CreateFileDataVmBundleFromPath(
+                tag,
+                selectedPath,
+                jsonFilePath,
+                progress,
+                cancellationToken));
+        if (scanResult.IsCancelled)
+            return;
+        if (scanResult.Error != null)
+        {
+            await ShowMessageAsync($"读取本地文件夹失败：{scanResult.Error.Message}");
+            return;
+        }
+        var bundle = scanResult.Value;
+        if (bundle == null)
+        {
+            await ShowMessageAsync("读取本地文件夹失败。");
+            return;
+        }
         EnsureAppConfigFileDataFilesInitialized();
         FileBrowser.AddBundle(bundle);
         _appConfig.FileDataFiles.Add(new FileDataFileConfig
@@ -838,6 +890,61 @@ public class MainWindowViewModel : ViewModelBase
     {
         var select = RepoBrowser.RepoNodeSource.RowSelection?.SelectedItem;
         Console.WriteLine(select?.Name ?? "");
+    }
+
+    private async Task<FileTreeScanRunResult<T>> RunFileTreeScanAsync<T>(
+        Func<IProgress<FileNodeScanProgress>, CancellationToken, T> scan)
+    {
+        var owner = GetMainWindow();
+        if (owner == null)
+            return new FileTreeScanRunResult<T>(
+                default,
+                IsCancelled: false,
+                Error: new InvalidOperationException("找不到主窗口。"));
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var progressViewModel =
+            new FileTreeScanProgressDialogViewModel(cancellationTokenSource);
+        var progressDialog = new FileTreeScanProgressDialog(progressViewModel)
+        {
+            Title = "正在读取",
+            Width = 520,
+            Height = 220,
+        };
+        var progress = new Progress<FileNodeScanProgress>(
+            progressViewModel.UpdateProgress);
+
+        IsFileTreeScanRunning = true;
+        progressDialog.Show(owner);
+        try
+        {
+            var result = await Task.Run(
+                () => scan(progress, cancellationTokenSource.Token),
+                cancellationTokenSource.Token);
+            return new FileTreeScanRunResult<T>(
+                result,
+                IsCancelled: false,
+                Error: null);
+        }
+        catch (OperationCanceledException)
+        {
+            return new FileTreeScanRunResult<T>(
+                default,
+                IsCancelled: true,
+                Error: null);
+        }
+        catch (Exception ex)
+        {
+            return new FileTreeScanRunResult<T>(
+                default,
+                IsCancelled: false,
+                Error: ex);
+        }
+        finally
+        {
+            progressDialog.CloseAfterScan();
+            IsFileTreeScanRunning = false;
+        }
     }
 
     private static Window? GetMainWindow()
@@ -929,4 +1036,13 @@ public class MainWindowViewModel : ViewModelBase
         MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.ViewFileTree));
         MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.EditFileTree));
     }
+
+    private sealed record FileTreeScanRunResult<T>(
+        T? Value,
+        bool IsCancelled,
+        Exception? Error);
+
+    private sealed record RefreshFileNodeScanResult(
+        FileNode RefreshedFileNode,
+        IReadOnlyList<DeclareHoldingValidationFailure> Failures);
 }

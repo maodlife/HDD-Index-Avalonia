@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using HDD_Index.Models;
@@ -68,6 +69,21 @@ public class TreeDataStore
         string jsonFilePath)
     {
         return FileDataVMBundle.CreateByPath(diskLabel, path, jsonFilePath);
+    }
+
+    public FileDataVMBundle CreateFileDataVmBundleFromPath(
+        string diskLabel,
+        string path,
+        string jsonFilePath,
+        IProgress<FileNodeScanProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        return FileDataVMBundle.CreateByPath(
+            diskLabel,
+            path,
+            jsonFilePath,
+            progress,
+            cancellationToken);
     }
 
     public string GetRepoFilePath(AppConfig appConfig)

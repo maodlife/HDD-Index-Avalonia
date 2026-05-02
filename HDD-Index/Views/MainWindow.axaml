@@ -93,7 +93,7 @@
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="New File Tree"
-                          Command="{Binding OpenCreateNewFileTreeDialog}" />
+                          Command="{Binding OpenCreateNewFileTreeDialogCommand}" />
                 <MenuItem Header="保存"
                           Command="{Binding SaveCommand}"
                           IsEnabled="{Binding HasDirtyFiles}" />
