@@ -4,9 +4,9 @@ HDD Index is a Qt/C++ program that can organize and browse disk indexes.
 
 ## Screenshots
 
-![1](screenshots\20260503_163353_073_NUlxtN9Rwg_HDD_Index.png)
+![1](screenshots/20260503_163353_073_NUlxtN9Rwg_HDD_Index.png)
 
-![2](screenshots\20260503_001748_362_g4rlaJeTLv.png)
+![2](screenshots/20260503_001748_362_g4rlaJeTLv.png)
 
 ## config.json Example
 
