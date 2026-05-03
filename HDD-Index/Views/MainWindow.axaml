@@ -102,18 +102,61 @@
 
         <TabControl Margin="5"
                     SelectedIndex="{Binding ViewModeTabIndex}">
-        <TabItem Header="浏览">
-            <TabControl Margin="0">
-                <TabItem Header="Repository">
-                    <Grid Margin="20" RowDefinitions="Auto, *">
-                        <TextBox Grid.Row="0"
-                                 Text="{Binding RepoBrowser.RepoNodePathString}">
-                        </TextBox>
-                        <TreeDataGrid Grid.Row="1"
-                                      Name="{x:Static views:ControlNames.ViewRepoTree}"
-                                      Source="{Binding RepoBrowser.RepoNodeSource}"
-                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <TabItem Header="浏览">
+                <TabControl Margin="0">
+                    <TabItem Header="Repository">
+                        <Grid Margin="20" RowDefinitions="Auto, *">
+                            <TextBox Grid.Row="0"
+                                     Text="{Binding RepoBrowser.RepoNodePathString}">
+                            </TextBox>
+                            <TreeDataGrid Grid.Row="1"
+                                          Name="{x:Static views:ControlNames.ViewRepoTree}"
+                                          Source="{Binding RepoBrowser.RepoNodeSource}"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <Interaction.Behaviors>
+                                    <behaviors:ScrollToSelectedItemBehavior />
+                                </Interaction.Behaviors>
+                                <TreeDataGrid.ContextMenu>
+                                    <StaticResource ResourceKey="NodeContextMenu" />
+                                </TreeDataGrid.ContextMenu>
+                            </TreeDataGrid>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="硬盘">
+                        <Grid
+                            Grid.Column="1"
+                            Margin="20"
+                            RowDefinitions="Auto,*,Auto">
+                            <ComboBox Grid.Row="0"
+                                      ItemsSource="{Binding FileBrowser.DiskLabels}"
+                                      SelectedItem="{Binding FileBrowser.SelectedDiskLabel}">
+                            </ComboBox>
+                            <TreeDataGrid Grid.Row="1"
+                                          Name="{x:Static views:ControlNames.ViewFileTree}"
+                                          Source="{Binding FileBrowser.CurrFileNodeSource}"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <Interaction.Behaviors>
+                                    <behaviors:ScrollToSelectedItemBehavior />
+                                </Interaction.Behaviors>
+                                <TreeDataGrid.ContextMenu>
+                                    <StaticResource ResourceKey="NodeContextMenu" />
+                                </TreeDataGrid.ContextMenu>
+                            </TreeDataGrid>
+
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </TabItem>
+            <TabItem Header="编辑">
+                <Grid Margin="20" ColumnDefinitions="*, *">
+                    <Grid Margin="20" RowDefinitions="*,Auto">
+                        <TreeDataGrid
+                            Name="{x:Static views:ControlNames.EditRepoTree}"
+                            Source="{Binding RepoBrowser.RepoNodeSource}"
+                            ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                            ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <Interaction.Behaviors>
                                 <behaviors:ScrollToSelectedItemBehavior />
                             </Interaction.Behaviors>
@@ -121,19 +164,42 @@
                                 <StaticResource ResourceKey="NodeContextMenu" />
                             </TreeDataGrid.ContextMenu>
                         </TreeDataGrid>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,*,*, *">
+                            <TextBlock Text="保存了该节点的磁盘:" />
+                            <ComboBox Grid.Column="1"
+                                      ItemsSource="{Binding RepoBrowser.CurrRepoNodeSaveFileNodes}"
+                                      SelectedItem="{Binding RepoBrowser.SelectedSaveFileNodeLabel}">
+                            </ComboBox>
+                            <Button Grid.Column="2"
+                                    Content="跳转"
+                                    Command="{Binding RepositoryEditor.JumpToCurrSelectSaveFileNodeCommand}">
+                            </Button>
+                            <CheckBox Grid.Column="3"
+                                      Content="自动跳转"
+                                      IsChecked="{Binding RepositoryEditor.AutoJumpToSaveFileNode}">
+                            </CheckBox>
+                        </Grid>
                     </Grid>
-                </TabItem>
-                <TabItem Header="硬盘">
+
                     <Grid
                         Grid.Column="1"
                         Margin="20"
                         RowDefinitions="Auto,*,Auto">
-                        <ComboBox Grid.Row="0"
-                                  ItemsSource="{Binding FileBrowser.DiskLabels}"
-                                  SelectedItem="{Binding FileBrowser.SelectedDiskLabel}">
-                        </ComboBox>
+                        <Grid Grid.Row="0"
+                              ColumnDefinitions="*,Auto">
+                            <ComboBox Grid.Column="0"
+                                      ItemsSource="{Binding FileBrowser.DiskLabels}"
+                                      SelectedItem="{Binding FileBrowser.SelectedDiskLabel}">
+                            </ComboBox>
+                            <Button Grid.Column="1"
+                                    Margin="8,0,0,0"
+                                    Content="打开文件夹"
+                                    Command="{Binding RepositoryEditor.OpenCurrentFileDataFolderCommand}"
+                                    IsEnabled="{Binding FileBrowser.HasCurrentLocalFolderPath}">
+                            </Button>
+                        </Grid>
                         <TreeDataGrid Grid.Row="1"
-                                      Name="{x:Static views:ControlNames.ViewFileTree}"
+                                      Name="{x:Static views:ControlNames.EditFileTree}"
                                       Source="{Binding FileBrowser.CurrFileNodeSource}"
                                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                       ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -144,80 +210,14 @@
                                 <StaticResource ResourceKey="NodeContextMenu" />
                             </TreeDataGrid.ContextMenu>
                         </TreeDataGrid>
-
-                    </Grid>
-                </TabItem>
-            </TabControl>
-        </TabItem>
-        <TabItem Header="编辑">
-            <Grid Margin="20" ColumnDefinitions="*, *">
-                <Grid Margin="20" RowDefinitions="*,Auto">
-                    <TreeDataGrid
-                        Name="{x:Static views:ControlNames.EditRepoTree}"
-                        Source="{Binding RepoBrowser.RepoNodeSource}"
-                        ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                        ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <Interaction.Behaviors>
-                            <behaviors:ScrollToSelectedItemBehavior />
-                        </Interaction.Behaviors>
-                        <TreeDataGrid.ContextMenu>
-                            <StaticResource ResourceKey="NodeContextMenu" />
-                        </TreeDataGrid.ContextMenu>
-                    </TreeDataGrid>
-                    <Grid Grid.Row="1" ColumnDefinitions="*,*,*, *">
-                        <TextBlock Text="保存了该节点的磁盘:" />
-                        <ComboBox Grid.Column="1"
-                                  ItemsSource="{Binding RepoBrowser.CurrRepoNodeSaveFileNodes}"
-                                  SelectedItem="{Binding RepoBrowser.SelectedSaveFileNodeLabel}">
-                        </ComboBox>
-                        <Button Grid.Column="2"
-                                Content="跳转"
-                                Command="{Binding RepositoryEditor.JumpToCurrSelectSaveFileNodeCommand}">
-                        </Button>
-                        <CheckBox Grid.Column="3"
-                                  Content="自动跳转"
-                                  IsChecked="{Binding RepositoryEditor.AutoJumpToSaveFileNode}">
-                        </CheckBox>
+                        <Grid Grid.Row="2">
+                            <CheckBox Content="自动跳转到持有的节点"
+                                      IsChecked="{Binding RepositoryEditor.AutoJumpToDeclareRepoNode}">
+                            </CheckBox>
+                        </Grid>
                     </Grid>
                 </Grid>
-
-                <Grid
-                    Grid.Column="1"
-                    Margin="20"
-                    RowDefinitions="Auto,*,Auto">
-                    <Grid Grid.Row="0"
-                          ColumnDefinitions="*,Auto">
-                        <ComboBox Grid.Column="0"
-                                  ItemsSource="{Binding FileBrowser.DiskLabels}"
-                                  SelectedItem="{Binding FileBrowser.SelectedDiskLabel}">
-                        </ComboBox>
-                        <Button Grid.Column="1"
-                                Margin="8,0,0,0"
-                                Content="打开文件夹"
-                                Command="{Binding RepositoryEditor.OpenCurrentFileDataFolderCommand}"
-                                IsEnabled="{Binding FileBrowser.HasCurrentLocalFolderPath}">
-                        </Button>
-                    </Grid>
-                    <TreeDataGrid Grid.Row="1"
-                                  Name="{x:Static views:ControlNames.EditFileTree}"
-                                  Source="{Binding FileBrowser.CurrFileNodeSource}"
-                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <Interaction.Behaviors>
-                            <behaviors:ScrollToSelectedItemBehavior />
-                        </Interaction.Behaviors>
-                        <TreeDataGrid.ContextMenu>
-                            <StaticResource ResourceKey="NodeContextMenu" />
-                        </TreeDataGrid.ContextMenu>
-                    </TreeDataGrid>
-                    <Grid Grid.Row="2">
-                        <CheckBox Content="自动跳转到持有的节点"
-                                  IsChecked="{Binding RepositoryEditor.AutoJumpToDeclareRepoNode}">
-                        </CheckBox>
-                    </Grid>
-                </Grid>
-            </Grid>
-        </TabItem>
+            </TabItem>
         </TabControl>
     </DockPanel>
 
