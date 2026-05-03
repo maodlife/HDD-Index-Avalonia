@@ -1,10 +1,23 @@
+using System.Reactive.Linq;
 using HDD_Index.Services;
 using HDD_Index.ViewModels;
+using ReactiveUI;
 
 namespace HDD_Index.Tests;
 
 public class RepoNodeSearchViewModelTests
 {
+    [Fact]
+    public void CreateRepoSource_UsesSingleRowSelection()
+    {
+        var rootVm = CreateSearchTree();
+
+        var source = TreeDataGridSourceFactory.CreateRepoSource(rootVm);
+
+        Assert.NotNull(source.RowSelection);
+        Assert.True(source.RowSelection.SingleSelect);
+    }
+
     [Fact]
     public void FindRepoNodeVmsByNameContains_MatchesFilesAndDirectoriesIgnoringCase()
     {
@@ -59,6 +72,70 @@ public class RepoNodeSearchViewModelTests
         search.SearchNextCommand.Execute().Subscribe();
         Assert.Equal("Movies", search.CurrentMatch?.Node.Name);
         Assert.Equal("1/2", search.MatchCounterText);
+    }
+
+    [Fact]
+    public void DeactivateCurrentMatch_ShowsUnknownNumeratorButKeepsCurrentIndex()
+    {
+        var rootVm = CreateSearchTree();
+        var search = new RepoNodeSearchViewModel
+        {
+            SearchText = "mov"
+        };
+        search.RefreshMatches(rootVm);
+
+        search.DeactivateCurrentMatch();
+
+        Assert.Equal("?/2", search.MatchCounterText);
+        Assert.Equal(0, search.CurrentMatchIndex);
+        Assert.Equal("Movies", search.CurrentMatch?.Node.Name);
+
+        search.SearchNextCommand.Execute().Subscribe();
+
+        Assert.Equal("2/2", search.MatchCounterText);
+        Assert.Equal("movie.mkv", search.CurrentMatch?.Node.Name);
+        Assert.True(search.IsCurrentMatchActive);
+    }
+
+    [Fact]
+    public void DeactivateCurrentMatch_DoesNotRaiseCurrentMatchChanged()
+    {
+        var rootVm = CreateSearchTree();
+        var search = new RepoNodeSearchViewModel
+        {
+            SearchText = "mov"
+        };
+        search.RefreshMatches(rootVm);
+        var currentMatchChangedCount = 0;
+        search.WhenAnyValue(x => x.CurrentMatch)
+            .Skip(1)
+            .Subscribe(_ => currentMatchChangedCount++);
+
+        search.DeactivateCurrentMatch();
+
+        Assert.Equal(0, currentMatchChangedCount);
+    }
+
+    [Fact]
+    public void SearchNextCommand_FromInactiveSingleMatch_ReactivatesCurrentMatch()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo("Movies"),
+            TestTreeFactory.Repo("Books"));
+        var rootVm = RepoNodeVM.Create(repoRoot);
+        var search = new RepoNodeSearchViewModel
+        {
+            SearchText = "mov"
+        };
+        search.RefreshMatches(rootVm);
+        search.DeactivateCurrentMatch();
+
+        search.SearchNextCommand.Execute().Subscribe();
+
+        Assert.Equal("1/1", search.MatchCounterText);
+        Assert.Equal("Movies", search.CurrentMatch?.Node.Name);
+        Assert.True(search.IsCurrentMatchActive);
     }
 
     [Fact]

@@ -13,6 +13,9 @@ public class RepositoryEditorViewModel : ViewModelBase
     public ReactiveCommand<object, Unit> LogNodePathCommand { get; set; }
         = ReactiveCommand.Create<object>(_ => { });
 
+    public ReactiveCommand<object, Unit> ExpandToSavedNodeCommand { get; set; }
+        = ReactiveCommand.Create<object>(_ => { });
+
     public ReactiveCommand<object, Unit> CreateChildFolderCommand { get; set; }
         = ReactiveCommand.Create<object>(_ => { });
 

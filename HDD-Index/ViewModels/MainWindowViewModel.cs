@@ -30,6 +30,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly RepoTreeEditor _repoTreeEditor;
     private readonly FileTreeEditor _fileTreeEditor;
     private readonly AppConfig _appConfig;
+    private bool _isSelectingRepoRowProgrammatically;
 
     public RepoBrowserViewModel RepoBrowser { get; }
     public FileBrowserViewModel FileBrowser { get; }
@@ -110,6 +111,11 @@ public class MainWindowViewModel : ViewModelBase
             repoRowSelection.WhenAnyValue(x => x.SelectedItem)
                 .Where(x => x != null)
                 .Select(x => x!)
+                .Do(_ =>
+                {
+                    if (!_isSelectingRepoRowProgrammatically)
+                        RepoBrowser.RepoSearch.DeactivateCurrentMatch();
+                })
                 .InvokeCommand(RepoBrowser.RepoNodeSelectedCommand);
         }
 
@@ -136,6 +142,8 @@ public class MainWindowViewModel : ViewModelBase
 
         RepositoryEditor.LogNodePathCommand =
             ReactiveCommand.Create<object>(LogNodePath);
+        RepositoryEditor.ExpandToSavedNodeCommand =
+            ReactiveCommand.Create<object>(ExpandToSavedNode);
         RepositoryEditor.CreateChildFolderCommand =
             ReactiveCommand.Create<object>(CreateChildFolder);
         RepositoryEditor.RenameRepoNodeCommand =
@@ -185,7 +193,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             var parent = indexPath.Value.Slice(0, indexPath.Value.Count - 1);
             RepoBrowser.RepoNodeSource.Expand(parent);
-            RepoBrowser.RepoNodeSource.RowSelection?.Select(indexPath.Value);
+            SelectSingleRepoRow(indexPath.Value);
             ScrollToRepoRows();
         }
         else
@@ -203,8 +211,26 @@ public class MainWindowViewModel : ViewModelBase
     {
         var parent = match.IndexPath.Slice(0, match.IndexPath.Count - 1);
         RepoBrowser.RepoNodeSource.Expand(parent);
-        RepoBrowser.RepoNodeSource.RowSelection?.Select(match.IndexPath);
+        SelectSingleRepoRow(match.IndexPath);
         ScrollToRepoRows();
+    }
+
+    private void SelectSingleRepoRow(IndexPath indexPath)
+    {
+        var rowSelection = RepoBrowser.RepoNodeSource.RowSelection;
+        if (rowSelection == null)
+            return;
+
+        _isSelectingRepoRowProgrammatically = true;
+        try
+        {
+            rowSelection.Clear();
+            rowSelection.Select(indexPath);
+        }
+        finally
+        {
+            _isSelectingRepoRowProgrammatically = false;
+        }
     }
 
     private void OnSelectRepoNode(RepoNode repoNode)
@@ -251,7 +277,7 @@ public class MainWindowViewModel : ViewModelBase
 
         var parent = indexPath.Value.Slice(0, indexPath.Value.Count - 1);
         RepoBrowser.RepoNodeSource.Expand(parent);
-        RepoBrowser.RepoNodeSource.RowSelection?.Select(indexPath.Value);
+        SelectSingleRepoRow(indexPath.Value);
         ScrollToRepoRows();
     }
 
@@ -725,6 +751,67 @@ public class MainWindowViewModel : ViewModelBase
         return _declarationSyncService.CheckRepoNodeAndFileNodeIsSync(
             repoNode,
             fileNode);
+    }
+
+    private void ExpandToSavedNode(object nodeVM)
+    {
+        if (nodeVM is RepoNodeVM repoNodeVM)
+            ExpandRepoNodeToSavedNodes(repoNodeVM);
+        else if (nodeVM is FileNodeVM fileNodeVM)
+            ExpandFileNodeToDeclaredNodes(fileNodeVM);
+    }
+
+    private void ExpandRepoNodeToSavedNodes(RepoNodeVM repoNodeVM)
+    {
+        var target = TreeNavigationService.FindRepoNodeVmByPath(
+            RepoBrowser.RepoNodeVm,
+            repoNodeVM.RepoNode.GetPath(),
+            out var selectedIndexPath);
+        if (target == null || selectedIndexPath == null)
+            return;
+
+        foreach (var relativePath in TreeNavigationService
+                     .FindRepoExpandPathsToSavedNodes(repoNodeVM))
+        {
+            RepoBrowser.RepoNodeSource.Expand(
+                AppendRelativeIndexPath(selectedIndexPath.Value, relativePath));
+        }
+    }
+
+    private void ExpandFileNodeToDeclaredNodes(FileNodeVM fileNodeVM)
+    {
+        var rootVm = FileBrowser.FileDataVmBundles
+            .ElementAtOrDefault(FileBrowser.CurrShowFileNodeIndex)
+            ?.FileNodeVm;
+        if (rootVm == null)
+            return;
+
+        var target = TreeNavigationService.FindFileNodeVmByPath(
+            rootVm,
+            fileNodeVM.FileNode.GetPath(),
+            out var selectedIndexPath);
+        if (target == null || selectedIndexPath == null)
+            return;
+
+        foreach (var relativePath in TreeNavigationService
+                     .FindFileExpandPathsToDeclaredNodes(fileNodeVM))
+        {
+            FileBrowser.CurrFileNodeSource.Expand(
+                AppendRelativeIndexPath(selectedIndexPath.Value, relativePath));
+        }
+    }
+
+    private static IndexPath AppendRelativeIndexPath(
+        IndexPath basePath,
+        IndexPath relativePath)
+    {
+        var indexes = new List<int>();
+        for (var i = 0; i < basePath.Count; i++)
+            indexes.Add(basePath[i]);
+        for (var i = 1; i < relativePath.Count; i++)
+            indexes.Add(relativePath[i]);
+
+        return new IndexPath(indexes);
     }
 
     private void LogNodePath(object nodeVM)

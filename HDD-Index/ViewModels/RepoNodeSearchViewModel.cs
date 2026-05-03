@@ -13,6 +13,7 @@ public class RepoNodeSearchViewModel : ViewModelBase
 
     private string _searchText = string.Empty;
     private int _currentMatchIndex = -1;
+    private bool _isCurrentMatchActive;
 
     public string SearchText
     {
@@ -39,9 +40,24 @@ public class RepoNodeSearchViewModel : ViewModelBase
 
     public int TotalMatchCount => _matches.Count;
 
-    public string MatchCounterText => $"{CurrentMatchNumber}/{TotalMatchCount}";
+    public string MatchCounterText => TotalMatchCount == 0
+        ? "0/0"
+        : $"{(IsCurrentMatchActive ? CurrentMatchNumber.ToString() : "?")}/{TotalMatchCount}";
 
     public bool HasMatches => TotalMatchCount > 0;
+
+    public bool IsCurrentMatchActive
+    {
+        get => _isCurrentMatchActive;
+        private set
+        {
+            if (EqualityComparer<bool>.Default.Equals(_isCurrentMatchActive, value))
+                return;
+
+            this.RaiseAndSetIfChanged(ref _isCurrentMatchActive, value);
+            RaiseCounterStateChanged();
+        }
+    }
 
     public RepoNodeSearchMatch? CurrentMatch =>
         CurrentMatchIndex >= 0 && CurrentMatchIndex < _matches.Count
@@ -64,13 +80,23 @@ public class RepoNodeSearchViewModel : ViewModelBase
         {
             _matches = Array.Empty<RepoNodeSearchMatch>();
             CurrentMatchIndex = -1;
+            IsCurrentMatchActive = false;
             RaiseMatchStateChanged();
             return;
         }
 
         _matches = TreeNavigationService.FindRepoNodeVmsByNameContains(root, SearchText);
         CurrentMatchIndex = GetInitialMatchIndex(preferredNode);
+        IsCurrentMatchActive = CurrentMatchIndex >= 0;
         RaiseMatchStateChanged();
+    }
+
+    public void DeactivateCurrentMatch()
+    {
+        if (_matches.Count == 0)
+            return;
+
+        IsCurrentMatchActive = false;
     }
 
     private int GetInitialMatchIndex(RepoNodeVM? preferredNode)
@@ -95,9 +121,13 @@ public class RepoNodeSearchViewModel : ViewModelBase
         if (_matches.Count == 0)
             return;
 
+        var oldMatchIndex = CurrentMatchIndex;
         CurrentMatchIndex = CurrentMatchIndex <= 0
             ? _matches.Count - 1
             : CurrentMatchIndex - 1;
+        IsCurrentMatchActive = true;
+        if (CurrentMatchIndex == oldMatchIndex)
+            this.RaisePropertyChanged(nameof(CurrentMatch));
     }
 
     private void SelectNextMatch()
@@ -105,17 +135,27 @@ public class RepoNodeSearchViewModel : ViewModelBase
         if (_matches.Count == 0)
             return;
 
+        var oldMatchIndex = CurrentMatchIndex;
         CurrentMatchIndex = CurrentMatchIndex >= _matches.Count - 1
             ? 0
             : CurrentMatchIndex + 1;
+        IsCurrentMatchActive = true;
+        if (CurrentMatchIndex == oldMatchIndex)
+            this.RaisePropertyChanged(nameof(CurrentMatch));
     }
 
     private void RaiseMatchStateChanged()
+    {
+        RaiseCounterStateChanged();
+        this.RaisePropertyChanged(nameof(CurrentMatch));
+    }
+
+    private void RaiseCounterStateChanged()
     {
         this.RaisePropertyChanged(nameof(CurrentMatchNumber));
         this.RaisePropertyChanged(nameof(TotalMatchCount));
         this.RaisePropertyChanged(nameof(MatchCounterText));
         this.RaisePropertyChanged(nameof(HasMatches));
-        this.RaisePropertyChanged(nameof(CurrentMatch));
+        this.RaisePropertyChanged(nameof(IsCurrentMatchActive));
     }
 }

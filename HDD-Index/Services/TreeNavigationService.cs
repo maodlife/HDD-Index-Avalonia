@@ -7,6 +7,22 @@ namespace HDD_Index.Services;
 
 public static class TreeNavigationService
 {
+    public static IReadOnlyList<IndexPath> FindRepoExpandPathsToSavedNodes(
+        RepoNodeVM root)
+    {
+        return FindExpandPathsToMatchingNodes(
+            root,
+            x => x.RepoNode.SaveFileNodeDatas.Count > 0);
+    }
+
+    public static IReadOnlyList<IndexPath> FindFileExpandPathsToDeclaredNodes(
+        FileNodeVM root)
+    {
+        return FindExpandPathsToMatchingNodes(
+            root,
+            x => x.FileNode.DeclareRepoNodeDatas.Count > 0);
+    }
+
     public static IReadOnlyList<RepoNodeSearchMatch> FindRepoNodeVmsByNameContains(
         RepoNodeVM root,
         string? searchText)
@@ -65,6 +81,57 @@ public static class TreeNavigationService
             return newPrefix + path.Substring(oldPrefix.Length);
 
         return path;
+    }
+
+    private static IReadOnlyList<IndexPath> FindExpandPathsToMatchingNodes<T>(
+        T root,
+        Func<T, bool> isTarget)
+        where T : TreeNodeVMBase<T>
+    {
+        var expandPaths = new List<IndexPath>();
+        CollectExpandPathsToMatchingNodes(
+            root,
+            isTarget,
+            new List<int> { 0 },
+            expandPaths);
+        expandPaths.Sort((left, right) => left.Count.CompareTo(right.Count));
+        return expandPaths;
+    }
+
+    private static bool CollectExpandPathsToMatchingNodes<T>(
+        T node,
+        Func<T, bool> isTarget,
+        List<int> indexSegments,
+        ICollection<IndexPath> expandPaths)
+        where T : TreeNodeVMBase<T>
+    {
+        if (isTarget(node))
+            return true;
+
+        var hasTargetDescendant = false;
+        var shouldAddCurrentPath = true;
+        for (var i = 0; i < node.Children.Count; i++)
+        {
+            indexSegments.Add(i);
+            var childHasTarget = CollectExpandPathsToMatchingNodes(
+                node.Children[i],
+                isTarget,
+                indexSegments,
+                expandPaths);
+            indexSegments.RemoveAt(indexSegments.Count - 1);
+
+            if (!childHasTarget)
+                continue;
+
+            hasTargetDescendant = true;
+            if (shouldAddCurrentPath)
+            {
+                expandPaths.Add(new IndexPath(indexSegments));
+                shouldAddCurrentPath = false;
+            }
+        }
+
+        return hasTargetDescendant;
     }
 
     private static void CollectRepoNodeNameMatches(

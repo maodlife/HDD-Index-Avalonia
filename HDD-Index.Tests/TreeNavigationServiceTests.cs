@@ -1,3 +1,4 @@
+using HDD_Index.Models;
 using HDD_Index.Services;
 using HDD_Index.ViewModels;
 
@@ -71,5 +72,106 @@ public class TreeNavigationServiceTests
         Assert.Equal(0, indexPath.Value[0]);
         Assert.Equal(1, indexPath.Value[1]);
         Assert.Equal(0, indexPath.Value[2]);
+    }
+
+    [Fact]
+    public void FindRepoExpandPathsToSavedNodes_ReturnsPathsWithinCurrentSubtree()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo(
+                "Movies",
+                CreateSavedRepoFile("movie.mkv")),
+            CreateSavedRepoFile("book.epub"));
+        var rootVm = RepoNodeVM.Create(repoRoot);
+        var moviesVm = rootVm.Children[0];
+
+        var paths = TreeNavigationService.FindRepoExpandPathsToSavedNodes(moviesVm);
+
+        Assert.Single(paths);
+        AssertIndexPath(paths[0], 0);
+    }
+
+    [Fact]
+    public void FindRepoExpandPathsToSavedNodes_StopsAtSavedNode()
+    {
+        var savedDirectory = TestTreeFactory.Repo(
+            "Movies",
+            CreateSavedRepoFile("movie.mkv"));
+        savedDirectory.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "Disk",
+            FileNodePath = "Disk/Movies"
+        });
+        var repoRoot = TestTreeFactory.Repo("Root", savedDirectory);
+        var rootVm = RepoNodeVM.Create(repoRoot);
+
+        var paths = TreeNavigationService.FindRepoExpandPathsToSavedNodes(rootVm);
+
+        Assert.Single(paths);
+        AssertIndexPath(paths[0], 0);
+    }
+
+    [Fact]
+    public void FindRepoExpandPathsToSavedNodes_ExpandsSharedAncestorsOnce()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo(
+                "Movies",
+                CreateSavedRepoFile("movie.mkv"),
+                CreateSavedRepoFile("clip.mp4")));
+        var rootVm = RepoNodeVM.Create(repoRoot);
+
+        var paths = TreeNavigationService.FindRepoExpandPathsToSavedNodes(rootVm);
+
+        Assert.Equal(2, paths.Count);
+        AssertIndexPath(paths[0], 0);
+        AssertIndexPath(paths[1], 0, 0);
+    }
+
+    [Fact]
+    public void FindFileExpandPathsToDeclaredNodes_ReturnsPathsToDeclaredNodes()
+    {
+        var fileRoot = TestTreeFactory.File(
+            "Disk",
+            TestTreeFactory.File(
+                "Movies",
+                CreateDeclaredDiskFile("movie.mkv")));
+        var rootVm = FileNodeVM.Create(fileRoot);
+
+        var paths = TreeNavigationService.FindFileExpandPathsToDeclaredNodes(rootVm);
+
+        Assert.Equal(2, paths.Count);
+        AssertIndexPath(paths[0], 0);
+        AssertIndexPath(paths[1], 0, 0);
+    }
+
+    private static RepoNode CreateSavedRepoFile(string name)
+    {
+        var node = TestTreeFactory.RepoFile(name);
+        node.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "Disk",
+            FileNodePath = $"Disk/{name}"
+        });
+        return node;
+    }
+
+    private static FileNode CreateDeclaredDiskFile(string name)
+    {
+        var node = TestTreeFactory.DiskFile(name);
+        node.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = $"Root/{name}"
+        });
+        return node;
+    }
+
+    private static void AssertIndexPath(Avalonia.Controls.IndexPath path, params int[] indexes)
+    {
+        Assert.Equal(indexes.Length, path.Count);
+        for (var i = 0; i < indexes.Length; i++)
+            Assert.Equal(indexes[i], path[i]);
     }
 }

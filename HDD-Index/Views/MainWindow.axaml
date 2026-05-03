@@ -28,6 +28,9 @@
             <MenuItem Header="输出路径到日志"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.LogNodePathCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}" />
+            <MenuItem Header="展开到保存节点"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.ExpandToSavedNodeCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}" />
             <MenuItem Header="在文件夹中打开"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.OpenFileNodeInFolderCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"

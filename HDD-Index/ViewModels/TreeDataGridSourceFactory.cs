@@ -10,7 +10,7 @@ public static class TreeDataGridSourceFactory
     public static HierarchicalTreeDataGridSource<RepoNodeVM> CreateRepoSource(
         RepoNodeVM repoNodeVm)
     {
-        return new HierarchicalTreeDataGridSource<RepoNodeVM>(repoNodeVm)
+        var source = new HierarchicalTreeDataGridSource<RepoNodeVM>(repoNodeVm)
         {
             Columns =
             {
@@ -27,6 +27,11 @@ public static class TreeDataGridSourceFactory
                     x => x.DeclareHoldingStrategyName)
             }
         };
+
+        if (source.RowSelection != null)
+            source.RowSelection.SingleSelect = true;
+
+        return source;
     }
 
     public static HierarchicalTreeDataGridSource<FileNodeVM> CreateFileSource(
