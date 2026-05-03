@@ -22,6 +22,12 @@ public class RepositoryEditorViewModel : ViewModelBase
     public ReactiveCommand<object, Unit> DeleteRepoNodeCommand { get; set; }
         = ReactiveCommand.Create<object>(_ => { });
 
+    public ReactiveCommand<object, Unit> SearchAndDeleteRepoNodesCommand { get; set; }
+        = ReactiveCommand.Create<object>(_ => { });
+
+    public ReactiveCommand<object, Unit> DeleteFileNodeCommand { get; set; }
+        = ReactiveCommand.Create<object>(_ => { });
+
     public ReactiveCommand<Unit, Unit> JumpToCurrSelectSaveFileNodeCommand { get; set; }
         = ReactiveCommand.Create(() => { });
 

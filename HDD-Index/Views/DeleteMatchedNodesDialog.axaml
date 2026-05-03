@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HDD_Index.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
+        x:Class="HDD_Index.Views.DeleteMatchedNodesDialog"
+        x:DataType="vm:DeleteMatchedNodesDialogViewModel"
+        Title="确认删除"
+        Width="620" Height="420"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:DeleteMatchedNodesDialogViewModel />
+    </Design.DataContext>
+
+    <Grid Margin="14" RowDefinitions="Auto,*,Auto">
+        <TextBlock Grid.Row="0"
+                   Text="{Binding MessageText}"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,12" />
+
+        <TextBox Grid.Row="1"
+                 Text="{Binding PathsText}"
+                 IsReadOnly="True"
+                 AcceptsReturn="True"
+                 TextWrapping="NoWrap"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="10"
+                    Margin="0,16,0,0">
+            <Button Content="取消"
+                    Command="{Binding CancelCommand}" />
+            <Button Content="确认删除"
+                    Foreground="Red"
+                    Command="{Binding ConfirmCommand}" />
+        </StackPanel>
+    </Grid>
+</Window>

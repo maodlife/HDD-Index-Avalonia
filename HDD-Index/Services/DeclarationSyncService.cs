@@ -342,6 +342,69 @@ public class DeclarationSyncService
         }
     }
 
+    /// <summary>
+    /// 删除 FileNode 子树前，先移除这些节点上记录的声明持有关系，
+    /// 以同步清理 RepoNode 里的 SaveFileNodeData。
+    /// </summary>
+    public void RemoveDeclareHoldingsFromFileNodes(
+        string diskLabel,
+        IEnumerable<FileNode> fileNodes)
+    {
+        if (string.IsNullOrWhiteSpace(diskLabel))
+            return;
+
+        foreach (var fileNode in fileNodes.Distinct().ToList())
+        {
+            var fileNodePath = fileNode.GetPath();
+            var repoNodePaths = fileNode.DeclareRepoNodeDatas
+                .Select(x => x.RepoNodePath)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .ToList();
+
+            foreach (var repoNodePath in repoNodePaths)
+                RemoveDeclareHolding(repoNodePath, diskLabel, fileNodePath);
+        }
+    }
+
+    /// <summary>
+    /// FileNode 子树变更后重新检查仍存在节点上的声明持有关系，
+    /// 不再满足策略或指向缺失 RepoNode 的关系会被双向移除。
+    /// </summary>
+    public void UpdateFileNodeDeclarations(
+        string diskLabel,
+        IEnumerable<FileNode> fileNodes)
+    {
+        if (string.IsNullOrWhiteSpace(diskLabel))
+            return;
+
+        foreach (var fileNode in fileNodes.Distinct().ToList())
+        {
+            var fileNodePath = fileNode.GetPath();
+            foreach (var declareData in fileNode.DeclareRepoNodeDatas.ToList())
+            {
+                var repoNodePath = declareData.RepoNodePath;
+                if (string.IsNullOrWhiteSpace(repoNodePath))
+                {
+                    fileNode.DeclareRepoNodeDatas.Remove(declareData);
+                    RemoveDeclareDataFromFileNodeVm(diskLabel, fileNodePath, repoNodePath);
+                    continue;
+                }
+
+                var repoNode = TreeNodeUtils.GetNodeByPathFromRoot(
+                    _repoNodeRoot,
+                    repoNodePath) as RepoNode;
+                if (repoNode != null
+                    && TreeNodeUtils.CheckDeclarationStatus(repoNode, fileNode))
+                {
+                    continue;
+                }
+
+                RemoveDeclareHolding(repoNodePath, diskLabel, fileNodePath);
+            }
+        }
+    }
+
     public void TryEstablishSaveFileNodeDatasForNode(RepoNode node)
     {
         var parent = node.Parent as RepoNode;

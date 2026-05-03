@@ -76,6 +76,11 @@
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource RepoNodeOnlyConverter}}" />
+            <MenuItem Header="搜索并删除节点"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.SearchAndDeleteRepoNodesCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
+                                  Converter={StaticResource RepoNodeOnlyConverter}}" />
             <MenuItem Header="重命名"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.RenameRepoNodeCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
@@ -86,6 +91,11 @@
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource RepoNodeOnlyConverter}}" />
+            <MenuItem Header="删除"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.DeleteFileNodeCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
+                                  Converter={StaticResource FileNodeOnlyConverter}}" />
         </ContextMenu>
     </Window.Resources>
 

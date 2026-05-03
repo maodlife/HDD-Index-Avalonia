@@ -134,6 +134,104 @@ public class RepoTreeEditorTests
             .Select(x => x.Name));
     }
 
+    [Fact]
+    public void FindDescendantRepoNodesByName_DoesNotIncludeSelectedNode()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo(
+                "Movies",
+                TestTreeFactory.Repo("Movies")));
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var selectedVm = repoRootVm.Children[0];
+        var editor = CreateEditor(repoRoot, repoRootVm);
+
+        var matches = editor.FindDescendantRepoNodesByName(selectedVm, "Movies");
+
+        Assert.Single(matches);
+        Assert.Equal("Root/Movies/Movies", matches[0].RepoNode.GetPath());
+    }
+
+    [Fact]
+    public void FindDescendantRepoNodesByName_MatchesFilesAndDirectoriesIgnoringCase()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo("MEDIA"),
+            TestTreeFactory.RepoFile("MOVIE.MKV"));
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var editor = CreateEditor(repoRoot, repoRootVm);
+
+        var directoryMatches = editor.FindDescendantRepoNodesByName(repoRootVm, "media");
+        var fileMatches = editor.FindDescendantRepoNodesByName(repoRootVm, "movie.mkv");
+
+        Assert.Single(directoryMatches);
+        Assert.True(directoryMatches[0].RepoNode.IsDirectory);
+        Assert.Single(fileMatches);
+        Assert.False(fileMatches[0].RepoNode.IsDirectory);
+    }
+
+    [Fact]
+    public void DeleteRepoNodes_RemovesMatchedDirectorySubtreeAndDeclarations()
+    {
+        var repoRoot = TestTreeFactory.Repo(
+            "Root",
+            TestTreeFactory.Repo(
+                "Movies",
+                TestTreeFactory.Repo(
+                    "Anime",
+                    TestTreeFactory.RepoFile("episode.mkv"))));
+        var animeRepoNode = (RepoNode)((RepoNode)repoRoot.Children[0]).Children[0];
+        var fileRoot = TestTreeFactory.File(
+            "Disk",
+            TestTreeFactory.File(
+                "Movies",
+                TestTreeFactory.File(
+                    "Anime",
+                    TestTreeFactory.DiskFile("episode.mkv"))));
+        var animeFileNode = (FileNode)((FileNode)fileRoot.Children[0]).Children[0];
+        animeFileNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = animeRepoNode.GetPath()
+        });
+        animeRepoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "DiskA",
+            FileNodePath = animeFileNode.GetPath()
+        });
+        var bundle = TestTreeFactory.Bundle("DiskA", fileRoot);
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var editor = new RepoTreeEditor(new DeclarationSyncService(
+            repoRoot,
+            repoRootVm,
+            new List<FileDataVMBundle> { bundle }));
+        var animeRepoVm = repoRootVm.Children[0].Children[0];
+
+        var deleted = editor.DeleteRepoNodes(
+            new[] { animeRepoVm, animeRepoVm.Children[0] },
+            repoRoot,
+            repoRootVm);
+
+        Assert.True(deleted);
+        Assert.Empty(((RepoNode)repoRoot.Children[0]).Children);
+        Assert.Empty(repoRootVm.Children[0].Children);
+        Assert.Empty(animeFileNode.DeclareRepoNodeDatas);
+        Assert.Empty(((FileNodeVM)((FileNodeVM)bundle.FileNodeVm.Children[0]).Children[0]).DeclareRepoNodeDatas);
+    }
+
+    [Fact]
+    public void DeleteRepoNode_ReturnsFalseForRoot()
+    {
+        var repoRoot = TestTreeFactory.Repo("Root", TestTreeFactory.Repo("Movies"));
+        var repoRootVm = RepoNodeVM.Create(repoRoot);
+        var editor = CreateEditor(repoRoot, repoRootVm);
+
+        var deleted = editor.DeleteRepoNode(repoRootVm, repoRoot, repoRootVm);
+
+        Assert.False(deleted);
+        Assert.Single(repoRoot.Children);
+    }
+
     private static RepoTreeEditor CreateEditor(RepoNode repoRoot, RepoNodeVM repoRootVm)
     {
         var syncService = new DeclarationSyncService(

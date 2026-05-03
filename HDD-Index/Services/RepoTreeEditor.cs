@@ -93,6 +93,42 @@ public class RepoTreeEditor
         return true;
     }
 
+    public IReadOnlyList<RepoNodeVM> FindDescendantRepoNodesByName(
+        RepoNodeVM repoNodeVm,
+        string nodeName)
+    {
+        if (string.IsNullOrWhiteSpace(nodeName))
+            return Array.Empty<RepoNodeVM>();
+
+        var result = new List<RepoNodeVM>();
+        foreach (var child in repoNodeVm.Children)
+            CollectMatchingDescendants(child, nodeName, result);
+
+        return result;
+    }
+
+    /// <summary>
+    /// 批量删除搜索命中的 RepoNode。命中目录及其子节点同时命中时，只删除最外层命中节点，
+    /// 避免重复处理已经随父目录删除的子树。
+    /// </summary>
+    public bool DeleteRepoNodes(
+        IEnumerable<RepoNodeVM> repoNodeVms,
+        RepoNode repoNodeRoot,
+        RepoNodeVM repoNodeVmRoot)
+    {
+        var deleteTargets = ExcludeNestedRepoNodes(repoNodeVms, repoNodeRoot);
+        var deletedAny = false;
+        foreach (var deleteTarget in deleteTargets)
+        {
+            deletedAny |= DeleteRepoNode(
+                deleteTarget,
+                repoNodeRoot,
+                repoNodeVmRoot);
+        }
+
+        return deletedAny;
+    }
+
     public RepoNodeVM? CopyFileNodeSubtreeToRepoDirectory(
         RepoNodeVM targetParentVm,
         FileNode sourceFileNode)
@@ -162,6 +198,51 @@ public class RepoTreeEditor
         }
 
         return copiedNode;
+    }
+
+    private static void CollectMatchingDescendants(
+        RepoNodeVM repoNodeVm,
+        string nodeName,
+        ICollection<RepoNodeVM> result)
+    {
+        if (string.Equals(repoNodeVm.Name, nodeName, StringComparison.OrdinalIgnoreCase))
+            result.Add(repoNodeVm);
+
+        foreach (var child in repoNodeVm.Children)
+            CollectMatchingDescendants(child, nodeName, result);
+    }
+
+    private static List<RepoNodeVM> ExcludeNestedRepoNodes(
+        IEnumerable<RepoNodeVM> repoNodeVms,
+        RepoNode repoNodeRoot)
+    {
+        var candidates = repoNodeVms
+            .Where(x => x.RepoNode != repoNodeRoot)
+            .Distinct()
+            .ToList();
+        var candidateNodes = candidates
+            .Select(x => x.RepoNode)
+            .ToHashSet();
+
+        return candidates
+            .Where(x => !HasAncestorInSet(x.RepoNode, candidateNodes))
+            .ToList();
+    }
+
+    private static bool HasAncestorInSet(
+        RepoNode repoNode,
+        ISet<RepoNode> repoNodes)
+    {
+        var current = repoNode.Parent as RepoNode;
+        while (current != null)
+        {
+            if (repoNodes.Contains(current))
+                return true;
+
+            current = current.Parent as RepoNode;
+        }
+
+        return false;
     }
 
     private static List<RepoNode> CollectAncestors(RepoNode parent)

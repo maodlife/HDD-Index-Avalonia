@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HDD_Index.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="160"
+        x:Class="HDD_Index.Views.SearchDeleteNodeDialog"
+        x:DataType="vm:SearchDeleteNodeDialogViewModel"
+        Title="搜索并删除节点"
+        Width="420" Height="160"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:SearchDeleteNodeDialogViewModel />
+    </Design.DataContext>
+
+    <StackPanel Margin="14" Spacing="12">
+        <TextBlock Text="请输入要搜索并删除的文件或目录名：" />
+        <TextBox Text="{Binding SearchText}"
+                 Watermark="文件或目录名"
+                 HorizontalAlignment="Stretch" />
+
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="10">
+            <Button Content="取消"
+                    Command="{Binding CancelCommand}" />
+            <Button Content="确认"
+                    Command="{Binding ConfirmCommand}" />
+        </StackPanel>
+    </StackPanel>
+</Window>

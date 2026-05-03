@@ -28,6 +28,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly DirtyJsonFileTracker _dirtyJsonFileTracker = new();
     private readonly DeclarationSyncService _declarationSyncService;
     private readonly RepoTreeEditor _repoTreeEditor;
+    private readonly FileTreeEditor _fileTreeEditor;
     private readonly AppConfig _appConfig;
 
     public RepoBrowserViewModel RepoBrowser { get; }
@@ -59,6 +60,7 @@ public class MainWindowViewModel : ViewModelBase
             RepoBrowser.RepoNodeVm,
             FileBrowser.FileDataVmBundles);
         _repoTreeEditor = new RepoTreeEditor(_declarationSyncService);
+        _fileTreeEditor = new FileTreeEditor(_declarationSyncService);
 
         InitCommand();
     }
@@ -126,6 +128,10 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.CreateFromTask<object>(RenameRepoNodeAsync);
         RepositoryEditor.DeleteRepoNodeCommand =
             ReactiveCommand.CreateFromTask<object>(DeleteRepoNodeAsync);
+        RepositoryEditor.SearchAndDeleteRepoNodesCommand =
+            ReactiveCommand.CreateFromTask<object>(SearchAndDeleteRepoNodesAsync);
+        RepositoryEditor.DeleteFileNodeCommand =
+            ReactiveCommand.CreateFromTask<object>(DeleteFileNodeAsync);
         RepositoryEditor.JumpToCurrSelectSaveFileNodeCommand =
             ReactiveCommand.Create(JumpToCurrSelectSaveFileNode);
         RepositoryEditor.JumpToDeclareRepoNodeCommand =
@@ -442,6 +448,10 @@ public class MainWindowViewModel : ViewModelBase
         if (nodeVM is not RepoNodeVM repoNodeVM)
             return;
 
+        var owner = GetMainWindow();
+        if (owner == null)
+            return;
+
         var dialog = new RenameRepoNodeDialog(repoNodeVM.Name)
         {
             Title = "重命名",
@@ -449,7 +459,7 @@ public class MainWindowViewModel : ViewModelBase
             Height = 160,
         };
 
-        var result = await dialog.ShowDialog<string?>(GetMainWindow());
+        var result = await dialog.ShowDialog<string?>(owner);
         if (string.IsNullOrWhiteSpace(result))
             return;
 
@@ -465,6 +475,10 @@ public class MainWindowViewModel : ViewModelBase
         if (nodeVM is not RepoNodeVM repoNodeVM)
             return;
 
+        var owner = GetMainWindow();
+        if (owner == null)
+            return;
+
         var dialog = new DeleteConfirmDialog(repoNodeVM.Name)
         {
             Title = "确认删除",
@@ -472,7 +486,7 @@ public class MainWindowViewModel : ViewModelBase
             Height = 150,
         };
 
-        var result = await dialog.ShowDialog<bool>(GetMainWindow());
+        var result = await dialog.ShowDialog<bool>(owner);
         if (!result)
             return;
 
@@ -482,6 +496,102 @@ public class MainWindowViewModel : ViewModelBase
             RepoBrowser.RepoNodeVm))
         {
             MarkRepoAndAllFilesDirty();
+        }
+    }
+
+    private async Task SearchAndDeleteRepoNodesAsync(object nodeVM)
+    {
+        if (nodeVM is not RepoNodeVM repoNodeVM)
+            return;
+
+        var owner = GetMainWindow();
+        if (owner == null)
+            return;
+
+        var searchDialog = new SearchDeleteNodeDialog
+        {
+            Title = "搜索并删除节点",
+            Width = 420,
+            Height = 160,
+        };
+
+        var searchText = await searchDialog.ShowDialog<string?>(owner);
+        if (string.IsNullOrWhiteSpace(searchText))
+            return;
+
+        var matchedNodes = _repoTreeEditor
+            .FindDescendantRepoNodesByName(repoNodeVM, searchText)
+            .ToList();
+        if (matchedNodes.Count == 0)
+        {
+            await ShowMessageAsync("没有找到同名文件或目录节点。");
+            return;
+        }
+
+        var pathsText = string.Join(
+            Environment.NewLine,
+            matchedNodes.Select(x => x.RepoNode.GetPath()));
+        var confirmDialog = new DeleteMatchedNodesDialog(
+            $"将删除以下 {matchedNodes.Count} 个节点。确认删除后只会修改索引数据，不会删除真实磁盘文件。",
+            pathsText)
+        {
+            Title = "确认删除搜索结果",
+            Width = 620,
+            Height = 420,
+        };
+
+        var confirmed = await confirmDialog.ShowDialog<bool>(owner);
+        if (!confirmed)
+            return;
+
+        if (_repoTreeEditor.DeleteRepoNodes(
+                matchedNodes,
+                RepoBrowser.RepoNodeRoot,
+                RepoBrowser.RepoNodeVm))
+        {
+            MarkRepoAndAllFilesDirty();
+        }
+    }
+
+    private async Task DeleteFileNodeAsync(object nodeVM)
+    {
+        if (nodeVM is not FileNodeVM fileNodeVM)
+            return;
+
+        var diskLabel = FileBrowser.SelectedDiskLabel;
+        var currentFileData = FileBrowser.CurrentFileData;
+        var currentFileNodeVm = FileBrowser.FileDataVmBundles
+            .ElementAtOrDefault(FileBrowser.CurrShowFileNodeIndex)
+            ?.FileNodeVm;
+        if (string.IsNullOrWhiteSpace(diskLabel)
+            || currentFileData?.FileNodeRoot == null
+            || currentFileNodeVm == null)
+        {
+            return;
+        }
+
+        var owner = GetMainWindow();
+        if (owner == null)
+            return;
+
+        var dialog = new DeleteConfirmDialog(fileNodeVM.Name)
+        {
+            Title = "确认删除",
+            Width = 400,
+            Height = 150,
+        };
+
+        var result = await dialog.ShowDialog<bool>(owner);
+        if (!result)
+            return;
+
+        if (_fileTreeEditor.DeleteFileNode(
+                fileNodeVM,
+                currentFileData.FileNodeRoot,
+                currentFileNodeVm,
+                diskLabel))
+        {
+            MarkRepoAndFileDirty(diskLabel);
         }
     }
 
