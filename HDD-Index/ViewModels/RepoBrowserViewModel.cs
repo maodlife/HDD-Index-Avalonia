@@ -18,6 +18,8 @@ public class RepoBrowserViewModel : ViewModelBase
 
     public ObservableCollection<string> CurrRepoNodeSaveFileNodes { get; } = new();
 
+    public RepoNodeSearchViewModel RepoSearch { get; } = new();
+
     [Reactive] public string SelectedSaveFileNodeLabel { get; set; } = string.Empty;
 
     [Reactive] public string RepoNodePathString { get; set; } = string.Empty;

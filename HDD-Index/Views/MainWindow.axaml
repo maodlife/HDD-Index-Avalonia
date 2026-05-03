@@ -115,11 +115,35 @@
             <TabItem Header="浏览">
                 <TabControl Margin="0">
                     <TabItem Header="Repository">
-                        <Grid Margin="20" RowDefinitions="Auto, *">
+                        <Grid Margin="20" RowDefinitions="Auto,Auto,*">
                             <TextBox Grid.Row="0"
                                      Text="{Binding RepoBrowser.RepoNodePathString}">
                             </TextBox>
-                            <TreeDataGrid Grid.Row="1"
+                            <Grid Grid.Row="1"
+                                  Margin="0,8,0,0"
+                                  ColumnDefinitions="*,Auto,Auto,Auto">
+                                <TextBox Grid.Column="0"
+                                         Watermark="搜索文件或目录"
+                                         Text="{Binding RepoBrowser.RepoSearch.SearchText, UpdateSourceTrigger=PropertyChanged}">
+                                </TextBox>
+                                <TextBlock Grid.Column="1"
+                                           Margin="8,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Text="{Binding RepoBrowser.RepoSearch.MatchCounterText}" />
+                                <Button Grid.Column="2"
+                                        Margin="8,0,0,0"
+                                        Content="向上"
+                                        Command="{Binding RepoBrowser.RepoSearch.SearchPreviousCommand}"
+                                        IsEnabled="{Binding RepoBrowser.RepoSearch.HasMatches}">
+                                </Button>
+                                <Button Grid.Column="3"
+                                        Margin="8,0,0,0"
+                                        Content="向下"
+                                        Command="{Binding RepoBrowser.RepoSearch.SearchNextCommand}"
+                                        IsEnabled="{Binding RepoBrowser.RepoSearch.HasMatches}">
+                                </Button>
+                            </Grid>
+                            <TreeDataGrid Grid.Row="2"
                                           Name="{x:Static views:ControlNames.ViewRepoTree}"
                                           Source="{Binding RepoBrowser.RepoNodeSource}"
                                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -161,8 +185,31 @@
             </TabItem>
             <TabItem Header="编辑">
                 <Grid Margin="20" ColumnDefinitions="*, *">
-                    <Grid Margin="20" RowDefinitions="*,Auto">
-                        <TreeDataGrid
+                    <Grid Margin="20" RowDefinitions="Auto,*,Auto">
+                        <Grid Grid.Row="0"
+                              ColumnDefinitions="*,Auto,Auto,Auto">
+                            <TextBox Grid.Column="0"
+                                     Watermark="搜索文件或目录"
+                                     Text="{Binding RepoBrowser.RepoSearch.SearchText, UpdateSourceTrigger=PropertyChanged}">
+                            </TextBox>
+                            <TextBlock Grid.Column="1"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding RepoBrowser.RepoSearch.MatchCounterText}" />
+                            <Button Grid.Column="2"
+                                    Margin="8,0,0,0"
+                                    Content="向上"
+                                    Command="{Binding RepoBrowser.RepoSearch.SearchPreviousCommand}"
+                                    IsEnabled="{Binding RepoBrowser.RepoSearch.HasMatches}">
+                            </Button>
+                            <Button Grid.Column="3"
+                                    Margin="8,0,0,0"
+                                    Content="向下"
+                                    Command="{Binding RepoBrowser.RepoSearch.SearchNextCommand}"
+                                    IsEnabled="{Binding RepoBrowser.RepoSearch.HasMatches}">
+                            </Button>
+                        </Grid>
+                        <TreeDataGrid Grid.Row="1"
                             Name="{x:Static views:ControlNames.EditRepoTree}"
                             Source="{Binding RepoBrowser.RepoNodeSource}"
                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -174,7 +221,7 @@
                                 <StaticResource ResourceKey="NodeContextMenu" />
                             </TreeDataGrid.ContextMenu>
                         </TreeDataGrid>
-                        <Grid Grid.Row="1" ColumnDefinitions="*,*,*, *">
+                        <Grid Grid.Row="2" ColumnDefinitions="*,*,*, *">
                             <TextBlock Text="保存了该节点的磁盘:" />
                             <ComboBox Grid.Column="1"
                                       ItemsSource="{Binding RepoBrowser.CurrRepoNodeSaveFileNodes}"

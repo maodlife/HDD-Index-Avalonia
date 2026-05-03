@@ -93,26 +93,40 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.Create<string>(OnRepoNodePathChange);
         RepoBrowser.WhenAnyValue(x => x.RepoNodePathString)
             .InvokeCommand(RepoBrowser.RepoNodePathStringChangeCommand);
+        RepoBrowser.RepoSearch.WhenAnyValue(x => x.SearchText)
+            .Subscribe(_ => RefreshRepoSearch());
+        RepoBrowser.RepoSearch.WhenAnyValue(x => x.CurrentMatch)
+            .Where(x => x != null)
+            .Select(x => x!)
+            .Subscribe(NavigateToRepoSearchMatch);
 
         RepoBrowser.RepoNodeSelectedCommand = ReactiveCommand.Create<RepoNodeVM>(vm =>
         {
             OnSelectRepoNode(vm.RepoNode);
         });
-        RepoBrowser.WhenAnyValue(x => x.RepoNodeSource.RowSelection.SelectedItem)
-            .Where(x => x != null)
-            .Select(x => x!)
-            .InvokeCommand(RepoBrowser.RepoNodeSelectedCommand);
+        var repoRowSelection = RepoBrowser.RepoNodeSource.RowSelection;
+        if (repoRowSelection != null)
+        {
+            repoRowSelection.WhenAnyValue(x => x.SelectedItem)
+                .Where(x => x != null)
+                .Select(x => x!)
+                .InvokeCommand(RepoBrowser.RepoNodeSelectedCommand);
+        }
 
         FileBrowser.FileNodeSelectedCommand = ReactiveCommand.Create<FileNodeVM>(vm =>
         {
             OnSelectFileNode(vm.FileNode);
         });
-        FileBrowser.WhenAnyValue(x => x.CurrFileNodeSource.RowSelection.SelectedItem)
-            .Where(x => x != null)
-            .Select(x => x!)
-            .InvokeCommand(FileBrowser.FileNodeSelectedCommand);
-        FileBrowser.WhenAnyValue(x => x.CurrFileNodeSource.RowSelection.SelectedItem)
-            .Subscribe(x => FileBrowser.HasSelectedFileNode = x != null);
+        var fileRowSelection = FileBrowser.CurrFileNodeSource.RowSelection;
+        if (fileRowSelection != null)
+        {
+            fileRowSelection.WhenAnyValue(x => x.SelectedItem)
+                .Where(x => x != null)
+                .Select(x => x!)
+                .InvokeCommand(FileBrowser.FileNodeSelectedCommand);
+            fileRowSelection.WhenAnyValue(x => x.SelectedItem)
+                .Subscribe(x => FileBrowser.HasSelectedFileNode = x != null);
+        }
 
         FileBrowser.DiskLabelSelectedCommand =
             ReactiveCommand.Create<string>(ChangeDiskLabel);
@@ -178,6 +192,19 @@ public class MainWindowViewModel : ViewModelBase
         {
             RepoBrowser.RepoNodeSource.RowSelection?.Clear();
         }
+    }
+
+    private void RefreshRepoSearch(RepoNodeVM? preferredNode = null)
+    {
+        RepoBrowser.RepoSearch.RefreshMatches(RepoBrowser.RepoNodeVm, preferredNode);
+    }
+
+    private void NavigateToRepoSearchMatch(RepoNodeSearchMatch match)
+    {
+        var parent = match.IndexPath.Slice(0, match.IndexPath.Count - 1);
+        RepoBrowser.RepoNodeSource.Expand(parent);
+        RepoBrowser.RepoNodeSource.RowSelection?.Select(match.IndexPath);
+        ScrollToRepoRows();
     }
 
     private void OnSelectRepoNode(RepoNode repoNode)
@@ -419,6 +446,7 @@ public class MainWindowViewModel : ViewModelBase
 
         var createdVm = _repoTreeEditor.CreateChildFolder(repoNodeVM);
         Debug.WriteLine($"CreateChildFolder: {createdVm.RepoNode.GetPath()}");
+        RefreshRepoSearch(createdVm);
         MarkRepoAndAllFilesDirty();
     }
 
@@ -440,6 +468,7 @@ public class MainWindowViewModel : ViewModelBase
         if (copiedVm == null)
             return;
 
+        RefreshRepoSearch(copiedVm);
         MarkRepoDirty();
     }
 
@@ -466,6 +495,7 @@ public class MainWindowViewModel : ViewModelBase
         if (_repoTreeEditor.RenameRepoNode(repoNodeVM, result))
         {
             RepoBrowser.RepoNodePathString = repoNodeVM.RepoNode.GetPath();
+            RefreshRepoSearch(repoNodeVM);
             MarkRepoAndAllFilesDirty();
         }
     }
@@ -495,6 +525,7 @@ public class MainWindowViewModel : ViewModelBase
             RepoBrowser.RepoNodeRoot,
             RepoBrowser.RepoNodeVm))
         {
+            RefreshRepoSearch();
             MarkRepoAndAllFilesDirty();
         }
     }
@@ -549,6 +580,7 @@ public class MainWindowViewModel : ViewModelBase
                 RepoBrowser.RepoNodeRoot,
                 RepoBrowser.RepoNodeVm))
         {
+            RefreshRepoSearch();
             MarkRepoAndAllFilesDirty();
         }
     }
