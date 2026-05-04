@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Text.Json;
 
@@ -59,17 +60,73 @@ public class FileNode : TreeNodeBase
         return null;
     }
 
+    public static FileNode? CreateByPathSkippingDeclaredSubtrees(
+        string path,
+        FileNode currentFileNode,
+        IProgress<FileNodeScanProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return CreateByPath(
+                path,
+                progress,
+                cancellationToken,
+                new FileNodeScanProgressState(),
+                currentFileNode,
+                canSkipDeclaredSubtree: false);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Console.WriteLine($"无权限访问: {path}");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"遍历出错: {ex.Message}");
+        }
+
+        return null;
+    }
+
     private static FileNode? CreateByPath(
         string path,
         IProgress<FileNodeScanProgress>? progress,
         CancellationToken cancellationToken,
         FileNodeScanProgressState progressState)
     {
+        return CreateByPath(
+            path,
+            progress,
+            cancellationToken,
+            progressState,
+            currentFileNode: null,
+            canSkipDeclaredSubtree: false);
+    }
+
+    private static FileNode? CreateByPath(
+        string path,
+        IProgress<FileNodeScanProgress>? progress,
+        CancellationToken cancellationToken,
+        FileNodeScanProgressState progressState,
+        FileNode? currentFileNode,
+        bool canSkipDeclaredSubtree)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(progressState.CreateProgress(path));
 
         if (IsFileHidden(path))
             return null;
+
+        if (canSkipDeclaredSubtree
+            && currentFileNode is { IsDirectory: true }
+            && currentFileNode.DeclareRepoNodeDatas.Count > 0)
+        {
+            return CloneSubtree(currentFileNode);
+        }
 
         var fileName = Path.GetFileName(path);
         var fileNode = new FileNode()
@@ -110,6 +167,12 @@ public class FileNode : TreeNodeBase
                 ReportTopLevelEntryCompleted(progress, progressState, file);
         }
 
+        var currentChildrenByName = currentFileNode?.Children
+            .OfType<FileNode>()
+            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase)
+            ?? new Dictionary<string, FileNode>(StringComparer.OrdinalIgnoreCase);
+
         IEnumerable<string> directories =
             topLevelDirectories ?? Directory.EnumerateDirectories(path);
         foreach (var dir in directories)
@@ -118,11 +181,15 @@ public class FileNode : TreeNodeBase
             if (topLevelDirectories == null && IsFileHidden(dir))
                 continue;
 
+            var childFileName = Path.GetFileName(dir);
+            currentChildrenByName.TryGetValue(childFileName, out var currentChild);
             var child = TryCreateChildByPath(
                 dir,
                 progress,
                 cancellationToken,
-                progressState);
+                progressState,
+                currentChild,
+                canSkipDeclaredSubtree: true);
             if (child != null)
                 fileNode.Children.Add(child);
 
@@ -137,11 +204,19 @@ public class FileNode : TreeNodeBase
         string path,
         IProgress<FileNodeScanProgress>? progress,
         CancellationToken cancellationToken,
-        FileNodeScanProgressState progressState)
+        FileNodeScanProgressState progressState,
+        FileNode? currentFileNode = null,
+        bool canSkipDeclaredSubtree = false)
     {
         try
         {
-            return CreateByPath(path, progress, cancellationToken, progressState);
+            return CreateByPath(
+                path,
+                progress,
+                cancellationToken,
+                progressState,
+                currentFileNode,
+                canSkipDeclaredSubtree);
         }
         catch (UnauthorizedAccessException)
         {
@@ -157,6 +232,24 @@ public class FileNode : TreeNodeBase
         }
 
         return null;
+    }
+
+    private static FileNode CloneSubtree(FileNode source, TreeNodeBase? parent = null)
+    {
+        var clone = new FileNode
+        {
+            Name = source.Name,
+            IsDirectory = source.IsDirectory,
+            Parent = parent,
+            DeclareRepoNodeDatas = source.DeclareRepoNodeDatas
+                .Select(x => (DeclareRepoNodeData)x.Clone())
+                .ToList()
+        };
+
+        foreach (var child in source.Children.OfType<FileNode>())
+            clone.Children.Add(CloneSubtree(child, clone));
+
+        return clone;
     }
 
     private static List<string> GetVisibleFiles(

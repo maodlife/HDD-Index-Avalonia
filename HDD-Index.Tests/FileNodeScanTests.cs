@@ -1,4 +1,6 @@
 using HDD_Index.Models;
+using HDD_Index.Services;
+using HDD_Index.ViewModels;
 
 namespace HDD_Index.Tests;
 
@@ -62,6 +64,96 @@ public class FileNodeScanTests
                 tempFolder.Path,
                 progress,
                 cancellationTokenSource.Token));
+    }
+
+    [Fact]
+    public void CreateByPathSkippingDeclaredSubtrees_PreservesDeclaredChildSubtree()
+    {
+        using var tempFolder = new TempFolder();
+        var savedFolderPath = Directory.CreateDirectory(
+            Path.Combine(tempFolder.Path, "Saved"));
+        File.WriteAllText(Path.Combine(savedFolderPath.FullName, "new.txt"), string.Empty);
+        var freshFolderPath = Directory.CreateDirectory(
+            Path.Combine(tempFolder.Path, "Fresh"));
+        File.WriteAllText(Path.Combine(freshFolderPath.FullName, "fresh.txt"), string.Empty);
+
+        var currentRoot = TestTreeFactory.File(
+            Path.GetFileName(tempFolder.Path),
+            TestTreeFactory.File(
+                "Saved",
+                TestTreeFactory.DiskFile("old.txt")));
+        var savedNode = (FileNode)currentRoot.Children[0];
+        savedNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = "Repo/Saved"
+        });
+
+        var scannedRoot = FileNode.CreateByPathSkippingDeclaredSubtrees(
+            tempFolder.Path,
+            currentRoot,
+            progress: null,
+            CancellationToken.None);
+
+        Assert.NotNull(scannedRoot);
+        var scannedSaved = Assert.Single(
+            scannedRoot.Children.OfType<FileNode>(),
+            x => x.Name == "Saved");
+        Assert.Single(scannedSaved.DeclareRepoNodeDatas);
+        Assert.Contains(scannedSaved.Children.OfType<FileNode>(), x => x.Name == "old.txt");
+        Assert.DoesNotContain(scannedSaved.Children.OfType<FileNode>(), x => x.Name == "new.txt");
+
+        var scannedFresh = Assert.Single(
+            scannedRoot.Children.OfType<FileNode>(),
+            x => x.Name == "Fresh");
+        Assert.Contains(scannedFresh.Children.OfType<FileNode>(), x => x.Name == "fresh.txt");
+    }
+
+    [Fact]
+    public void CreateByPathSkippingDeclaredSubtrees_MissingDeclaredChildBecomesRefreshFailure()
+    {
+        using var tempFolder = new TempFolder();
+        Directory.CreateDirectory(Path.Combine(tempFolder.Path, "Fresh"));
+        var repoRoot = TestTreeFactory.Repo("Repo", TestTreeFactory.Repo("Saved"));
+        var repoNode = (RepoNode)repoRoot.Children[0];
+        var currentRoot = TestTreeFactory.File(
+            Path.GetFileName(tempFolder.Path),
+            TestTreeFactory.File(
+                "Saved",
+                TestTreeFactory.DiskFile("old.txt")));
+        var savedNode = (FileNode)currentRoot.Children[0];
+        savedNode.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
+        {
+            RepoNodePath = repoNode.GetPath()
+        });
+        repoNode.SaveFileNodeDatas.Add(new SaveFileNodeData
+        {
+            DiskLabel = "DiskA",
+            FileNodePath = savedNode.GetPath()
+        });
+        var bundle = TestTreeFactory.Bundle("DiskA", currentRoot);
+        var service = new DeclarationSyncService(
+            repoRoot,
+            RepoNodeVM.Create(repoRoot),
+            new List<FileDataVMBundle> { bundle });
+
+        var scannedRoot = FileNode.CreateByPathSkippingDeclaredSubtrees(
+            tempFolder.Path,
+            currentRoot,
+            progress: null,
+            CancellationToken.None);
+
+        Assert.NotNull(scannedRoot);
+        var refreshedRoot = service.BuildRefreshedFileNodeSubtree(
+            currentRoot,
+            scannedRoot);
+        var failures = service.GetInvalidDeclareHoldingsAfterRefresh(
+            "DiskA",
+            currentRoot,
+            refreshedRoot);
+
+        var failure = Assert.Single(failures);
+        Assert.Equal(savedNode.GetPath(), failure.FileNodePath);
+        Assert.Equal(repoNode.GetPath(), failure.RepoNodePath);
     }
 
     private sealed class CapturingProgress : IProgress<FileNodeScanProgress>

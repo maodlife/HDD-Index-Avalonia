@@ -172,6 +172,10 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.CreateFromTask<object>(
                 RefreshFileNodeFromLocalFolderAsync,
                 canRunFileTreeScan);
+        RepositoryEditor.RefreshFileNodeFromLocalFolderSkippingDeclaredCommand =
+            ReactiveCommand.CreateFromTask<object>(
+                RefreshFileNodeFromLocalFolderSkippingDeclaredAsync,
+                canRunFileTreeScan);
         RepositoryEditor.CopySelectedFileNodeToRepoNodeCommand =
             ReactiveCommand.Create<object>(
                 CopySelectedFileNodeToRepoNode,
@@ -878,6 +882,22 @@ public class MainWindowViewModel : ViewModelBase
 
     private async Task RefreshFileNodeFromLocalFolderAsync(object nodeVM)
     {
+        await RefreshFileNodeFromLocalFolderAsync(
+            nodeVM,
+            skipDeclaredSubtrees: false);
+    }
+
+    private async Task RefreshFileNodeFromLocalFolderSkippingDeclaredAsync(object nodeVM)
+    {
+        await RefreshFileNodeFromLocalFolderAsync(
+            nodeVM,
+            skipDeclaredSubtrees: true);
+    }
+
+    private async Task RefreshFileNodeFromLocalFolderAsync(
+        object nodeVM,
+        bool skipDeclaredSubtrees)
+    {
         if (nodeVM is not FileNodeVM { IsDirectory: true } fileNodeVM)
             return;
 
@@ -894,10 +914,16 @@ public class MainWindowViewModel : ViewModelBase
 
         var scanResult = await RunFileTreeScanAsync((progress, cancellationToken) =>
         {
-            var scannedFileNode = FileNode.CreateByPath(
-                localPath,
-                progress,
-                cancellationToken);
+            var scannedFileNode = skipDeclaredSubtrees
+                ? FileNode.CreateByPathSkippingDeclaredSubtrees(
+                    localPath,
+                    fileNodeVM.FileNode,
+                    progress,
+                    cancellationToken)
+                : FileNode.CreateByPath(
+                    localPath,
+                    progress,
+                    cancellationToken);
             if (scannedFileNode == null)
                 return null;
 

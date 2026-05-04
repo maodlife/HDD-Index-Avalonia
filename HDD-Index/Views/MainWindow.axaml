@@ -43,6 +43,12 @@
                       IsEnabled="{Binding $parent[Window].DataContext.FileBrowser.HasCurrentLocalFolderPath}"
                       IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
                                   Converter={StaticResource FileDirectoryNodeOnlyConverter}}" />
+            <MenuItem Header="读取文件夹并刷新（跳过已保存）"
+                      Command="{Binding $parent[Window].DataContext.RepositoryEditor.RefreshFileNodeFromLocalFolderSkippingDeclaredCommand}"
+                      CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+                      IsEnabled="{Binding $parent[Window].DataContext.FileBrowser.HasCurrentLocalFolderPath}"
+                      IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
+                                  Converter={StaticResource FileDirectoryNodeOnlyConverter}}" />
             <MenuItem Header="跳转"
                       Command="{Binding $parent[Window].DataContext.RepositoryEditor.JumpToDeclareRepoNodeCommand}"
                       CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
