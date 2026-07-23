@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
-using HDD_Index.ViewModels;
 
-namespace HDD_Index.Services;
+namespace HDD_Index.ViewModels;
 
 public static class TreeNavigationService
 {
@@ -68,19 +67,7 @@ public static class TreeNavigationService
         string oldPrefix,
         string newPrefix)
     {
-        if (string.IsNullOrWhiteSpace(oldPrefix))
-            return path;
-
-        if (string.Equals(path, oldPrefix, StringComparison.Ordinal))
-            return newPrefix;
-
-        var boundary = oldPrefix.EndsWith("/", StringComparison.Ordinal)
-            ? oldPrefix
-            : oldPrefix + "/";
-        if (path.StartsWith(boundary, StringComparison.Ordinal))
-            return newPrefix + path.Substring(oldPrefix.Length);
-
-        return path;
+        return Models.TreeNodeUtils.ReplacePathPrefix(path, oldPrefix, newPrefix);
     }
 
     private static IReadOnlyList<IndexPath> FindExpandPathsToMatchingNodes<T>(

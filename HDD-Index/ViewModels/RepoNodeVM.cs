@@ -1,6 +1,5 @@
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
+using HDD_Index.Application.TreeEditing;
 using HDD_Index.Models;
 using ReactiveUI;
 
@@ -10,13 +9,14 @@ public class RepoNodeVM : TreeNodeVMBase<RepoNodeVM>
 {
     #region Properties
 
-    public bool IsDirectory { get; set; }
-    public RepoNode RepoNode { get; set; }
+    public override string Name => RepoNode.Name;
+    public bool IsDirectory => RepoNode.IsDirectory;
+    public RepoNode RepoNode { get; }
 
-    public ObservableCollection<SaveFileNodeData> SaveFileNodeDatas { get; set; } =
-        new ObservableCollection<SaveFileNodeData>();
+    public IReadOnlyList<SaveFileNodeData> SaveFileNodeDatas
+        => RepoNode.SaveFileNodeDatas;
 
-    public int SaveFileNodeCnt => SaveFileNodeDatas.Count;
+    public int SaveFileNodeCnt => RepoNode.SaveFileNodeDatas.Count;
 
     public string SaveFileNodeCntString => this.SaveFileNodeCnt > 0
         ? this.SaveFileNodeCnt.ToString()
@@ -31,41 +31,29 @@ public class RepoNodeVM : TreeNodeVMBase<RepoNodeVM>
 
     #endregion
 
-    public RepoNodeVM()
+    public RepoNodeVM(RepoNode repoNode)
     {
-        SaveFileNodeDatas.CollectionChanged += SaveFileNodeDatas_CollectionChanged;
+        RepoNode = repoNode;
     }
 
-    private void SaveFileNodeDatas_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    public void Refresh(TreeNodePresentation presentation)
     {
-        this.RaisePropertyChanged(nameof(SaveFileNodeCnt));
-        this.RaisePropertyChanged(nameof(SaveFileNodeCntString));
-    }
-
-    public void RefreshDeclareHoldingStrategyName()
-    {
-        this.RaisePropertyChanged(nameof(DeclareHoldingStrategyName));
+        if ((presentation & TreeNodePresentation.Name) != 0)
+        {
+            this.RaisePropertyChanged(nameof(Name));
+            this.RaisePropertyChanged(nameof(IsDirectory));
+        }
+        if ((presentation & TreeNodePresentation.Relationships) != 0)
+        {
+            this.RaisePropertyChanged(nameof(SaveFileNodeCnt));
+            this.RaisePropertyChanged(nameof(SaveFileNodeCntString));
+        }
+        if ((presentation & TreeNodePresentation.Strategy) != 0)
+            this.RaisePropertyChanged(nameof(DeclareHoldingStrategyName));
     }
 
     public static RepoNodeVM Create(RepoNode repoNode)
     {
-        var vm = new RepoNodeVM
-        {
-            Name = repoNode.Name,
-            IsDirectory = repoNode.IsDirectory,
-            RepoNode = repoNode
-        };
-        foreach (var child in repoNode.Children)
-        {
-            var childVm = Create(child as RepoNode);
-            vm.Children.Add(childVm);
-        }
-
-        foreach (var item in repoNode.SaveFileNodeDatas)
-        {
-            vm.SaveFileNodeDatas.Add((SaveFileNodeData)item.Clone());
-        }
-
-        return vm;
+        return new TreeProjection().CreateRepoTree(repoNode);
     }
 }

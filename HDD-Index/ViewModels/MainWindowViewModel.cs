@@ -12,6 +12,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using DynamicData.Kernel;
+using HDD_Index.Application.TreeEditing;
 using HDD_Index.Messages;
 using HDD_Index.Models;
 using HDD_Index.Services;
@@ -29,6 +30,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly DeclarationSyncService _declarationSyncService;
     private readonly RepoTreeEditor _repoTreeEditor;
     private readonly FileTreeEditor _fileTreeEditor;
+    private readonly TreeProjection _treeProjection = new();
     private readonly AppConfig _appConfig;
     private bool _isSelectingRepoRowProgrammatically;
 
@@ -50,16 +52,15 @@ public class MainWindowViewModel : ViewModelBase
         _appConfig = _appConfigService.LoadDefault();
 
         var repoNodeRoot = _treeDataStore.LoadRepoRoot(_appConfig);
-        RepoBrowser = new RepoBrowserViewModel(repoNodeRoot);
-        var fileDataVmBundles = _treeDataStore.LoadFileDataVmBundles(_appConfig);
-        FileBrowser = new FileBrowserViewModel(fileDataVmBundles);
+        RepoBrowser = new RepoBrowserViewModel(repoNodeRoot, _treeProjection);
+        var fileDatas = _treeDataStore.LoadFileDatas(_appConfig);
+        FileBrowser = new FileBrowserViewModel(fileDatas, _treeProjection);
         RepositoryEditor = new RepositoryEditorViewModel();
         InitDirtyTracker();
 
         _declarationSyncService = new DeclarationSyncService(
             RepoBrowser.RepoNodeRoot,
-            RepoBrowser.RepoNodeVm,
-            FileBrowser.FileDataVmBundles);
+            FileBrowser.FileDatas);
         _repoTreeEditor = new RepoTreeEditor(_declarationSyncService);
         _fileTreeEditor = new FileTreeEditor(_declarationSyncService);
 
@@ -70,11 +71,11 @@ public class MainWindowViewModel : ViewModelBase
     {
         _dirtyJsonFileTracker.SetAppConfigPath(_appConfigService.GetDefaultConfigPath());
         _dirtyJsonFileTracker.SetRepoFilePath(_treeDataStore.GetRepoFilePath(_appConfig));
-        foreach (var bundle in FileBrowser.FileDataVmBundles)
+        foreach (var fileData in FileBrowser.FileDatas)
         {
             _dirtyJsonFileTracker.SetFileNodePath(
-                bundle.FileData.DiskLabel,
-                bundle.FileData.JsonFilePath);
+                fileData.DiskLabel,
+                fileData.JsonFilePath);
         }
     }
 
@@ -301,7 +302,8 @@ public class MainWindowViewModel : ViewModelBase
             return;
 
         var target = TreeNavigationService.FindFileNodeVmByPath(
-            FileBrowser.FileDataVmBundles[FileBrowser.CurrShowFileNodeIndex].FileNodeVm,
+            _treeProjection.GetFileNodeVm(
+                FileBrowser.FileDatas[FileBrowser.CurrShowFileNodeIndex].FileNodeRoot),
             foundSaveData.FileNodePath,
             out var indexPath);
         if (target == null || indexPath == null)
@@ -354,23 +356,22 @@ public class MainWindowViewModel : ViewModelBase
             shouldSaveStrategy = true;
         }
 
-        if (!_declarationSyncService.TryDeclareHolding(
+        var declareResult = _declarationSyncService.TryDeclareHolding(
                 repoNode,
-                repoNodeVM,
                 fileNodeVM.FileNode,
-                fileNodeVM,
                 diskLabel,
                 strategyType.Value,
-                shouldSaveStrategy,
-                out var failureReason))
+                shouldSaveStrategy);
+        if (!declareResult.Succeeded)
         {
             await ShowMessageAsync(
-                string.IsNullOrWhiteSpace(failureReason)
+                string.IsNullOrWhiteSpace(declareResult.FailureReason)
                     ? "声明持有失败。"
-                    : failureReason);
+                    : declareResult.FailureReason);
             return;
         }
 
+        ApplyChanges(declareResult.Changes);
         RepoBrowser.UpdateCurrentRepoNode(repoNode);
         MarkRepoAndFileDirty(diskLabel);
     }
@@ -408,10 +409,11 @@ public class MainWindowViewModel : ViewModelBase
         if (selectedRepoNodePaths == null || selectedRepoNodePaths.Count == 0)
             return;
 
-        _declarationSyncService.AbandonDeclareHoldings(
+        var changes = _declarationSyncService.AbandonDeclareHoldings(
             fileNodeVM.FileNode,
             diskLabel,
             selectedRepoNodePaths);
+        ApplyChanges(changes);
         MarkRepoAndFileDirty(diskLabel);
 
         var currentRepoNode = RepoBrowser.RepoNodeSource.RowSelection
@@ -459,10 +461,11 @@ public class MainWindowViewModel : ViewModelBase
                 return;
         }
 
-        _declarationSyncService.ApplyDeclareHoldingStrategy(
+        var changes = _declarationSyncService.ApplyDeclareHoldingStrategy(
             repoNode,
             selectedStrategy.StrategyType,
             failures);
+        ApplyChanges(changes);
         RepoBrowser.UpdateCurrentRepoNode(repoNode);
         MarkRepoDirty();
         foreach (var diskLabel in failures.Select(x => x.DiskLabel).Distinct())
@@ -474,8 +477,13 @@ public class MainWindowViewModel : ViewModelBase
         if (nodeVM is not RepoNodeVM repoNodeVM)
             return;
 
-        var createdVm = _repoTreeEditor.CreateChildFolder(repoNodeVM);
-        Debug.WriteLine($"CreateChildFolder: {createdVm.RepoNode.GetPath()}");
+        var result = _repoTreeEditor.CreateChildFolder(repoNodeVM.RepoNode);
+        if (!result.Succeeded || result.Value == null)
+            return;
+
+        ApplyChanges(result.Changes);
+        var createdVm = _treeProjection.GetRepoNodeVm(result.Value);
+        Debug.WriteLine($"CreateChildFolder: {result.Value.GetPath()}");
         RefreshRepoSearch(createdVm);
         MarkRepoAndAllFilesDirty();
     }
@@ -492,12 +500,14 @@ public class MainWindowViewModel : ViewModelBase
         if (selectedFileNode == null)
             return;
 
-        var copiedVm = _repoTreeEditor.CopyFileNodeSubtreeToRepoDirectory(
-            repoNodeVM,
+        var result = _repoTreeEditor.CopyFileNodeSubtreeToRepoDirectory(
+            repoNodeVM.RepoNode,
             selectedFileNode);
-        if (copiedVm == null)
+        if (!result.Succeeded || result.Value == null)
             return;
 
+        ApplyChanges(result.Changes);
+        var copiedVm = _treeProjection.GetRepoNodeVm(result.Value);
         RefreshRepoSearch(copiedVm);
         MarkRepoDirty();
     }
@@ -522,8 +532,12 @@ public class MainWindowViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(result))
             return;
 
-        if (_repoTreeEditor.RenameRepoNode(repoNodeVM, result))
+        var renameResult = _repoTreeEditor.RenameRepoNode(
+            repoNodeVM.RepoNode,
+            result);
+        if (renameResult.Succeeded)
         {
+            ApplyChanges(renameResult.Changes);
             RepoBrowser.RepoNodePathString = repoNodeVM.RepoNode.GetPath();
             RefreshRepoSearch(repoNodeVM);
             MarkRepoAndAllFilesDirty();
@@ -550,11 +564,12 @@ public class MainWindowViewModel : ViewModelBase
         if (!result)
             return;
 
-        if (_repoTreeEditor.DeleteRepoNode(
-            repoNodeVM,
-            RepoBrowser.RepoNodeRoot,
-            RepoBrowser.RepoNodeVm))
+        var deleteResult = _repoTreeEditor.DeleteRepoNode(
+            repoNodeVM.RepoNode,
+            RepoBrowser.RepoNodeRoot);
+        if (deleteResult.Succeeded)
         {
+            ApplyChanges(deleteResult.Changes);
             RefreshRepoSearch();
             MarkRepoAndAllFilesDirty();
         }
@@ -581,7 +596,7 @@ public class MainWindowViewModel : ViewModelBase
             return;
 
         var matchedNodes = _repoTreeEditor
-            .FindDescendantRepoNodesByName(repoNodeVM, searchText)
+            .FindDescendantRepoNodesByName(repoNodeVM.RepoNode, searchText)
             .ToList();
         if (matchedNodes.Count == 0)
         {
@@ -591,7 +606,7 @@ public class MainWindowViewModel : ViewModelBase
 
         var pathsText = string.Join(
             Environment.NewLine,
-            matchedNodes.Select(x => x.RepoNode.GetPath()));
+            matchedNodes.Select(x => x.GetPath()));
         var confirmDialog = new DeleteMatchedNodesDialog(
             $"将删除以下 {matchedNodes.Count} 个节点。确认删除后只会修改索引数据，不会删除真实磁盘文件。",
             pathsText)
@@ -605,11 +620,12 @@ public class MainWindowViewModel : ViewModelBase
         if (!confirmed)
             return;
 
-        if (_repoTreeEditor.DeleteRepoNodes(
-                matchedNodes,
-                RepoBrowser.RepoNodeRoot,
-                RepoBrowser.RepoNodeVm))
+        var deleteResult = _repoTreeEditor.DeleteRepoNodes(
+            matchedNodes,
+            RepoBrowser.RepoNodeRoot);
+        if (deleteResult.Succeeded)
         {
+            ApplyChanges(deleteResult.Changes);
             RefreshRepoSearch();
             MarkRepoAndAllFilesDirty();
         }
@@ -622,12 +638,8 @@ public class MainWindowViewModel : ViewModelBase
 
         var diskLabel = FileBrowser.SelectedDiskLabel;
         var currentFileData = FileBrowser.CurrentFileData;
-        var currentFileNodeVm = FileBrowser.FileDataVmBundles
-            .ElementAtOrDefault(FileBrowser.CurrShowFileNodeIndex)
-            ?.FileNodeVm;
         if (string.IsNullOrWhiteSpace(diskLabel)
-            || currentFileData?.FileNodeRoot == null
-            || currentFileNodeVm == null)
+            || currentFileData?.FileNodeRoot == null)
         {
             return;
         }
@@ -647,12 +659,13 @@ public class MainWindowViewModel : ViewModelBase
         if (!result)
             return;
 
-        if (_fileTreeEditor.DeleteFileNode(
-                fileNodeVM,
+        var deleteResult = _fileTreeEditor.DeleteFileNode(
+                fileNodeVM.FileNode,
                 currentFileData.FileNodeRoot,
-                currentFileNodeVm,
-                diskLabel))
+                diskLabel);
+        if (deleteResult.Succeeded)
         {
+            ApplyChanges(deleteResult.Changes);
             MarkRepoAndFileDirty(diskLabel);
         }
     }
@@ -695,11 +708,11 @@ public class MainWindowViewModel : ViewModelBase
         if (dirtySet.Contains(_treeDataStore.GetRepoFilePath(_appConfig)))
             _treeDataStore.SaveRepoRoot(_appConfig, RepoBrowser.RepoNodeRoot);
 
-        foreach (var bundle in FileBrowser.FileDataVmBundles)
+        foreach (var fileData in FileBrowser.FileDatas)
         {
-            var jsonFilePath = bundle.FileData.JsonFilePath;
+            var jsonFilePath = fileData.JsonFilePath;
             if (dirtySet.Contains(jsonFilePath))
-                _treeDataStore.SaveFileDataBundle(bundle);
+                _treeDataStore.SaveFileData(fileData);
         }
 
         if (isAppConfigDirty)
@@ -745,6 +758,44 @@ public class MainWindowViewModel : ViewModelBase
         HasDirtyFiles = _dirtyJsonFileTracker.HasDirtyFiles;
     }
 
+    private void ApplyChanges(TreeChangeSet changes)
+    {
+        var selectedRepoNode = RepoBrowser.RepoNodeSource.RowSelection
+            ?.SelectedItem
+            ?.RepoNode;
+        var selectedNodeWasRemoved = selectedRepoNode != null
+                                     && changes.Changes
+                                         .OfType<TreeNodeRemoved>()
+                                         .Any(x => IsNodeInSubtree(
+                                             selectedRepoNode,
+                                             x.Node));
+
+        _treeProjection.Apply(changes);
+
+        if (selectedNodeWasRemoved)
+        {
+            RepoBrowser.RepoNodeSource.RowSelection?.Clear();
+            RepoBrowser.ClearCurrentRepoNode();
+        }
+        else if (selectedRepoNode != null)
+        {
+            RepoBrowser.UpdateCurrentRepoNode(selectedRepoNode);
+        }
+    }
+
+    private static bool IsNodeInSubtree(TreeNodeBase node, TreeNodeBase subtreeRoot)
+    {
+        TreeNodeBase? current = node;
+        while (current != null)
+        {
+            if (ReferenceEquals(current, subtreeRoot))
+                return true;
+            current = current.Parent;
+        }
+
+        return false;
+    }
+
     private bool CheckRepoNodeAndFileNodeIsSync()
     {
         var repoNode = RepoBrowser.RepoNodeSource.RowSelection
@@ -784,9 +835,12 @@ public class MainWindowViewModel : ViewModelBase
 
     private void ExpandFileNodeToDeclaredNodes(FileNodeVM fileNodeVM)
     {
-        var rootVm = FileBrowser.FileDataVmBundles
+        var rootModel = FileBrowser.FileDatas
             .ElementAtOrDefault(FileBrowser.CurrShowFileNodeIndex)
-            ?.FileNodeVm;
+            ?.FileNodeRoot;
+        var rootVm = rootModel == null
+            ? null
+            : _treeProjection.GetFileNodeVm(rootModel);
         if (rootVm == null)
             return;
 
@@ -963,12 +1017,12 @@ public class MainWindowViewModel : ViewModelBase
                 return;
         }
 
-        _declarationSyncService.ApplyFileNodeRefresh(
+        var changes = _declarationSyncService.ApplyFileNodeRefresh(
             diskLabel,
             fileNodeVM.FileNode,
-            fileNodeVM,
             refreshedFileNode,
             failures);
+        ApplyChanges(changes);
 
         var currentRepoNode = RepoBrowser.RepoNodeSource.RowSelection
             ?.SelectedItem
@@ -1075,8 +1129,8 @@ public class MainWindowViewModel : ViewModelBase
 
         var relativeJsonFilePath = $"{tag}.json";
         var jsonFilePath = Path.Combine(_appConfig.JsonFilePath, relativeJsonFilePath);
-        if (FileBrowser.FileDataVmBundles.Any(x =>
-                string.Equals(x.FileData.DiskLabel, tag, StringComparison.OrdinalIgnoreCase)))
+        if (FileBrowser.FileDatas.Any(x =>
+                string.Equals(x.DiskLabel, tag, StringComparison.OrdinalIgnoreCase)))
         {
             await ShowMessageAsync($"已存在标签为 {tag} 的文件树，请修改标签。");
             return;
@@ -1092,7 +1146,7 @@ public class MainWindowViewModel : ViewModelBase
         Console.WriteLine($"填写的标签: {tag}");
 
         var scanResult = await RunFileTreeScanAsync((progress, cancellationToken) =>
-            _treeDataStore.CreateFileDataVmBundleFromPath(
+            _treeDataStore.CreateFileDataFromPath(
                 tag,
                 selectedPath,
                 jsonFilePath,
@@ -1105,14 +1159,14 @@ public class MainWindowViewModel : ViewModelBase
             await ShowMessageAsync($"读取本地文件夹失败：{scanResult.Error.Message}");
             return;
         }
-        var bundle = scanResult.Value;
-        if (bundle == null)
+        var fileData = scanResult.Value;
+        if (fileData == null)
         {
             await ShowMessageAsync("读取本地文件夹失败。");
             return;
         }
         EnsureAppConfigFileDataFilesInitialized();
-        FileBrowser.AddBundle(bundle);
+        FileBrowser.AddFileData(fileData);
         _appConfig.FileDataFiles.Add(new FileDataFileConfig
         {
             JsonFilePath = relativeJsonFilePath,
@@ -1127,16 +1181,16 @@ public class MainWindowViewModel : ViewModelBase
         if (_appConfig.FileDataFiles.Count > 0)
             return;
 
-        foreach (var bundle in FileBrowser.FileDataVmBundles)
+        foreach (var fileData in FileBrowser.FileDatas)
         {
-            var jsonFilePath = bundle.FileData.JsonFilePath;
+            var jsonFilePath = fileData.JsonFilePath;
             if (string.IsNullOrWhiteSpace(jsonFilePath))
                 continue;
 
             _appConfig.FileDataFiles.Add(new FileDataFileConfig
             {
                 JsonFilePath = Path.GetRelativePath(_appConfig.JsonFilePath, jsonFilePath),
-                LocalFolderPath = bundle.FileData.LocalFolderPath
+                LocalFolderPath = fileData.LocalFolderPath
             });
         }
     }
@@ -1204,7 +1258,7 @@ public class MainWindowViewModel : ViewModelBase
 
     private static Window? GetMainWindow()
     {
-        return (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+        return (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
             ?.MainWindow;
     }
 

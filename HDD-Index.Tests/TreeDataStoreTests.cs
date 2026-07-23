@@ -28,7 +28,7 @@ public class TreeDataStoreTests
     }
 
     [Fact]
-    public void SaveFileDataBundle_WritesJsonThatCanBeLoaded()
+    public void SaveFileData_WritesJsonThatCanBeLoaded()
     {
         using var tempDir = new TempDirectory();
         var filePath = System.IO.Path.Combine(tempDir.Path, "disk-a.json");
@@ -49,16 +49,16 @@ public class TreeDataStoreTests
         var fileRoot = TestTreeFactory.File(
             "Disk",
             TestTreeFactory.File("Movies", TestTreeFactory.DiskFile("movie.mkv")));
-        var bundle = TestTreeFactory.Bundle("DiskA", fileRoot);
-        bundle.FileData.JsonFilePath = filePath;
+        var fileData = TestTreeFactory.Bundle("DiskA", fileRoot);
+        fileData.JsonFilePath = filePath;
 
-        store.SaveFileDataBundle(bundle);
+        store.SaveFileData(fileData);
 
-        var loadedBundle = store.LoadFileDataVmBundles(appConfig).Single();
-        Assert.Equal("disk-a", loadedBundle.FileData.DiskLabel);
-        Assert.Equal(@"C:\DiskA", loadedBundle.FileData.LocalFolderPath);
-        Assert.Equal(filePath, loadedBundle.FileData.JsonFilePath);
-        Assert.Equal("Movies", loadedBundle.FileData.FileNodeRoot.Children[0].Name);
+        var loaded = store.LoadFileDatas(appConfig).Single();
+        Assert.Equal("disk-a", loaded.DiskLabel);
+        Assert.Equal(@"C:\DiskA", loaded.LocalFolderPath);
+        Assert.Equal(filePath, loaded.JsonFilePath);
+        Assert.Equal("Movies", loaded.FileNodeRoot.Children[0].Name);
     }
 
     private sealed class TempDirectory : IDisposable

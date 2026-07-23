@@ -1,25 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HDD_Index.Application.TreeEditing;
 using HDD_Index.Models;
-using HDD_Index.ViewModels;
 
 namespace HDD_Index.Services;
 
 public class DeclarationSyncService
 {
     private readonly RepoNode _repoNodeRoot;
-    private readonly RepoNodeVM _repoNodeVmRoot;
-    private readonly IList<FileDataVMBundle> _fileDataVmBundles;
+    private readonly IList<FileData> _fileDatas;
 
     public DeclarationSyncService(
         RepoNode repoNodeRoot,
-        RepoNodeVM repoNodeVmRoot,
-        IList<FileDataVMBundle> fileDataVmBundles)
+        IList<FileData> fileDatas)
     {
         _repoNodeRoot = repoNodeRoot;
-        _repoNodeVmRoot = repoNodeVmRoot;
-        _fileDataVmBundles = fileDataVmBundles;
+        _fileDatas = fileDatas;
     }
 
     public bool CheckRepoNodeAndFileNodeIsSync(
@@ -45,24 +42,23 @@ public class DeclarationSyncService
         return false;
     }
 
-    public bool TryDeclareHolding(
+    public TreeEditResult<bool> TryDeclareHolding(
         RepoNode repoNode,
-        RepoNodeVM repoNodeVm,
         FileNode fileNode,
-        FileNodeVM fileNodeVm,
         string diskLabel,
         DeclareHoldingStrategyType strategyType,
-        bool saveStrategyToRepoNode,
-        out string failureReason)
+        bool saveStrategyToRepoNode)
     {
         var strategy = DeclareHoldingStrategyFactory.Create(strategyType);
-        if (!strategy.CheckDeclareHolding(repoNode, fileNode, out failureReason))
-            return false;
+        if (!strategy.CheckDeclareHolding(repoNode, fileNode, out var failureReason))
+            return TreeEditResult<bool>.Failure(failureReason);
+
+        var changes = new TreeChangeCollector();
 
         if (saveStrategyToRepoNode)
         {
             repoNode.DeclareHoldingStrategyType = strategyType;
-            repoNodeVm.RefreshDeclareHoldingStrategyName();
+            changes.Refresh(repoNode, TreeNodePresentation.Strategy);
         }
 
         var fileNodePath = fileNode.GetPath();
@@ -77,17 +73,7 @@ public class DeclarationSyncService
                 DiskLabel = diskLabel,
                 FileNodePath = fileNodePath
             });
-        }
-
-        var vmSaveDataExists = repoNodeVm.SaveFileNodeDatas.Any(
-            d => d.DiskLabel == diskLabel && d.FileNodePath == fileNodePath);
-        if (!vmSaveDataExists)
-        {
-            repoNodeVm.SaveFileNodeDatas.Add(new SaveFileNodeData
-            {
-                DiskLabel = diskLabel,
-                FileNodePath = fileNodePath
-            });
+            changes.Refresh(repoNode, TreeNodePresentation.Relationships);
         }
 
         var declareDataExists = fileNode.DeclareRepoNodeDatas.Any(
@@ -98,20 +84,10 @@ public class DeclarationSyncService
             {
                 RepoNodePath = repoNodePath
             });
+            changes.Refresh(fileNode, TreeNodePresentation.Relationships);
         }
 
-        var vmDeclareDataExists = fileNodeVm.DeclareRepoNodeDatas.Any(
-            d => d.RepoNodePath == repoNodePath);
-        if (!vmDeclareDataExists)
-        {
-            fileNodeVm.DeclareRepoNodeDatas.Add(new DeclareRepoNodeData
-            {
-                RepoNodePath = repoNodePath
-            });
-        }
-
-        failureReason = string.Empty;
-        return true;
+        return TreeEditResult<bool>.Success(true, changes.Build());
     }
 
     public IReadOnlyList<DeclareHoldingValidationFailure> GetInvalidSaveFileNodeDatasForStrategy(
@@ -146,26 +122,24 @@ public class DeclarationSyncService
         return failures;
     }
 
-    public void ApplyDeclareHoldingStrategy(
+    public TreeChangeSet ApplyDeclareHoldingStrategy(
         RepoNode repoNode,
         DeclareHoldingStrategyType? strategyType,
         IEnumerable<DeclareHoldingValidationFailure> failuresToRemove)
     {
+        var changes = new TreeChangeCollector();
         repoNode.DeclareHoldingStrategyType = strategyType;
+        changes.Refresh(repoNode, TreeNodePresentation.Strategy);
 
         foreach (var failure in failuresToRemove.ToList())
         {
             RemoveDeclareHolding(
                 repoNode,
                 failure.DiskLabel,
-                failure.FileNodePath);
+                failure.FileNodePath,
+                changes);
         }
-
-        var repoNodeVm = TreeNavigationService.FindRepoNodeVmByPath(
-            _repoNodeVmRoot,
-            repoNode.GetPath(),
-            out _);
-        repoNodeVm?.RefreshDeclareHoldingStrategyName();
+        return changes.Build();
     }
 
     public FileNode BuildRefreshedFileNodeSubtree(
@@ -277,13 +251,13 @@ public class DeclarationSyncService
         return failures;
     }
 
-    public void ApplyFileNodeRefresh(
+    public TreeChangeSet ApplyFileNodeRefresh(
         string diskLabel,
         FileNode currentFileNode,
-        FileNodeVM currentFileNodeVm,
         FileNode refreshedFileNode,
         IEnumerable<DeclareHoldingValidationFailure> failuresToRemove)
     {
+        var changes = new TreeChangeCollector();
         currentFileNode.Name = refreshedFileNode.Name;
         currentFileNode.IsDirectory = refreshedFileNode.IsDirectory;
         currentFileNode.DeclareRepoNodeDatas = refreshedFileNode.DeclareRepoNodeDatas
@@ -296,31 +270,26 @@ public class DeclarationSyncService
             currentFileNode.Children.Add(child);
         }
 
-        currentFileNodeVm.Name = currentFileNode.Name;
-        currentFileNodeVm.IsDirectory = currentFileNode.IsDirectory;
-        currentFileNodeVm.FileNode = currentFileNode;
-        currentFileNodeVm.DeclareRepoNodeDatas.Clear();
-        foreach (var declareData in currentFileNode.DeclareRepoNodeDatas)
-        {
-            currentFileNodeVm.DeclareRepoNodeDatas.Add(
-                (DeclareRepoNodeData)declareData.Clone());
-        }
-
-        currentFileNodeVm.Children.Clear();
-        foreach (var child in currentFileNode.Children.OfType<FileNode>())
-            currentFileNodeVm.Children.Add(FileNodeVM.Create(child));
+        changes.ReplaceSubtree(currentFileNode);
 
         foreach (var failure in failuresToRemove)
-            RemoveDeclareHolding(failure.RepoNodePath, diskLabel, failure.FileNodePath);
+            RemoveDeclareHolding(
+                failure.RepoNodePath,
+                diskLabel,
+                failure.FileNodePath,
+                changes);
+
+        return changes.Build();
     }
 
-    public void AbandonDeclareHoldings(
+    public TreeChangeSet AbandonDeclareHoldings(
         FileNode fileNode,
         string diskLabel,
         IEnumerable<string> repoNodePaths)
     {
+        var changes = new TreeChangeCollector();
         if (string.IsNullOrWhiteSpace(diskLabel))
-            return;
+            return changes.Build();
 
         var fileNodePath = fileNode.GetPath();
         foreach (var repoNodePath in repoNodePaths
@@ -330,28 +299,32 @@ public class DeclarationSyncService
             var declareData = fileNode.DeclareRepoNodeDatas
                 .FirstOrDefault(d => d.RepoNodePath == repoNodePath);
             if (declareData != null)
+            {
                 fileNode.DeclareRepoNodeDatas.Remove(declareData);
+                changes.Refresh(fileNode, TreeNodePresentation.Relationships);
+            }
 
             var repoNode = TreeNodeUtils.GetNodeByPathFromRoot(
                 _repoNodeRoot,
                 repoNodePath) as RepoNode;
             if (repoNode != null)
-                RemoveSaveFileNodeData(repoNode, diskLabel, fileNodePath);
-
-            RemoveDeclareDataFromFileNodeVm(diskLabel, fileNodePath, repoNodePath);
+                RemoveSaveFileNodeData(repoNode, diskLabel, fileNodePath, changes);
         }
+
+        return changes.Build();
     }
 
     /// <summary>
     /// 删除 FileNode 子树前，先移除这些节点上记录的声明持有关系，
     /// 以同步清理 RepoNode 里的 SaveFileNodeData。
     /// </summary>
-    public void RemoveDeclareHoldingsFromFileNodes(
+    public TreeChangeSet RemoveDeclareHoldingsFromFileNodes(
         string diskLabel,
         IEnumerable<FileNode> fileNodes)
     {
+        var changes = new TreeChangeCollector();
         if (string.IsNullOrWhiteSpace(diskLabel))
-            return;
+            return changes.Build();
 
         foreach (var fileNode in fileNodes.Distinct().ToList())
         {
@@ -363,20 +336,23 @@ public class DeclarationSyncService
                 .ToList();
 
             foreach (var repoNodePath in repoNodePaths)
-                RemoveDeclareHolding(repoNodePath, diskLabel, fileNodePath);
+                RemoveDeclareHolding(repoNodePath, diskLabel, fileNodePath, changes);
         }
+
+        return changes.Build();
     }
 
     /// <summary>
     /// FileNode 子树变更后重新检查仍存在节点上的声明持有关系，
     /// 不再满足策略或指向缺失 RepoNode 的关系会被双向移除。
     /// </summary>
-    public void UpdateFileNodeDeclarations(
+    public TreeChangeSet UpdateFileNodeDeclarations(
         string diskLabel,
         IEnumerable<FileNode> fileNodes)
     {
+        var changes = new TreeChangeCollector();
         if (string.IsNullOrWhiteSpace(diskLabel))
-            return;
+            return changes.Build();
 
         foreach (var fileNode in fileNodes.Distinct().ToList())
         {
@@ -387,7 +363,7 @@ public class DeclarationSyncService
                 if (string.IsNullOrWhiteSpace(repoNodePath))
                 {
                     fileNode.DeclareRepoNodeDatas.Remove(declareData);
-                    RemoveDeclareDataFromFileNodeVm(diskLabel, fileNodePath, repoNodePath);
+                    changes.Refresh(fileNode, TreeNodePresentation.Relationships);
                     continue;
                 }
 
@@ -400,80 +376,76 @@ public class DeclarationSyncService
                     continue;
                 }
 
-                RemoveDeclareHolding(repoNodePath, diskLabel, fileNodePath);
+                RemoveDeclareHolding(repoNodePath, diskLabel, fileNodePath, changes);
             }
         }
+
+        return changes.Build();
     }
 
-    public void TryEstablishSaveFileNodeDatasForNode(RepoNode node)
+    public TreeChangeSet TryEstablishSaveFileNodeDatasForNode(RepoNode node)
     {
+        var changes = new TreeChangeCollector();
         var parent = node.Parent as RepoNode;
         if (parent == null || !parent.SaveFileNodeDatas.Any())
-            return;
+            return changes.Build();
 
         foreach (var saveData in parent.SaveFileNodeDatas)
         {
-            var bundle = _fileDataVmBundles
-                .FirstOrDefault(b => b.FileData.DiskLabel == saveData.DiskLabel);
-            if (bundle == null)
+            var fileData = _fileDatas
+                .FirstOrDefault(x => x.DiskLabel == saveData.DiskLabel);
+            if (fileData == null)
                 continue;
 
-            var parentFileNodeVm = TreeNavigationService.FindFileNodeVmByPath(
-                bundle.FileNodeVm,
-                saveData.FileNodePath,
-                out _);
-            var matchingChildFileNodeVm = parentFileNodeVm
+            var parentFileNode = TreeNodeUtils.GetNodeByPathFromRoot(
+                fileData.FileNodeRoot,
+                saveData.FileNodePath) as FileNode;
+            var matchingChildFileNode = parentFileNode
                 ?.Children
+                .OfType<FileNode>()
                 .FirstOrDefault(c => c.Name == node.Name);
-            if (matchingChildFileNodeVm == null)
+            if (matchingChildFileNode == null)
                 continue;
 
-            var childFileNodePath = matchingChildFileNodeVm.FileNode.GetPath();
+            var childFileNodePath = matchingChildFileNode.GetPath();
             var alreadyExists = node.SaveFileNodeDatas.Any(
-                d => d.DiskLabel == bundle.FileData.DiskLabel
+                d => d.DiskLabel == fileData.DiskLabel
                      && d.FileNodePath == childFileNodePath);
             if (alreadyExists)
                 continue;
 
             var newSaveData = new SaveFileNodeData
             {
-                DiskLabel = bundle.FileData.DiskLabel,
+                DiskLabel = fileData.DiskLabel,
                 FileNodePath = childFileNodePath
             };
             node.SaveFileNodeDatas.Add(newSaveData);
+            changes.Refresh(node, TreeNodePresentation.Relationships);
 
             var newDeclareData = new DeclareRepoNodeData
             {
                 RepoNodePath = node.GetPath()
             };
-            matchingChildFileNodeVm.FileNode.DeclareRepoNodeDatas.Add(newDeclareData);
-            matchingChildFileNodeVm.DeclareRepoNodeDatas.Add(
-                (DeclareRepoNodeData)newDeclareData.Clone());
-
-            var repoNodeVm = TreeNavigationService.FindRepoNodeVmByPath(
-                _repoNodeVmRoot,
-                node.GetPath(),
-                out _);
-            if (repoNodeVm != null && !repoNodeVm.SaveFileNodeDatas.Any(
-                    d => d.DiskLabel == bundle.FileData.DiskLabel
-                         && d.FileNodePath == childFileNodePath))
-            {
-                repoNodeVm.SaveFileNodeDatas.Add((SaveFileNodeData)newSaveData.Clone());
-            }
+            matchingChildFileNode.DeclareRepoNodeDatas.Add(newDeclareData);
+            changes.Refresh(matchingChildFileNode, TreeNodePresentation.Relationships);
         }
+
+        return changes.Build();
     }
 
-    public void CheckAncestorsDeclarationStatus(RepoNode node)
+    public TreeChangeSet CheckAncestorsDeclarationStatus(RepoNode node)
     {
+        var changes = new TreeChangeCollector();
         var current = node;
         while (current != null)
         {
             var specificAffectedNodes = GetAffectedFileNodes(
                 current,
                 includeDescendants: false);
-            UpdateAffectedFileNodesDeclaration(specificAffectedNodes);
+            changes.AddRange(UpdateAffectedFileNodesDeclaration(specificAffectedNodes));
             current = current.Parent as RepoNode;
         }
+        return changes.Build();
     }
 
     public List<(string DiskLabel, FileNode FileNode, RepoNode OriginalRepoNode)> GetAffectedFileNodes(
@@ -508,18 +480,19 @@ public class DeclarationSyncService
                 CollectFromTree(diskLabel, child);
         }
 
-        foreach (var bundle in _fileDataVmBundles)
+        foreach (var fileData in _fileDatas)
         {
-            if (bundle.FileData?.FileNodeRoot != null)
-                CollectFromTree(bundle.FileData.DiskLabel, bundle.FileData.FileNodeRoot);
+            if (fileData.FileNodeRoot != null)
+                CollectFromTree(fileData.DiskLabel, fileData.FileNodeRoot);
         }
 
         return result;
     }
 
-    public void UpdateAffectedFileNodesDeclaration(
+    public TreeChangeSet UpdateAffectedFileNodesDeclaration(
         List<(string DiskLabel, FileNode FileNode, RepoNode OriginalRepoNode)> affectedNodes)
     {
+        var changes = new TreeChangeCollector();
         foreach (var (diskLabel, fileNode, repoNode) in affectedNodes)
         {
             var repoPath = repoNode.GetPath();
@@ -538,30 +511,34 @@ public class DeclarationSyncService
             }
 
             fileNode.DeclareRepoNodeDatas.Remove(declareData);
+            changes.Refresh(fileNode, TreeNodePresentation.Relationships);
 
             if (currentRepoNodeInTree != null)
                 RemoveSaveFileNodeData(
                     currentRepoNodeInTree,
                     diskLabel,
-                    fileNode.GetPath());
-
-            RemoveDeclareDataFromFileNodeVm(diskLabel, fileNode.GetPath(), repoPath);
+                    fileNode.GetPath(),
+                    changes);
         }
+        return changes.Build();
     }
 
-    public void UpdateRepoNodePathReferences(string oldPath, string newPath)
+    public TreeChangeSet UpdateRepoNodePathReferences(string oldPath, string newPath)
     {
+        var changes = new TreeChangeCollector();
         if (string.IsNullOrWhiteSpace(oldPath))
-            return;
+            return changes.Build();
 
-        foreach (var bundle in _fileDataVmBundles)
+        foreach (var fileData in _fileDatas)
         {
-            if (bundle.FileData?.FileNodeRoot != null)
-                UpdateDeclareRepoNodePaths(bundle.FileData.FileNodeRoot, oldPath, newPath);
-
-            if (bundle.FileNodeVm != null)
-                UpdateDeclareRepoNodePaths(bundle.FileNodeVm, oldPath, newPath);
+            if (fileData.FileNodeRoot != null)
+                UpdateDeclareRepoNodePaths(
+                    fileData.FileNodeRoot,
+                    oldPath,
+                    newPath,
+                    changes);
         }
+        return changes.Build();
     }
 
     private static FileNode BuildRefreshedFileNodeSubtree(
@@ -647,45 +624,43 @@ public class DeclarationSyncService
     private void RemoveSaveFileNodeData(
         RepoNode repoNode,
         string diskLabel,
-        string fileNodePath)
+        string fileNodePath,
+        TreeChangeCollector changes)
     {
         var saveData = repoNode.SaveFileNodeDatas
             .FirstOrDefault(d => d.DiskLabel == diskLabel
                                  && d.FileNodePath == fileNodePath);
         if (saveData != null)
+        {
             repoNode.SaveFileNodeDatas.Remove(saveData);
-
-        var repoNodeVm = TreeNavigationService.FindRepoNodeVmByPath(
-            _repoNodeVmRoot,
-            repoNode.GetPath(),
-            out _);
-        var vmSaveData = repoNodeVm?.SaveFileNodeDatas
-            .FirstOrDefault(d => d.DiskLabel == diskLabel
-                                 && d.FileNodePath == fileNodePath);
-        if (vmSaveData != null)
-            repoNodeVm!.SaveFileNodeDatas.Remove(vmSaveData);
+            changes.Refresh(repoNode, TreeNodePresentation.Relationships);
+        }
     }
 
     private void RemoveDeclareHolding(
         RepoNode repoNode,
         string diskLabel,
-        string fileNodePath)
+        string fileNodePath,
+        TreeChangeCollector changes)
     {
         var repoPath = repoNode.GetPath();
         var fileNode = FindFileNode(diskLabel, fileNodePath);
         var declareData = fileNode?.DeclareRepoNodeDatas
             .FirstOrDefault(d => d.RepoNodePath == repoPath);
         if (declareData != null)
+        {
             fileNode!.DeclareRepoNodeDatas.Remove(declareData);
+            changes.Refresh(fileNode, TreeNodePresentation.Relationships);
+        }
 
-        RemoveSaveFileNodeData(repoNode, diskLabel, fileNodePath);
-        RemoveDeclareDataFromFileNodeVm(diskLabel, fileNodePath, repoPath);
+        RemoveSaveFileNodeData(repoNode, diskLabel, fileNodePath, changes);
     }
 
     private void RemoveDeclareHolding(
         string repoPath,
         string diskLabel,
-        string fileNodePath)
+        string fileNodePath,
+        TreeChangeCollector changes)
     {
         if (string.IsNullOrWhiteSpace(repoPath))
             return;
@@ -694,88 +669,58 @@ public class DeclarationSyncService
             _repoNodeRoot,
             repoPath) as RepoNode;
         if (repoNode != null)
-            RemoveSaveFileNodeData(repoNode, diskLabel, fileNodePath);
+            RemoveSaveFileNodeData(repoNode, diskLabel, fileNodePath, changes);
 
         var fileNode = FindFileNode(diskLabel, fileNodePath);
         var declareData = fileNode?.DeclareRepoNodeDatas
             .FirstOrDefault(d => d.RepoNodePath == repoPath);
         if (declareData != null)
+        {
             fileNode!.DeclareRepoNodeDatas.Remove(declareData);
-
-        RemoveDeclareDataFromFileNodeVm(diskLabel, fileNodePath, repoPath);
+            changes.Refresh(fileNode, TreeNodePresentation.Relationships);
+        }
     }
 
     private FileNode? FindFileNode(string diskLabel, string fileNodePath)
     {
-        var bundle = _fileDataVmBundles
-            .FirstOrDefault(b => b.FileData.DiskLabel == diskLabel);
-        if (bundle == null)
+        var fileData = _fileDatas
+            .FirstOrDefault(x => x.DiskLabel == diskLabel);
+        if (fileData == null)
             return null;
 
         return TreeNodeUtils.GetNodeByPathFromRoot(
-            bundle.FileData.FileNodeRoot,
+            fileData.FileNodeRoot,
             fileNodePath) as FileNode;
-    }
-
-    private void RemoveDeclareDataFromFileNodeVm(
-        string diskLabel,
-        string fileNodePath,
-        string repoPath)
-    {
-        foreach (var bundle in _fileDataVmBundles)
-        {
-            if (bundle.FileData.DiskLabel != diskLabel)
-                continue;
-
-            var vm = TreeNavigationService.FindFileNodeVmByPath(
-                bundle.FileNodeVm,
-                fileNodePath,
-                out _);
-            var vmDeclareData = vm?.DeclareRepoNodeDatas
-                .FirstOrDefault(d => d.RepoNodePath == repoPath);
-            if (vmDeclareData != null)
-                vm!.DeclareRepoNodeDatas.Remove(vmDeclareData);
-        }
     }
 
     private static void UpdateDeclareRepoNodePaths(
         FileNode node,
         string oldPath,
-        string newPath)
+        string newPath,
+        TreeChangeCollector changes)
     {
+        var changed = false;
         foreach (var data in node.DeclareRepoNodeDatas)
         {
             if (data.RepoNodePath == null)
                 continue;
 
-            data.RepoNodePath = TreeNavigationService.ReplacePathPrefix(
+            var replaced = TreeNodeUtils.ReplacePathPrefix(
                 data.RepoNodePath,
                 oldPath,
                 newPath);
+            if (replaced == data.RepoNodePath)
+                continue;
+
+            data.RepoNodePath = replaced;
+            changed = true;
         }
+
+        if (changed)
+            changes.Refresh(node, TreeNodePresentation.Relationships);
 
         foreach (var child in node.Children.OfType<FileNode>())
-            UpdateDeclareRepoNodePaths(child, oldPath, newPath);
-    }
-
-    private static void UpdateDeclareRepoNodePaths(
-        FileNodeVM node,
-        string oldPath,
-        string newPath)
-    {
-        foreach (var data in node.DeclareRepoNodeDatas)
-        {
-            if (data.RepoNodePath == null)
-                continue;
-
-            data.RepoNodePath = TreeNavigationService.ReplacePathPrefix(
-                data.RepoNodePath,
-                oldPath,
-                newPath);
-        }
-
-        foreach (var child in node.Children)
-            UpdateDeclareRepoNodePaths(child, oldPath, newPath);
+            UpdateDeclareRepoNodePaths(child, oldPath, newPath, changes);
     }
 }
 

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using Avalonia.Media;
+using HDD_Index.Application.TreeEditing;
 using HDD_Index.Models;
 using ReactiveUI;
 
@@ -9,54 +8,43 @@ namespace HDD_Index.ViewModels;
 
 public class FileNodeVM : TreeNodeVMBase<FileNodeVM>
 {
-    public bool IsDirectory { get; set; }
+    public override string Name => FileNode.Name;
+    public bool IsDirectory => FileNode.IsDirectory;
 
-    public FileNode FileNode { get; set; }
+    public FileNode FileNode { get; }
 
-    public ObservableCollection<DeclareRepoNodeData> DeclareRepoNodeDatas { get; set; } =
-        new ObservableCollection<DeclareRepoNodeData>();
+    public IReadOnlyList<DeclareRepoNodeData> DeclareRepoNodeDatas
+        => FileNode.DeclareRepoNodeDatas;
 
     public IBrush NameBrushes
     {
         get
         {
-            if (DeclareRepoNodeDatas.Count == 0)
+            if (FileNode.DeclareRepoNodeDatas.Count == 0)
                 return Brushes.Black;
             else
                 return Brushes.Green;
         }
     }
 
-    public FileNodeVM()
+    public FileNodeVM(FileNode fileNode)
     {
-        DeclareRepoNodeDatas.CollectionChanged += DeclareRepoNodeDatas_CollectionChanged;
+        FileNode = fileNode;
     }
 
-    private void DeclareRepoNodeDatas_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    public void Refresh(TreeNodePresentation presentation)
     {
-        this.RaisePropertyChanged(nameof(NameBrushes));
+        if ((presentation & TreeNodePresentation.Name) != 0)
+        {
+            this.RaisePropertyChanged(nameof(Name));
+            this.RaisePropertyChanged(nameof(IsDirectory));
+        }
+        if ((presentation & TreeNodePresentation.Relationships) != 0)
+            this.RaisePropertyChanged(nameof(NameBrushes));
     }
 
     public static FileNodeVM Create(FileNode fileNode)
     {
-        var vm = new FileNodeVM()
-        {
-            Name = fileNode.Name,
-            IsDirectory = fileNode.IsDirectory,
-            FileNode = fileNode
-        };
-        foreach (var child in fileNode.Children)
-        {
-            var childVm = Create(child as FileNode);
-            vm.Children.Add(childVm);
-        }
-
-        foreach (var declareRepoNodeData in fileNode.DeclareRepoNodeDatas)
-        {
-            vm.DeclareRepoNodeDatas.Add(
-                (DeclareRepoNodeData)declareRepoNodeData.Clone());
-        }
-
-        return vm;
+        return new TreeProjection().CreateFileTree(fileNode);
     }
 }

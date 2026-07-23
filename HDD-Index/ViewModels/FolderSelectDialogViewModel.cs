@@ -68,7 +68,7 @@ public class FolderSelectDialogViewModel : ViewModelBase
         };
 
         var owner = Window ??
-            (Application.Current?.ApplicationLifetime as
+            (Avalonia.Application.Current?.ApplicationLifetime as
                 IClassicDesktopStyleApplicationLifetime)?.MainWindow;
         if (owner == null)
             return;

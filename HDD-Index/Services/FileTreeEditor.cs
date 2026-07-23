@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
+using HDD_Index.Application.TreeEditing;
 using HDD_Index.Models;
-using HDD_Index.ViewModels;
 
 namespace HDD_Index.Services;
 
@@ -18,39 +18,36 @@ public class FileTreeEditor
     /// 删除 FileNode 前后收集受影响节点：被删子树用于清理双向声明，
     /// 祖先链用于在结构变化后重新判断声明持有是否仍然成立。
     /// </summary>
-    public bool DeleteFileNode(
-        FileNodeVM fileNodeVm,
+    public TreeEditResult<FileNode> DeleteFileNode(
+        FileNode fileNode,
         FileNode fileNodeRoot,
-        FileNodeVM fileNodeVmRoot,
         string diskLabel)
     {
-        if (fileNodeVm.FileNode == fileNodeRoot)
-            return false;
+        if (fileNode == fileNodeRoot)
+            return TreeEditResult<FileNode>.Failure();
 
-        var parent = fileNodeVm.FileNode.Parent as FileNode;
+        var parent = fileNode.Parent as FileNode;
         if (parent == null)
-            return false;
+            return TreeEditResult<FileNode>.Failure();
 
-        var deletedNodes = EnumerateFileNodes(fileNodeVm.FileNode).ToList();
+        var changes = new TreeChangeCollector();
+        var deletedNodes = EnumerateFileNodes(fileNode).ToList();
         var ancestors = CollectAncestors(parent);
 
-        _declarationSyncService.RemoveDeclareHoldingsFromFileNodes(
-            diskLabel,
-            deletedNodes);
+        changes.AddRange(
+            _declarationSyncService.RemoveDeclareHoldingsFromFileNodes(
+                diskLabel,
+                deletedNodes));
 
-        parent.Children.Remove(fileNodeVm.FileNode);
+        parent.Children.Remove(fileNode);
+        changes.RemoveNode(parent, fileNode);
 
-        var parentVm = TreeNavigationService.FindFileNodeVmByPath(
-            fileNodeVmRoot,
-            parent.GetPath(),
-            out _);
-        parentVm?.Children.Remove(fileNodeVm);
+        changes.AddRange(
+            _declarationSyncService.UpdateFileNodeDeclarations(
+                diskLabel,
+                ancestors));
 
-        _declarationSyncService.UpdateFileNodeDeclarations(
-            diskLabel,
-            ancestors);
-
-        return true;
+        return TreeEditResult<FileNode>.Success(fileNode, changes.Build());
     }
 
     private static IEnumerable<FileNode> EnumerateFileNodes(FileNode root)

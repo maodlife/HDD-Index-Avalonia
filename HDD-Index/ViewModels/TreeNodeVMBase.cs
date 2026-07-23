@@ -6,15 +6,9 @@ using ReactiveUI;
 
 namespace HDD_Index.ViewModels;
 
-public class TreeNodeVMBase<T> : ViewModelBase where T : TreeNodeVMBase<T>
+public abstract class TreeNodeVMBase<T> : ViewModelBase where T : TreeNodeVMBase<T>
 {
-    private string _name = string.Empty;
-    
-    public string Name
-    {
-        get => _name;
-        set => this.RaiseAndSetIfChanged(ref _name, value);
-    }
+    public abstract string Name { get; }
     public ObservableCollection<T> Children { get; set; }
         = new ObservableCollection<T>();
     

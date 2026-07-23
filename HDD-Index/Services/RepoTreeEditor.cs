@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HDD_Index.Application.TreeEditing;
 using HDD_Index.Models;
-using HDD_Index.ViewModels;
 
 namespace HDD_Index.Services;
 
@@ -15,93 +15,96 @@ public class RepoTreeEditor
         _declarationSyncService = declarationSyncService;
     }
 
-    public RepoNodeVM CreateChildFolder(RepoNodeVM parentVm)
+    public TreeEditResult<RepoNode> CreateChildFolder(RepoNode parent)
     {
-        var folderName = CreateUniqueChildFolderName(parentVm);
+        var changes = new TreeChangeCollector();
+        var folderName = CreateUniqueChildFolderName(parent);
         var newRepoNode = new RepoNode
         {
             Name = folderName,
             IsDirectory = true,
-            Parent = parentVm.RepoNode
+            Parent = parent
         };
-        parentVm.RepoNode.Children.Add(newRepoNode);
+        parent.Children.Add(newRepoNode);
+        changes.AddNode(parent, newRepoNode, parent.Children.Count - 1);
+        changes.AddRange(
+            _declarationSyncService.TryEstablishSaveFileNodeDatasForNode(newRepoNode));
+        changes.AddRange(
+            _declarationSyncService.CheckAncestorsDeclarationStatus(parent));
 
-        var newRepoNodeVm = RepoNodeVM.Create(newRepoNode);
-        parentVm.Children.Add(newRepoNodeVm);
-
-        _declarationSyncService.TryEstablishSaveFileNodeDatasForNode(newRepoNode);
-        SyncSaveFileNodeDatas(newRepoNodeVm);
-        _declarationSyncService.CheckAncestorsDeclarationStatus(parentVm.RepoNode);
-
-        return newRepoNodeVm;
+        return TreeEditResult<RepoNode>.Success(newRepoNode, changes.Build());
     }
 
-    public bool RenameRepoNode(RepoNodeVM repoNodeVm, string newName)
+    public TreeEditResult<RepoNode> RenameRepoNode(RepoNode repoNode, string newName)
     {
         newName = newName.Trim();
         if (string.IsNullOrWhiteSpace(newName) || newName.Contains('/'))
-            return false;
+            return TreeEditResult<RepoNode>.Failure();
 
-        if (string.Equals(newName, repoNodeVm.Name, StringComparison.Ordinal))
-            return false;
+        if (string.Equals(newName, repoNode.Name, StringComparison.Ordinal))
+            return TreeEditResult<RepoNode>.Failure();
 
-        var parent = repoNodeVm.RepoNode.Parent as RepoNode;
-        if (parent != null && HasSiblingNameConflict(parent, repoNodeVm.RepoNode, newName))
-            return false;
+        var parent = repoNode.Parent as RepoNode;
+        if (parent != null && HasSiblingNameConflict(parent, repoNode, newName))
+            return TreeEditResult<RepoNode>.Failure();
 
-        var oldPath = repoNodeVm.RepoNode.GetPath();
-        repoNodeVm.RepoNode.Name = newName;
-        repoNodeVm.Name = newName;
-        var newPath = repoNodeVm.RepoNode.GetPath();
+        var changes = new TreeChangeCollector();
+        var oldPath = repoNode.GetPath();
+        repoNode.Name = newName;
+        changes.Refresh(repoNode, TreeNodePresentation.Name);
+        var newPath = repoNode.GetPath();
 
-        _declarationSyncService.UpdateRepoNodePathReferences(oldPath, newPath);
+        changes.AddRange(
+            _declarationSyncService.UpdateRepoNodePathReferences(oldPath, newPath));
         var affectedFileNodes = _declarationSyncService.GetAffectedFileNodes(
-            repoNodeVm.RepoNode,
+            repoNode,
             includeDescendants: false);
-        _declarationSyncService.UpdateAffectedFileNodesDeclaration(affectedFileNodes);
-        _declarationSyncService.TryEstablishSaveFileNodeDatasForNode(repoNodeVm.RepoNode);
-        SyncSaveFileNodeDatas(repoNodeVm);
-        _declarationSyncService.CheckAncestorsDeclarationStatus(repoNodeVm.RepoNode);
+        changes.AddRange(
+            _declarationSyncService.UpdateAffectedFileNodesDeclaration(affectedFileNodes));
+        changes.AddRange(
+            _declarationSyncService.TryEstablishSaveFileNodeDatasForNode(repoNode));
+        changes.AddRange(
+            _declarationSyncService.CheckAncestorsDeclarationStatus(repoNode));
 
-        return true;
+        return TreeEditResult<RepoNode>.Success(repoNode, changes.Build());
     }
 
-    public bool DeleteRepoNode(RepoNodeVM repoNodeVm, RepoNode repoNodeRoot, RepoNodeVM repoNodeVmRoot)
+    public TreeEditResult<RepoNode> DeleteRepoNode(
+        RepoNode repoNode,
+        RepoNode repoNodeRoot)
     {
-        if (repoNodeVm.RepoNode == repoNodeRoot)
-            return false;
+        if (repoNode == repoNodeRoot)
+            return TreeEditResult<RepoNode>.Failure();
 
-        var parent = repoNodeVm.RepoNode.Parent as RepoNode;
+        var parent = repoNode.Parent as RepoNode;
         if (parent == null)
-            return false;
+            return TreeEditResult<RepoNode>.Failure();
 
-        var affectedFileNodes = _declarationSyncService.GetAffectedFileNodes(repoNodeVm.RepoNode);
+        var changes = new TreeChangeCollector();
+        var affectedFileNodes = _declarationSyncService.GetAffectedFileNodes(repoNode);
         var ancestors = CollectAncestors(parent);
 
-        parent.Children.Remove(repoNodeVm.RepoNode);
+        parent.Children.Remove(repoNode);
+        changes.RemoveNode(parent, repoNode);
 
-        var parentVm = TreeNavigationService.FindRepoNodeVmByPath(
-            repoNodeVmRoot,
-            parent.GetPath(),
-            out _);
-        parentVm?.Children.Remove(repoNodeVm);
-
-        _declarationSyncService.UpdateAffectedFileNodesDeclaration(affectedFileNodes);
+        changes.AddRange(
+            _declarationSyncService.UpdateAffectedFileNodesDeclaration(affectedFileNodes));
         foreach (var ancestor in ancestors)
-            _declarationSyncService.CheckAncestorsDeclarationStatus(ancestor);
+            changes.AddRange(
+                _declarationSyncService.CheckAncestorsDeclarationStatus(ancestor));
 
-        return true;
+        return TreeEditResult<RepoNode>.Success(repoNode, changes.Build());
     }
 
-    public IReadOnlyList<RepoNodeVM> FindDescendantRepoNodesByName(
-        RepoNodeVM repoNodeVm,
+    public IReadOnlyList<RepoNode> FindDescendantRepoNodesByName(
+        RepoNode repoNode,
         string nodeName)
     {
         if (string.IsNullOrWhiteSpace(nodeName))
-            return Array.Empty<RepoNodeVM>();
+            return Array.Empty<RepoNode>();
 
-        var result = new List<RepoNodeVM>();
-        foreach (var child in repoNodeVm.Children)
+        var result = new List<RepoNode>();
+        foreach (var child in repoNode.Children.OfType<RepoNode>())
             CollectMatchingDescendants(child, nodeName, result);
 
         return result;
@@ -111,49 +114,53 @@ public class RepoTreeEditor
     /// 批量删除搜索命中的 RepoNode。命中目录及其子节点同时命中时，只删除最外层命中节点，
     /// 避免重复处理已经随父目录删除的子树。
     /// </summary>
-    public bool DeleteRepoNodes(
-        IEnumerable<RepoNodeVM> repoNodeVms,
-        RepoNode repoNodeRoot,
-        RepoNodeVM repoNodeVmRoot)
+    public TreeEditResult<int> DeleteRepoNodes(
+        IEnumerable<RepoNode> repoNodes,
+        RepoNode repoNodeRoot)
     {
-        var deleteTargets = ExcludeNestedRepoNodes(repoNodeVms, repoNodeRoot);
-        var deletedAny = false;
+        var changes = new TreeChangeCollector();
+        var deleteTargets = ExcludeNestedRepoNodes(repoNodes, repoNodeRoot);
+        var deletedCount = 0;
         foreach (var deleteTarget in deleteTargets)
         {
-            deletedAny |= DeleteRepoNode(
+            var result = DeleteRepoNode(
                 deleteTarget,
-                repoNodeRoot,
-                repoNodeVmRoot);
+                repoNodeRoot);
+            if (!result.Succeeded)
+                continue;
+            deletedCount++;
+            changes.AddRange(result.Changes);
         }
 
-        return deletedAny;
+        return deletedCount > 0
+            ? TreeEditResult<int>.Success(deletedCount, changes.Build())
+            : TreeEditResult<int>.Failure();
     }
 
-    public RepoNodeVM? CopyFileNodeSubtreeToRepoDirectory(
-        RepoNodeVM targetParentVm,
+    public TreeEditResult<RepoNode> CopyFileNodeSubtreeToRepoDirectory(
+        RepoNode targetParent,
         FileNode sourceFileNode)
     {
-        if (!targetParentVm.RepoNode.IsDirectory
-            || HasChildNameConflict(targetParentVm.RepoNode, sourceFileNode.Name))
+        if (!targetParent.IsDirectory
+            || HasChildNameConflict(targetParent, sourceFileNode.Name))
         {
-            return null;
+            return TreeEditResult<RepoNode>.Failure();
         }
 
-        var copiedNode = CopyFileNodeToRepoNode(sourceFileNode, targetParentVm.RepoNode);
-        targetParentVm.RepoNode.Children.Add(copiedNode);
-
-        var copiedVm = RepoNodeVM.Create(copiedNode);
-        targetParentVm.Children.Add(copiedVm);
-        return copiedVm;
+        var copiedNode = CopyFileNodeToRepoNode(sourceFileNode, targetParent);
+        targetParent.Children.Add(copiedNode);
+        var changes = new TreeChangeCollector();
+        changes.AddNode(targetParent, copiedNode, targetParent.Children.Count - 1);
+        return TreeEditResult<RepoNode>.Success(copiedNode, changes.Build());
     }
 
-    private static string CreateUniqueChildFolderName(RepoNodeVM parentVm)
+    private static string CreateUniqueChildFolderName(RepoNode parent)
     {
         const string baseName = "新建文件夹";
         var folderName = baseName;
         var counter = 1;
 
-        while (parentVm.Children.Any(c => c.Name == folderName))
+        while (parent.Children.Any(c => c.Name == folderName))
         {
             folderName = $"{baseName} ({counter})";
             counter++;
@@ -201,31 +208,29 @@ public class RepoTreeEditor
     }
 
     private static void CollectMatchingDescendants(
-        RepoNodeVM repoNodeVm,
+        RepoNode repoNode,
         string nodeName,
-        ICollection<RepoNodeVM> result)
+        ICollection<RepoNode> result)
     {
-        if (string.Equals(repoNodeVm.Name, nodeName, StringComparison.OrdinalIgnoreCase))
-            result.Add(repoNodeVm);
+        if (string.Equals(repoNode.Name, nodeName, StringComparison.OrdinalIgnoreCase))
+            result.Add(repoNode);
 
-        foreach (var child in repoNodeVm.Children)
+        foreach (var child in repoNode.Children.OfType<RepoNode>())
             CollectMatchingDescendants(child, nodeName, result);
     }
 
-    private static List<RepoNodeVM> ExcludeNestedRepoNodes(
-        IEnumerable<RepoNodeVM> repoNodeVms,
+    private static List<RepoNode> ExcludeNestedRepoNodes(
+        IEnumerable<RepoNode> repoNodes,
         RepoNode repoNodeRoot)
     {
-        var candidates = repoNodeVms
-            .Where(x => x.RepoNode != repoNodeRoot)
+        var candidates = repoNodes
+            .Where(x => x != repoNodeRoot)
             .Distinct()
             .ToList();
-        var candidateNodes = candidates
-            .Select(x => x.RepoNode)
-            .ToHashSet();
+        var candidateNodes = candidates.ToHashSet();
 
         return candidates
-            .Where(x => !HasAncestorInSet(x.RepoNode, candidateNodes))
+            .Where(x => !HasAncestorInSet(x, candidateNodes))
             .ToList();
     }
 
@@ -258,10 +263,4 @@ public class RepoTreeEditor
         return ancestors;
     }
 
-    private static void SyncSaveFileNodeDatas(RepoNodeVM repoNodeVm)
-    {
-        repoNodeVm.SaveFileNodeDatas.Clear();
-        foreach (var data in repoNodeVm.RepoNode.SaveFileNodeDatas)
-            repoNodeVm.SaveFileNodeDatas.Add((SaveFileNodeData)data.Clone());
-    }
 }

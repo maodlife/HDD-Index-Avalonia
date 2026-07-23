@@ -8,7 +8,7 @@ using HDD_Index.Views;
 
 namespace HDD_Index;
 
-public partial class App : Application
+public partial class App : Avalonia.Application
 {
     public override void Initialize()
     {

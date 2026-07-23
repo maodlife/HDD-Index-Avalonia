@@ -5,7 +5,6 @@ using System.Threading;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using HDD_Index.Models;
-using HDD_Index.ViewModels;
 
 namespace HDD_Index.Services;
 
@@ -28,9 +27,9 @@ public class TreeDataStore
         return root;
     }
 
-    public List<FileDataVMBundle> LoadFileDataVmBundles(AppConfig appConfig)
+    public List<FileData> LoadFileDatas(AppConfig appConfig)
     {
-        var bundles = new List<FileDataVMBundle>();
+        var fileDatas = new List<FileData>();
         if (appConfig.FileDataFiles.Count > 0)
         {
             foreach (var fileDataConfig in appConfig.FileDataFiles)
@@ -41,13 +40,13 @@ public class TreeDataStore
                 var file = Path.Combine(
                     appConfig.JsonFilePath,
                     fileDataConfig.JsonFilePath);
-                bundles.Add(CreateFileDataVmBundle(
+                fileDatas.Add(CreateFileData(
                     file,
                     fileDataConfig.LocalFolderPath));
             }
 
-            SortByDiskLabel(bundles);
-            return bundles;
+            SortByDiskLabel(fileDatas);
+            return fileDatas;
         }
 
         var files = Directory.GetFiles(appConfig.JsonFilePath);
@@ -56,34 +55,44 @@ public class TreeDataStore
             if (Path.GetFileName(file) == appConfig.RepoFileName)
                 continue;
 
-            bundles.Add(CreateFileDataVmBundle(file));
+            fileDatas.Add(CreateFileData(file));
         }
 
-        SortByDiskLabel(bundles);
-        return bundles;
+        SortByDiskLabel(fileDatas);
+        return fileDatas;
     }
 
-    public FileDataVMBundle CreateFileDataVmBundleFromPath(
+    public FileData CreateFileDataFromPath(
         string diskLabel,
         string path,
         string jsonFilePath)
     {
-        return FileDataVMBundle.CreateByPath(diskLabel, path, jsonFilePath);
+        return CreateFileDataFromPath(
+            diskLabel,
+            path,
+            jsonFilePath,
+            null,
+            CancellationToken.None);
     }
 
-    public FileDataVMBundle CreateFileDataVmBundleFromPath(
+    public FileData CreateFileDataFromPath(
         string diskLabel,
         string path,
         string jsonFilePath,
         IProgress<FileNodeScanProgress>? progress,
         CancellationToken cancellationToken)
     {
-        return FileDataVMBundle.CreateByPath(
-            diskLabel,
-            path,
-            jsonFilePath,
-            progress,
-            cancellationToken);
+        var root = FileNode.CreateByPath(path, progress, cancellationToken);
+        if (root == null)
+            throw new InvalidOperationException($"无法创建文件树: {path}");
+
+        return new FileData
+        {
+            DiskLabel = diskLabel,
+            LocalFolderPath = path,
+            JsonFilePath = jsonFilePath,
+            FileNodeRoot = root
+        };
     }
 
     public string GetRepoFilePath(AppConfig appConfig)
@@ -99,37 +108,42 @@ public class TreeDataStore
         File.WriteAllText(GetRepoFilePath(appConfig), json);
     }
 
-    public void SaveFileDataBundle(FileDataVMBundle bundle)
+    public void SaveFileData(FileData fileData)
     {
-        var jsonFilePath = bundle.FileData.JsonFilePath;
+        var jsonFilePath = fileData.JsonFilePath;
         if (string.IsNullOrWhiteSpace(jsonFilePath))
             throw new InvalidOperationException(
-                $"无法保存磁盘 {bundle.FileData.DiskLabel}: 缺少 JSON 文件路径。");
+                $"无法保存磁盘 {fileData.DiskLabel}: 缺少 JSON 文件路径。");
 
         var json = JsonSerializer.Serialize(
-            bundle.FileData.FileNodeRoot,
+            fileData.FileNodeRoot,
             JsonOptions);
         File.WriteAllText(jsonFilePath, json);
     }
 
-    private static FileDataVMBundle CreateFileDataVmBundle(
+    private static FileData CreateFileData(
         string file,
         string localFolderPath = "")
     {
         var json = File.ReadAllText(file);
-        var bundle = FileDataVMBundle.Create(
-            Path.GetFileNameWithoutExtension(file),
-            json,
-            localFolderPath);
-        bundle.FileData.JsonFilePath = file;
-        return bundle;
+        var root = FileNode.CreateByJson(json);
+        if (root == null)
+            throw new InvalidOperationException($"无法读取文件树: {file}");
+
+        return new FileData
+        {
+            DiskLabel = Path.GetFileNameWithoutExtension(file),
+            LocalFolderPath = localFolderPath,
+            JsonFilePath = file,
+            FileNodeRoot = root
+        };
     }
 
-    private static void SortByDiskLabel(List<FileDataVMBundle> bundles)
+    private static void SortByDiskLabel(List<FileData> fileDatas)
     {
-        bundles.Sort((lhs, rhs) => string.Compare(
-            lhs.FileData.DiskLabel,
-            rhs.FileData.DiskLabel,
+        fileDatas.Sort((lhs, rhs) => string.Compare(
+            lhs.DiskLabel,
+            rhs.DiskLabel,
             StringComparison.Ordinal));
     }
 }

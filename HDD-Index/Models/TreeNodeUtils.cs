@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Text.Json;
 
@@ -5,6 +6,26 @@ namespace HDD_Index.Models;
 
 public static class TreeNodeUtils
 {
+    public static string ReplacePathPrefix(
+        string path,
+        string oldPrefix,
+        string newPrefix)
+    {
+        if (string.IsNullOrWhiteSpace(oldPrefix))
+            return path;
+
+        if (string.Equals(path, oldPrefix, StringComparison.Ordinal))
+            return newPrefix;
+
+        var boundary = oldPrefix.EndsWith("/", StringComparison.Ordinal)
+            ? oldPrefix
+            : oldPrefix + "/";
+        if (path.StartsWith(boundary, StringComparison.Ordinal))
+            return newPrefix + path.Substring(oldPrefix.Length);
+
+        return path;
+    }
+
     public static TreeNodeBase? GetNodeByPathFromRoot(
         TreeNodeBase root, string path)
     {

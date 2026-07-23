@@ -11,7 +11,9 @@ namespace HDD_Index.ViewModels;
 
 public class FileBrowserViewModel : ViewModelBase
 {
-    public List<FileDataVMBundle> FileDataVmBundles { get; }
+    private readonly TreeProjection _projection;
+
+    public List<FileData> FileDatas { get; }
 
     public int CurrShowFileNodeIndex { get; private set; }
 
@@ -35,15 +37,18 @@ public class FileBrowserViewModel : ViewModelBase
     public ReactiveCommand<string, Unit> DiskLabelSelectedCommand { get; set; }
         = ReactiveCommand.Create<string>(_ => { });
 
-    public FileBrowserViewModel(List<FileDataVMBundle> fileDataVmBundles)
+    public FileBrowserViewModel(
+        List<FileData> fileDatas,
+        TreeProjection projection)
     {
-        FileDataVmBundles = fileDataVmBundles;
-        foreach (var item in FileDataVmBundles)
-            DiskLabels.Add(item.FileData.DiskLabel);
+        FileDatas = fileDatas;
+        _projection = projection;
+        foreach (var item in FileDatas)
+            DiskLabels.Add(item.DiskLabel);
 
-        if (FileDataVmBundles.Count > 0)
+        if (FileDatas.Count > 0)
         {
-            ChangeFileNodeVM(FileDataVmBundles[0].FileNodeVm);
+            ChangeFileNodeVM(_projection.CreateFileTree(FileDatas[0].FileNodeRoot));
             SelectedDiskLabel = DiskLabels[0];
         }
 
@@ -52,28 +57,31 @@ public class FileBrowserViewModel : ViewModelBase
     }
 
     public FileData? CurrentFileData =>
-        CurrShowFileNodeIndex >= 0 && CurrShowFileNodeIndex < FileDataVmBundles.Count
-            ? FileDataVmBundles[CurrShowFileNodeIndex].FileData
+        CurrShowFileNodeIndex >= 0 && CurrShowFileNodeIndex < FileDatas.Count
+            ? FileDatas[CurrShowFileNodeIndex]
             : null;
 
     public bool ChangeDiskLabel(string diskLabel)
     {
-        var found = FileDataVmBundles
-            .Find(x => x.FileData.DiskLabel == diskLabel);
+        var found = FileDatas.Find(x => x.DiskLabel == diskLabel);
         if (found == null)
             return false;
 
-        CurrShowFileNodeIndex = FileDataVmBundles.IndexOf(found);
+        CurrShowFileNodeIndex = FileDatas.IndexOf(found);
         SelectedDiskLabel = diskLabel;
-        ChangeFileNodeVM(found.FileNodeVm);
+        var rootVm = _projection.TryGetFileNodeVm(found.FileNodeRoot, out var existing)
+            ? existing!
+            : _projection.CreateFileTree(found.FileNodeRoot);
+        ChangeFileNodeVM(rootVm);
         UpdateCurrentLocalFolderPathState();
         return true;
     }
 
-    public void AddBundle(FileDataVMBundle bundle)
+    public void AddFileData(FileData fileData)
     {
-        FileDataVmBundles.Add(bundle);
-        DiskLabels.Add(bundle.FileData.DiskLabel);
+        FileDatas.Add(fileData);
+        _projection.CreateFileTree(fileData.FileNodeRoot);
+        DiskLabels.Add(fileData.DiskLabel);
         UpdateCurrentLocalFolderPathState();
     }
 

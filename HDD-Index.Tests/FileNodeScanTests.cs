@@ -133,8 +133,7 @@ public class FileNodeScanTests
         var bundle = TestTreeFactory.Bundle("DiskA", currentRoot);
         var service = new DeclarationSyncService(
             repoRoot,
-            RepoNodeVM.Create(repoRoot),
-            new List<FileDataVMBundle> { bundle });
+            new List<FileData> { bundle });
 
         var scannedRoot = FileNode.CreateByPathSkippingDeclaredSubtrees(
             tempFolder.Path,

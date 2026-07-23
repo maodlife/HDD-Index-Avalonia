@@ -30,10 +30,10 @@ public class RepoBrowserViewModel : ViewModelBase
     public ReactiveCommand<string, Unit> RepoNodePathStringChangeCommand { get; set; }
         = ReactiveCommand.Create<string>(_ => { });
 
-    public RepoBrowserViewModel(RepoNode repoNodeRoot)
+    public RepoBrowserViewModel(RepoNode repoNodeRoot, TreeProjection projection)
     {
         RepoNodeRoot = repoNodeRoot;
-        RepoNodeVm = RepoNodeVM.Create(repoNodeRoot);
+        RepoNodeVm = projection.CreateRepoTree(repoNodeRoot);
         RepoNodeSource = TreeDataGridSourceFactory.CreateRepoSource(RepoNodeVm);
     }
 
@@ -49,5 +49,12 @@ public class RepoBrowserViewModel : ViewModelBase
             SelectedSaveFileNodeLabel = CurrRepoNodeSaveFileNodes[0];
         else
             SelectedSaveFileNodeLabel = string.Empty;
+    }
+
+    public void ClearCurrentRepoNode()
+    {
+        RepoNodePathString = string.Empty;
+        CurrRepoNodeSaveFileNodes.Clear();
+        SelectedSaveFileNodeLabel = string.Empty;
     }
 }
