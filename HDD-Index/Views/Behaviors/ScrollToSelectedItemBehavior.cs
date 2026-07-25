@@ -10,7 +10,7 @@ namespace HDD_Index.Views.Behaviors;
 public class ScrollToSelectedItemBehavior : AttachedToVisualTreeBehavior<Avalonia.Controls.TreeDataGrid>
 {
     private IDisposable? _subscription;
-    private string _name;
+    private string _name = string.Empty;
 
     protected override void OnAttached()
     {

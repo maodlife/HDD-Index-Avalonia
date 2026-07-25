@@ -27,8 +27,8 @@ public class RepoNode : TreeNodeBase
 /// </summary>
 public class SaveFileNodeData : ICloneable
 {
-    public string DiskLabel { get; set; }
-    public string FileNodePath { get; set; }
+    public string DiskLabel { get; set; } = string.Empty;
+    public string FileNodePath { get; set; } = string.Empty;
     
     public object Clone()
     {

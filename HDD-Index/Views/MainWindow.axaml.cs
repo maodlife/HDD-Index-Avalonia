@@ -18,7 +18,8 @@ public partial class MainWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        NativeMenu.SetMenu(Avalonia.Application.Current, NativeMenu.GetMenu(this));
+        if (Avalonia.Application.Current is { } application)
+            NativeMenu.SetMenu(application, NativeMenu.GetMenu(this));
     }
 
     protected override async void OnClosing(WindowClosingEventArgs e)

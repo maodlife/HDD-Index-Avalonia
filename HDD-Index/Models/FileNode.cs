@@ -336,7 +336,7 @@ internal sealed class FileNodeScanProgressState
 /// </summary>
 public class DeclareRepoNodeData : ICloneable
 {
-    public string RepoNodePath { get; set; }
+    public string RepoNodePath { get; set; } = string.Empty;
     
     public object Clone()
     {
