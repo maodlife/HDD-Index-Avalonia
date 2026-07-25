@@ -29,7 +29,7 @@ public class SaveFileNodeData : ICloneable
 {
     public string DiskLabel { get; set; } = string.Empty;
     public string FileNodePath { get; set; } = string.Empty;
-    
+
     public object Clone()
     {
         return this.MemberwiseClone();

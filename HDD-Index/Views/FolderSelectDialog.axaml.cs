@@ -10,7 +10,7 @@ public partial class FolderSelectDialog : Window
         InitializeComponent();
 
         DataContext = new FolderSelectDialogViewModel();
-        
+
         if (DataContext is FolderSelectDialogViewModel vm)
         {
             vm.Window = this;

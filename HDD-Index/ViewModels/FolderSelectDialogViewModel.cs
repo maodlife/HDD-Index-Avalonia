@@ -31,7 +31,7 @@ namespace HDD_Index.ViewModels;
 public class FolderSelectDialogViewModel : ViewModelBase
 {
     public Window? Window { get; set; }
-    
+
     [Reactive]
     public string SelectedPath
     {
@@ -49,7 +49,7 @@ public class FolderSelectDialogViewModel : ViewModelBase
     public bool CanConfirm =>
         !string.IsNullOrWhiteSpace(SelectedPath)
         && !string.IsNullOrWhiteSpace(TagText);
-    
+
     public ICommand SelectFolderCommand { get; set; }
     public ICommand ConfirmCommand { get; set; }
 
@@ -60,7 +60,7 @@ public class FolderSelectDialogViewModel : ViewModelBase
         this.WhenAnyValue(x => x.SelectedPath, x => x.TagText)
             .Subscribe(_ => this.RaisePropertyChanged(nameof(CanConfirm)));
     }
-    
+
     private async Task SelectFolderAsync()
     {
         var owner = Window ??

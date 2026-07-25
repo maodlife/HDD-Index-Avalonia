@@ -62,17 +62,17 @@ public sealed class TreeProjection
         switch (change.Parent, change.Node)
         {
             case (RepoNode parent, RepoNode child):
-            {
-                var childVm = RegisterRepoSubtree(child);
-                _repoNodeVms[parent].Children.Insert(change.Index, childVm);
-                break;
-            }
+                {
+                    var childVm = RegisterRepoSubtree(child);
+                    _repoNodeVms[parent].Children.Insert(change.Index, childVm);
+                    break;
+                }
             case (FileNode parent, FileNode child):
-            {
-                var childVm = RegisterFileSubtree(child);
-                _fileNodeVms[parent].Children.Insert(change.Index, childVm);
-                break;
-            }
+                {
+                    var childVm = RegisterFileSubtree(child);
+                    _fileNodeVms[parent].Children.Insert(change.Index, childVm);
+                    break;
+                }
             default:
                 throw new InvalidOperationException("父子节点类型不一致。");
         }

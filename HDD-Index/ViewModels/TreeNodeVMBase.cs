@@ -11,7 +11,7 @@ public abstract class TreeNodeVMBase<T> : ViewModelBase where T : TreeNodeVMBase
     public abstract string Name { get; }
     public ObservableCollection<T> Children { get; set; }
         = new ObservableCollection<T>();
-    
+
     public static TreeNodeVMBase<T>? FindTreeNodeVmByPath(
         TreeNodeVMBase<T> root,
         string? path,
@@ -49,7 +49,7 @@ public abstract class TreeNodeVMBase<T> : ViewModelBase where T : TreeNodeVMBase
         }
 
         indexPath = new IndexPath(indexes);
-        
+
         return ret;
     }
 }

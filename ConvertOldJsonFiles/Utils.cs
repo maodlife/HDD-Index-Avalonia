@@ -25,7 +25,7 @@ public class Utils
 
         return node;
     }
-    
+
     public static FileNode ConvertFileNode(OldFileNode oldFileNode)
     {
         var node = new FileNode();
@@ -36,7 +36,7 @@ public class Utils
         {
             node.Children.Add(child);
         }
-        
+
         var saveRepoNodePath = oldFileNode.saveData?.path ?? "";
         if (!string.IsNullOrEmpty(saveRepoNodePath))
         {
