@@ -16,6 +16,7 @@ using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Selection;
 using Avalonia.Controls.Templates;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.Input;
 using DynamicData;
 using DynamicData.Kernel;
@@ -62,25 +63,25 @@ public class FolderSelectDialogViewModel : ViewModelBase
     
     private async Task SelectFolderAsync()
     {
-        var dialog = new OpenFolderDialog
-        {
-            Title = "选择文件夹",
-        };
-
         var owner = Window ??
             (Avalonia.Application.Current?.ApplicationLifetime as
                 IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-        if (owner == null)
+        if (owner == null || !owner.StorageProvider.CanPickFolder)
             return;
 
-        var result = await dialog.ShowAsync(owner);
-        if (!string.IsNullOrEmpty(result))
-        {
-            var path = result.TrimEnd(
-                Path.DirectorySeparatorChar,
-                Path.AltDirectorySeparatorChar);
-            SelectedPath = path;
-        }
+        var folders = await owner.StorageProvider.OpenFolderPickerAsync(
+            new FolderPickerOpenOptions
+            {
+                Title = "选择文件夹",
+                AllowMultiple = false,
+            });
+        var localPath = folders.FirstOrDefault()?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(localPath))
+            return;
+
+        SelectedPath = localPath.TrimEnd(
+            Path.DirectorySeparatorChar,
+            Path.AltDirectorySeparatorChar);
     }
 
     private void Confirm()
