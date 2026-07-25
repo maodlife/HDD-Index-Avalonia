@@ -9,7 +9,7 @@ namespace HDD_Index.Models;
 public class TreeNodeBase
 {
     [JsonIgnore] public TreeNodeBase? Parent { get; set; }
-    public List<TreeNodeBase> Children { get; set; } =  new List<TreeNodeBase>();
+    public List<TreeNodeBase> Children { get; set; } = new List<TreeNodeBase>();
     public string Name { get; set; } = string.Empty;
     public bool IsDirectory { get; set; }
 

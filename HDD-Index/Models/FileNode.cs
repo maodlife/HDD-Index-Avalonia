@@ -18,7 +18,7 @@ public class FileNode : TreeNodeBase
     /// </summary>
     public List<DeclareRepoNodeData> DeclareRepoNodeDatas { get; set; } =
         new List<DeclareRepoNodeData>();
-    
+
     public static FileNode? CreateByJson(string json)
     {
         var root = JsonSerializer.Deserialize<FileNode>(json);
@@ -56,7 +56,7 @@ public class FileNode : TreeNodeBase
         {
             Console.WriteLine($"遍历出错: {ex.Message}");
         }
-        
+
         return null;
     }
 
@@ -290,7 +290,7 @@ public class FileNode : TreeNodeBase
         progressState.CompletedTopLevelEntries++;
         progress?.Report(progressState.CreateProgress(path));
     }
-    
+
     private static bool IsFileHidden(string path)
     {
         string name = Path.GetFileName(path);
@@ -337,7 +337,7 @@ internal sealed class FileNodeScanProgressState
 public class DeclareRepoNodeData : ICloneable
 {
     public string RepoNodePath { get; set; } = string.Empty;
-    
+
     public object Clone()
     {
         return this.MemberwiseClone();

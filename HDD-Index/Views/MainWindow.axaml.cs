@@ -14,7 +14,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
     }
-    
+
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);

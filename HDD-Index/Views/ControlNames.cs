@@ -1,4 +1,4 @@
-﻿namespace HDD_Index.Views;
+namespace HDD_Index.Views;
 
 public class ControlNames
 {
