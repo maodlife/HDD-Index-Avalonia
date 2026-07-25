@@ -28,6 +28,19 @@ HDD Index 是一个基于 C#、.NET 9 和 Avalonia 的桌面端离线磁盘目�
 
 ![Repository 与磁盘文件树编辑界面](screenshots/20260503_001748_362_g4rlaJeTLv.png)
 
+## 下载与升级
+
+Windows 用户可以从 [GitHub Releases](https://github.com/maodlife/HDD-Index-Avalonia/releases) 下载 `HDD-Index-<版本tag>-win-x64.zip`。发布包为自包含版本，通常不需要另外安装 .NET。
+
+解压后运行 `HDD-Index.exe`。当前发布包未进行代码签名，因此 Windows SmartScreen 可能显示未知发布者提示。
+
+升级前请先阅读：
+
+- [数据目录说明](docs/data-directory.md)
+- [升级说明](docs/upgrading.md)
+
+维护者创建版本参见[发布流程](docs/releasing.md)。
+
 ## 技术栈
 
 - .NET 9

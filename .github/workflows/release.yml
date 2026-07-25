@@ -1,0 +1,114 @@
+name: Windows Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      SOLUTION_PATH: HDD-Index/HDD-Index.sln
+      PROJECT_PATH: HDD-Index/HDD-Index.csproj
+      RUNTIME_IDENTIFIER: win-x64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Validate version tag
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $versionMatch = [regex]::Match(
+            $tag,
+            '^v(?<major>\d+)\.(?<minor>\d+)(?:\.(?<patch>\d+))?$')
+          if (-not $versionMatch.Success) {
+            throw "Release tags must use vMAJOR.MINOR or vMAJOR.MINOR.PATCH."
+          }
+
+          $patch = $versionMatch.Groups["patch"].Value
+          if ([string]::IsNullOrEmpty($patch)) {
+            $patch = "0"
+          }
+
+          $releaseVersion = "$($versionMatch.Groups["major"].Value).$($versionMatch.Groups["minor"].Value).$patch"
+          "RELEASE_VERSION=$releaseVersion" >> $env:GITHUB_ENV
+          "ARCHIVE_NAME=HDD-Index-$tag-win-x64" >> $env:GITHUB_ENV
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test ${{ env.SOLUTION_PATH }} --configuration Release --no-build --no-restore --verbosity normal
+
+      - name: Restore Windows publish dependencies
+        run: dotnet restore ${{ env.PROJECT_PATH }} --runtime ${{ env.RUNTIME_IDENTIFIER }}
+
+      - name: Publish and package
+        id: package
+        shell: pwsh
+        run: |
+          $publishDirectory = Join-Path $env:RUNNER_TEMP "publish"
+          $packageDirectory = Join-Path $env:RUNNER_TEMP $env:ARCHIVE_NAME
+
+          dotnet publish $env:PROJECT_PATH `
+            --configuration Release `
+            --runtime $env:RUNTIME_IDENTIFIER `
+            --self-contained true `
+            --no-restore `
+            -p:Version=$env:RELEASE_VERSION `
+            --output $publishDirectory
+          if ($LASTEXITCODE -ne 0) {
+            throw "dotnet publish failed."
+          }
+
+          New-Item -ItemType Directory -Path $packageDirectory | Out-Null
+          Copy-Item -Path (Join-Path $publishDirectory "*") `
+            -Destination $packageDirectory `
+            -Recurse
+          Copy-Item README.md, LICENSE -Destination $packageDirectory
+          Copy-Item docs, screenshots `
+            -Destination $packageDirectory `
+            -Recurse
+
+          $archivePath = Join-Path $env:RUNNER_TEMP "$($env:ARCHIVE_NAME).zip"
+          Compress-Archive `
+            -Path (Join-Path $packageDirectory "*") `
+            -DestinationPath $archivePath `
+            -CompressionLevel Optimal
+
+          $checksumPath = "$archivePath.sha256"
+          $archiveHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$archiveHash  $([System.IO.Path]::GetFileName($archivePath))" |
+            Set-Content -LiteralPath $checksumPath -Encoding ascii
+
+          "archive_path=$archivePath" >> $env:GITHUB_OUTPUT
+          "checksum_path=$checksumPath" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          CHECKSUM_PATH: ${{ steps.package.outputs.checksum_path }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME `
+            $env:ARCHIVE_PATH `
+            $env:CHECKSUM_PATH `
+            --verify-tag `
+            --title "HDD Index $env:GITHUB_REF_NAME" `
+            --generate-notes
