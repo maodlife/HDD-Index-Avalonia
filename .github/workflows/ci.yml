@@ -24,17 +24,23 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore HDD-Index/HDD-Index.sln
 
-      - name: Restore converter dependencies
-        run: dotnet restore ConvertOldJsonFiles/ConvertOldJsonFiles.sln
-
       - name: Verify app and test formatting
         run: dotnet format HDD-Index/HDD-Index.sln --verify-no-changes --no-restore --verbosity minimal
-
-      - name: Verify converter formatting
-        run: dotnet format ConvertOldJsonFiles/ConvertOldJsonFiles.sln --verify-no-changes --no-restore --verbosity minimal
 
       - name: Build
         run: dotnet build HDD-Index/HDD-Index.sln --configuration Release --no-restore -warnaserror
 
       - name: Test
         run: dotnet test HDD-Index/HDD-Index.sln --configuration Release --no-build --no-restore --verbosity normal
+
+      - name: Restore Windows publish dependencies
+        run: dotnet restore HDD-Index/HDD-Index.csproj --runtime win-x64
+
+      - name: Validate Windows release package
+        shell: pwsh
+        run: |
+          ./scripts/package-release.ps1 `
+            -Version 0.0.0 `
+            -PackageLabel ci `
+            -RuntimeIdentifier win-x64 `
+            -OutputDirectory $env:RUNNER_TEMP
