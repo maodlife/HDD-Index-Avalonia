@@ -114,9 +114,13 @@ flowchart LR
 
 ## 构建与测试
 
+在仓库根目录执行与 CI 等价的完整检查：
+
 ```powershell
-dotnet build HDD-Index/HDD-Index.csproj
-dotnet test HDD-Index.Tests/HDD-Index.Tests.csproj
+dotnet restore HDD-Index/HDD-Index.sln
+dotnet format HDD-Index/HDD-Index.sln --verify-no-changes --no-restore --verbosity minimal
+dotnet build HDD-Index/HDD-Index.sln --configuration Release --no-restore -warnaserror
+dotnet test HDD-Index/HDD-Index.sln --configuration Release --no-build --no-restore --verbosity normal
 ```
 
 Avalonia UI 本身支持跨平台，但当前“在文件夹中打开”等功能直接调用 Windows Explorer，因此完整功能目前面向 Windows。
