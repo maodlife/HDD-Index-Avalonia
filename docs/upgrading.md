@@ -12,6 +12,18 @@
 
 发布包为 Windows x64 自包含版本，通常不需要另外安装 .NET。
 
+## 校验下载文件
+
+将 ZIP 和同一 Release 中的 `.sha256` 文件下载到同一目录，在 PowerShell 中执行：
+
+```powershell
+$archivePath = ".\HDD-Index-vX.Y.Z-win-x64.zip"
+Get-FileHash -LiteralPath $archivePath -Algorithm SHA256
+Get-Content -LiteralPath "$archivePath.sha256"
+```
+
+将 `vX.Y.Z` 替换为实际版本。`Get-FileHash` 输出的哈希应与 `.sha256` 文件第一列一致；比较时不区分大小写。如果不一致，不要运行该 ZIP 中的程序，请重新从项目的 GitHub Releases 页面下载。
+
 ## 数据兼容
 
 程序目录和数据目录彼此独立，正常升级不会主动删除用户数据。若某个版本包含 JSON 格式迁移或其他不兼容变更，应以该版本的 Release Notes 为准。
