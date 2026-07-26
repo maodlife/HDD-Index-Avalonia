@@ -21,6 +21,28 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Validate release source
+        shell: pwsh
+        run: |
+          git fetch --no-tags origin +refs/heads/master:refs/remotes/origin/master
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to fetch origin/master."
+          }
+
+          $tagCommit = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to resolve the tag commit."
+          }
+
+          $masterCommit = git rev-parse refs/remotes/origin/master
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to resolve origin/master."
+          }
+
+          if ($tagCommit.Trim() -ne $masterCommit.Trim()) {
+            throw "Release tags must point to the latest origin/master commit."
+          }
+
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
         with:
