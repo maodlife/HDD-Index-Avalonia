@@ -16,31 +16,42 @@
 
 Release 工作流不会修改或上传用户的配置和索引数据。
 
+## 发布前检查
+
+先设置本次准备创建的新版本号。`vX.Y.Z` 是占位符，必须替换为实际版本：
+
+```powershell
+$versionTag = "vX.Y.Z"
+```
+
+同步远端 tag 和 `master`，并确认工作区干净：
+
+```powershell
+git fetch origin --tags
+git switch master
+git pull --ff-only origin master
+git status --short
+git tag --list $versionTag
+```
+
+`git status --short` 和 `git tag --list` 都应没有输出。随后确认 GitHub Actions 中该 `master` 提交的 CI 已经成功。
+
+不要从任务分支或旧提交创建发布 tag，也不要移动或重复使用已经发布的 tag。
+
 ## 创建版本
 
-确认 `master` 分支上的 CI 已经通过，并且工作区干净：
+在确认上述条件后，创建带说明的版本 tag 并推送：
 
 ```powershell
-git status
+git tag -a $versionTag -m "HDD Index $versionTag"
+git push origin $versionTag
 ```
 
-创建带说明的版本 tag：
-
-```powershell
-git tag -a v1.1 -m "HDD Index v1.1"
-```
-
-推送 tag：
-
-```powershell
-git push origin v1.1
-```
-
-随后在 GitHub Actions 中查看 `Windows Release` 工作流。成功后，GitHub Releases 页面会出现：
+随后在 GitHub Actions 中查看 `Windows Release` 工作流。成功后，工作流会使用自动生成的 Release Notes 直接创建公开 Release，不会先创建 draft。GitHub Releases 页面会出现：
 
 ```text
-HDD-Index-v1.1-win-x64.zip
-HDD-Index-v1.1-win-x64.zip.sha256
+HDD-Index-<版本tag>-win-x64.zip
+HDD-Index-<版本tag>-win-x64.zip.sha256
 ```
 
 ## 版本规则
