@@ -36,7 +36,7 @@ git tag --list $versionTag
 
 `git status --short` 和 `git tag --list` 都应没有输出。随后确认 GitHub Actions 中该 `master` 提交的 CI 已经成功。
 
-不要从任务分支或旧提交创建发布 tag，也不要移动或重复使用已经发布的 tag。
+不要从任务分支或旧提交创建发布 tag，也不要移动或重复使用已经发布的 tag。Release 工作流会拒绝不指向最新 `origin/master` 提交的 tag。
 
 ## 创建版本
 
