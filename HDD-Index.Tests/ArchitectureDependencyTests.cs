@@ -67,6 +67,28 @@ public class ArchitectureDependencyTests
             ]);
     }
 
+    // Model 可以使用 Path 处理领域中的扩展名，但不能直接访问本地文件系统。
+    [Fact]
+    public void Models_DoNotAccessTheLocalFileSystem()
+    {
+        var forbiddenTypes = new HashSet<Type>
+        {
+            typeof(Directory),
+            typeof(DirectoryInfo),
+            typeof(DriveInfo),
+            typeof(File),
+            typeof(FileInfo),
+            typeof(FileStream),
+            typeof(FileSystemInfo),
+            typeof(FileSystemWatcher),
+        };
+        var violations = FindDependencyViolations(
+            [ModelsNamespace],
+            forbiddenTypes.Contains);
+
+        AssertNoViolations(violations);
+    }
+
     // Application 负责编排领域操作，可以依赖 Models，但不能依赖更高层。
     [Fact]
     public void ApplicationLayer_DoesNotDependOnHigherLayers()

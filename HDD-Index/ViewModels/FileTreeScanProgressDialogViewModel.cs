@@ -1,7 +1,7 @@
 using System;
 using System.Reactive;
 using System.Threading;
-using HDD_Index.Models;
+using HDD_Index.Application.FileScanning;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 
@@ -32,7 +32,7 @@ public class FileTreeScanProgressDialogViewModel : ViewModelBase
         CancelCommand = ReactiveCommand.Create(RequestCancel);
     }
 
-    public void UpdateProgress(FileNodeScanProgress progress)
+    public void UpdateProgress(FileTreeScanProgress progress)
     {
         CurrentPath = progress.CurrentPath;
         var percent = progress.TotalTopLevelEntries > 0

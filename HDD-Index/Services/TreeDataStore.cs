@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using HDD_Index.Models;
@@ -60,39 +59,6 @@ public class TreeDataStore
 
         SortByDiskLabel(fileDatas);
         return fileDatas;
-    }
-
-    public FileData CreateFileDataFromPath(
-        string diskLabel,
-        string path,
-        string jsonFilePath)
-    {
-        return CreateFileDataFromPath(
-            diskLabel,
-            path,
-            jsonFilePath,
-            null,
-            CancellationToken.None);
-    }
-
-    public FileData CreateFileDataFromPath(
-        string diskLabel,
-        string path,
-        string jsonFilePath,
-        IProgress<FileNodeScanProgress>? progress,
-        CancellationToken cancellationToken)
-    {
-        var root = FileNode.CreateByPath(path, progress, cancellationToken);
-        if (root == null)
-            throw new InvalidOperationException($"无法创建文件树: {path}");
-
-        return new FileData
-        {
-            DiskLabel = diskLabel,
-            LocalFolderPath = path,
-            JsonFilePath = jsonFilePath,
-            FileNodeRoot = root
-        };
     }
 
     public string GetRepoFilePath(AppConfig appConfig)

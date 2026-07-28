@@ -12,6 +12,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using DynamicData.Kernel;
+using HDD_Index.Application.FileScanning;
 using HDD_Index.Application.TreeEditing;
 using HDD_Index.Messages;
 using HDD_Index.Models;
@@ -30,6 +31,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly DeclarationSyncService _declarationSyncService;
     private readonly RepoTreeEditor _repoTreeEditor;
     private readonly FileTreeEditor _fileTreeEditor;
+    private readonly IFileTreeScanner _fileTreeScanner = new FileTreeScanner();
     private readonly TreeProjection _treeProjection = new();
     private readonly AppConfig _appConfig;
     private bool _isSelectingRepoRowProgrammatically;
@@ -960,37 +962,43 @@ public class MainWindowViewModel : ViewModelBase
             return;
 
         var localPath = GetLocalPath(fileNodeVM.FileNode);
-        if (string.IsNullOrWhiteSpace(localPath) || !Directory.Exists(localPath))
+        if (string.IsNullOrWhiteSpace(localPath))
         {
-            await ShowMessageAsync("对应的本地文件夹不存在，无法刷新。");
+            await ShowMessageAsync("没有配置对应的本地文件夹，无法刷新。");
             return;
         }
 
         var scanResult = await RunFileTreeScanAsync((progress, cancellationToken) =>
         {
-            var scannedFileNode = skipDeclaredSubtrees
-                ? FileNode.CreateByPathSkippingDeclaredSubtrees(
+            var fileTreeScan = _fileTreeScanner.Scan(
+                new FileTreeScanRequest(
                     localPath,
                     fileNodeVM.FileNode,
-                    progress,
-                    cancellationToken)
-                : FileNode.CreateByPath(
-                    localPath,
-                    progress,
-                    cancellationToken);
-            if (scannedFileNode == null)
-                return null;
+                    skipDeclaredSubtrees),
+                progress,
+                cancellationToken);
+            if (fileTreeScan.Status != FileTreeScanStatus.Succeeded
+                || fileTreeScan.Root == null)
+            {
+                return new RefreshFileNodeScanResult(
+                    fileTreeScan,
+                    RefreshedFileNode: null,
+                    Array.Empty<DeclareHoldingValidationFailure>());
+            }
 
             var refreshedFileNode = _declarationSyncService.BuildRefreshedFileNodeSubtree(
                 fileNodeVM.FileNode,
-                scannedFileNode);
+                fileTreeScan.Root);
             var failures = _declarationSyncService
                 .GetInvalidDeclareHoldingsAfterRefresh(
                     diskLabel,
                     fileNodeVM.FileNode,
                     refreshedFileNode);
 
-            return new RefreshFileNodeScanResult(refreshedFileNode, failures);
+            return new RefreshFileNodeScanResult(
+                fileTreeScan,
+                refreshedFileNode,
+                failures);
         });
         if (scanResult.IsCancelled)
             return;
@@ -999,9 +1007,16 @@ public class MainWindowViewModel : ViewModelBase
             await ShowMessageAsync($"读取本地文件夹失败：{scanResult.Error.Message}");
             return;
         }
-        if (scanResult.Value == null)
+        if (scanResult.Value?.FileTreeScan.Status == FileTreeScanStatus.Cancelled)
+            return;
+        if (scanResult.Value == null
+            || scanResult.Value.FileTreeScan.Status != FileTreeScanStatus.Succeeded
+            || scanResult.Value.RefreshedFileNode == null)
         {
-            await ShowMessageAsync("读取本地文件夹失败。");
+            await ShowFileTreeScanIssuesAsync(
+                "读取本地文件夹失败，文件树未刷新。",
+                scanResult.Value?.FileTreeScan.BlockingIssues
+                ?? Array.Empty<FileTreeScanIssue>());
             return;
         }
 
@@ -1034,6 +1049,13 @@ public class MainWindowViewModel : ViewModelBase
             MarkRepoAndFileDirty(diskLabel);
         else
             MarkFileDirty(diskLabel);
+
+        if (scanResult.Value.FileTreeScan.Warnings.Count > 0)
+        {
+            await ShowFileTreeScanIssuesAsync(
+                "文件树已刷新，但扫描过程中出现以下警告：",
+                scanResult.Value.FileTreeScan.Warnings);
+        }
     }
 
     private string? GetLocalPath(FileNode fileNode)
@@ -1115,12 +1137,6 @@ public class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        if (!Directory.Exists(selectedPath))
-        {
-            await ShowMessageAsync($"选择的文件夹不存在：{selectedPath}");
-            return;
-        }
-
         if (tag.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
         {
             await ShowMessageAsync("标签包含不能用于文件名的字符，请修改标签。");
@@ -1146,10 +1162,8 @@ public class MainWindowViewModel : ViewModelBase
         Console.WriteLine($"填写的标签: {tag}");
 
         var scanResult = await RunFileTreeScanAsync((progress, cancellationToken) =>
-            _treeDataStore.CreateFileDataFromPath(
-                tag,
-                selectedPath,
-                jsonFilePath,
+            _fileTreeScanner.Scan(
+                new FileTreeScanRequest(selectedPath),
                 progress,
                 cancellationToken));
         if (scanResult.IsCancelled)
@@ -1159,12 +1173,25 @@ public class MainWindowViewModel : ViewModelBase
             await ShowMessageAsync($"读取本地文件夹失败：{scanResult.Error.Message}");
             return;
         }
-        var fileData = scanResult.Value;
-        if (fileData == null)
+        if (scanResult.Value?.Status == FileTreeScanStatus.Cancelled)
+            return;
+        if (scanResult.Value?.Status != FileTreeScanStatus.Succeeded
+            || scanResult.Value.Root == null)
         {
-            await ShowMessageAsync("读取本地文件夹失败。");
+            await ShowFileTreeScanIssuesAsync(
+                "读取本地文件夹失败，未创建文件树。",
+                scanResult.Value?.BlockingIssues
+                ?? Array.Empty<FileTreeScanIssue>());
             return;
         }
+
+        var fileData = new FileData
+        {
+            DiskLabel = tag,
+            LocalFolderPath = selectedPath,
+            JsonFilePath = jsonFilePath,
+            FileNodeRoot = scanResult.Value.Root
+        };
         EnsureAppConfigFileDataFilesInitialized();
         FileBrowser.AddFileData(fileData);
         _appConfig.FileDataFiles.Add(new FileDataFileConfig
@@ -1174,6 +1201,13 @@ public class MainWindowViewModel : ViewModelBase
         });
         _dirtyJsonFileTracker.SetFileNodePath(tag, jsonFilePath);
         MarkAppConfigAndFileDirty(tag);
+
+        if (scanResult.Value.Warnings.Count > 0)
+        {
+            await ShowFileTreeScanIssuesAsync(
+                "文件树已创建，但扫描过程中出现以下警告：",
+                scanResult.Value.Warnings);
+        }
     }
 
     private void EnsureAppConfigFileDataFilesInitialized()
@@ -1202,7 +1236,7 @@ public class MainWindowViewModel : ViewModelBase
     }
 
     private async Task<FileTreeScanRunResult<T>> RunFileTreeScanAsync<T>(
-        Func<IProgress<FileNodeScanProgress>, CancellationToken, T> scan)
+        Func<IProgress<FileTreeScanProgress>, CancellationToken, T> scan)
     {
         var owner = GetMainWindow();
         if (owner == null)
@@ -1220,7 +1254,7 @@ public class MainWindowViewModel : ViewModelBase
             Width = 520,
             Height = 220,
         };
-        var progress = new Progress<FileNodeScanProgress>(
+        var progress = new Progress<FileTreeScanProgress>(
             progressViewModel.UpdateProgress);
 
         IsFileTreeScanRunning = true;
@@ -1262,7 +1296,10 @@ public class MainWindowViewModel : ViewModelBase
             ?.MainWindow;
     }
 
-    private static async Task ShowMessageAsync(string message)
+    private static async Task ShowMessageAsync(
+        string message,
+        double width = 400,
+        double height = 150)
     {
         var owner = GetMainWindow();
         if (owner == null)
@@ -1271,10 +1308,42 @@ public class MainWindowViewModel : ViewModelBase
         var dialog = new MessageDialog(message)
         {
             Title = "提示",
-            Width = 400,
-            Height = 150,
+            Width = width,
+            Height = height,
         };
         await dialog.ShowDialog(owner);
+    }
+
+    private static async Task ShowFileTreeScanIssuesAsync(
+        string summary,
+        IReadOnlyList<FileTreeScanIssue> issues)
+    {
+        const int maxDisplayedIssues = 20;
+        var builder = new StringBuilder();
+        builder.AppendLine(summary);
+
+        if (issues.Count == 0)
+        {
+            builder.AppendLine("没有可用的错误详情。");
+        }
+        else
+        {
+            builder.AppendLine();
+            foreach (var issue in issues.Take(maxDisplayedIssues))
+            {
+                builder.AppendLine($"- {issue.Path}");
+                builder.AppendLine($"  {issue.Message}");
+            }
+
+            var remainingCount = issues.Count - maxDisplayedIssues;
+            if (remainingCount > 0)
+            {
+                builder.AppendLine();
+                builder.AppendLine($"另有 {remainingCount} 个问题未展示。");
+            }
+        }
+
+        await ShowMessageAsync(builder.ToString(), width: 720, height: 480);
     }
 
     private static async Task<bool> ShowConfirmAsync(
@@ -1352,6 +1421,7 @@ public class MainWindowViewModel : ViewModelBase
         Exception? Error);
 
     private sealed record RefreshFileNodeScanResult(
-        FileNode RefreshedFileNode,
+        FileTreeScanResult FileTreeScan,
+        FileNode? RefreshedFileNode,
         IReadOnlyList<DeclareHoldingValidationFailure> Failures);
 }
