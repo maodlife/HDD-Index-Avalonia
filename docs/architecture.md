@@ -42,11 +42,12 @@ flowchart TB
         Projection --> NodeVM
     end
 
-    subgraph Application["Application / TreeEditing"]
+    subgraph Application["Application"]
         EditResult["TreeEditResult&lt;T&gt;<br/>操作结果"]
         ChangeSet["TreeChangeSet<br/>不可变变更集合"]
         Collector["TreeChangeCollector<br/>内部累积变化"]
         TreeChanges["TreeChange<br/>NodeAdded / NodeRemoved<br/>PresentationChanged / SubtreeReplaced"]
+        ScanContract["FileScanning<br/>请求、进度、结果与问题契约"]
 
         Collector --> ChangeSet
         ChangeSet --> TreeChanges
@@ -60,12 +61,14 @@ flowchart TB
         DirtyTracker["DirtyJsonFileTracker<br/>脏文件追踪"]
         DataStore["TreeDataStore<br/>树数据持久化"]
         ConfigService["AppConfigService<br/>配置持久化"]
+        Scanner["FileTreeScanner<br/>本地目录扫描"]
 
         RepoEditor --> Declaration
         FileEditor --> Declaration
         RepoEditor --> Collector
         FileEditor --> Collector
         Declaration --> Collector
+        Scanner --> ScanContract
     end
 
     subgraph Domain["Models / 领域数据"]
@@ -99,6 +102,7 @@ flowchart TB
     MainVM --> DirtyTracker
     MainVM --> DataStore
     MainVM --> ConfigService
+    MainVM --> Scanner
 
     RepoEditor --> RepoNode
     FileEditor --> FileNode
@@ -112,7 +116,8 @@ flowchart TB
     NodeVM -. "直接读取，不复制" .-> RepoNode
     NodeVM -. "直接读取，不复制" .-> FileNode
 
-    LocalFS -->|"扫描 / 刷新"| FileNode
+    LocalFS -->|"枚举目录"| Scanner
+    Scanner -->|"创建扫描结果"| FileNode
     ConfigService <-->|"读写"| ConfigJSON
     DataStore <-->|"读写"| RepoJSON
     DataStore <-->|"读写"| FileJSON
@@ -134,11 +139,11 @@ flowchart TB
 - `AppConfig`
 - `DeclareHoldingStrategy`
 
-这些类型不引用 Avalonia、ReactiveUI 或 ViewModels。当前文件系统扫描逻辑仍由 `FileNode` 提供。
+这些类型不引用 Avalonia、ReactiveUI 或 ViewModels。`FileNode` 只保存文件树数据和声明关系，不再遍历本地文件系统。
 
-### `Application/TreeEditing`
+### `Application`
 
-定义树编辑操作与 UI 投影之间的应用层协议：
+`Application/TreeEditing` 定义树编辑操作与 UI 投影之间的应用层协议：
 
 - `TreeEditResult<T>`：操作是否成功、返回值、失败原因及 ChangeSet。
 - `TreeChangeSet`：一次业务操作产生的不可变变化集合。
@@ -149,19 +154,30 @@ flowchart TB
 
 这些类型不参与 JSON 序列化，也不包含 Avalonia 类型。
 
+`Application/FileScanning` 定义文件扫描边界的 UI 无关协议：
+
+- `IFileTreeScanner`：扫描服务入口。
+- `FileTreeScanRequest`：根路径、当前子树和跳过声明子树选项。
+- `FileTreeScanProgress`：顶层完成数量和当前路径。
+- `FileTreeScanResult`：成功、取消、完整失败或局部失败状态。
+- `FileTreeScanIssue`：阻断性问题或非阻断性警告。
+
 ### `Services`
 
-服务分为三类：
+服务分为四类：
 
 - 编辑服务：`RepoTreeEditor`、`FileTreeEditor`。
 - 关系同步：`DeclarationSyncService`。
 - 持久化与状态：`TreeDataStore`、`AppConfigService`、`DirtyJsonFileTracker`。
+- 外部数据读取：`FileTreeScanner`。
 
 树编辑和声明同步服务只接收 Model，并在修改完成后返回 ChangeSet。持久化服务直接读写 Model，不创建 ViewModel。
 
+`FileTreeScanner` 通过最小的文件系统读取接口遍历本地目录。完整成功才返回可应用的 `FileNode` 根；取消、根失败或任何阻断性局部问题都不返回可应用树。隐藏属性读取失败作为非阻断性警告，目录符号链接和 Windows junction 作为阻断性问题。
+
 ### `ViewModels`
 
-- `MainWindowViewModel`：执行命令、调用服务、应用 ChangeSet、标记脏文件和打开对话框。
+- `MainWindowViewModel`：执行命令、调用服务和扫描器、应用 ChangeSet、标记脏文件和打开对话框。
 - `TreeProjection`：维护 Model 对象引用到节点 ViewModel 的会话级映射。
 - `RepoNodeVM`、`FileNodeVM`：直接读取 Model 属性，只提供展示计算和变化通知。
 - `RepoBrowserViewModel`、`FileBrowserViewModel`：管理选择、当前磁盘和 TreeDataGrid 数据源。
@@ -242,20 +258,21 @@ flowchart LR
 后续修改应保持以下规则：
 
 1. `Models` 不得引用 Avalonia、ReactiveUI 或 ViewModels。
-2. `Services` 不得引用 ViewModels。
-3. ViewModel 不得复制并独立维护可变业务数据。
-4. 树编辑必须通过服务修改 Model，并返回 `TreeChangeSet`。
-5. `MainWindowViewModel` 负责应用 ChangeSet 和标记脏文件。
-6. `TreeProjection` 是节点结构从 Model 投影到 ViewModel 的统一入口。
-7. UI 展开、选择、颜色和格式化等状态留在 ViewModel。
-8. JSON 属性或结构发生变化时，必须处理旧数据兼容。
-9. 新增跨层依赖时，应更新或通过架构依赖测试。
+2. `Models` 不得通过 `File`、`Directory` 等类型直接访问本地文件系统。
+3. `Services` 不得引用 ViewModels。
+4. ViewModel 不得复制并独立维护可变业务数据。
+5. 树编辑必须通过服务修改 Model，并返回 `TreeChangeSet`。
+6. `MainWindowViewModel` 负责应用 ChangeSet 和标记脏文件。
+7. `TreeProjection` 是节点结构从 Model 投影到 ViewModel 的统一入口。
+8. UI 展开、选择、颜色和格式化等状态留在 ViewModel。
+9. JSON 属性或结构发生变化时，必须处理旧数据兼容。
+10. 新增跨层依赖时，应更新或通过架构依赖测试。
 
 ## 当前限制
 
 - 没有依赖注入容器，应用依赖由 `MainWindowViewModel` 直接组合。
 - 没有通用事务回滚、撤销或重做机制。
-- 文件树扫描逻辑仍位于 `FileNode`，Model 同时承担部分文件系统职责。
-- `MainWindowViewModel` 仍负责较多界面编排。
+- 文件树扫描已经从 `FileNode` 提取，但后台任务、进度窗口和扫描结果展示仍由 `MainWindowViewModel` 编排。
+- `MainWindowViewModel` 仍负责服务组合、持久化和较多界面编排。
 - Avalonia UI 支持跨平台，但资源管理器调用当前是 Windows 专用实现。
 - 应用启动依赖默认路径下已经存在有效配置和 Repository 数据文件。
