@@ -6,20 +6,25 @@
 
 ## 背景
 
-当前树编辑主链路已经具备稳定边界：
+P5 启动时，树编辑主链路已经具备稳定边界：
 
 - Model 是唯一业务数据源。
 - 编辑与声明服务只修改 Model，并返回 `TreeChangeSet`。
 - `TreeProjection` 将变化定点应用到节点 ViewModel。
 - 脏文件追踪独立于 UI 投影。
 
-P5 不替换这些机制，而是处理它们外围仍然集中的职责：
+P5 不替换这些机制，而是处理它们外围仍然集中的职责。启动 P5 时的问题包括：
 
 - `FileNode` 同时保存数据和遍历本地文件系统。
 - `TreeDataStore` 同时承担 JSON 持久化和从目录创建索引。
 - `MainWindowViewModel` 同时加载数据、组合服务、执行应用用例、创建对话框、调度扫描、保存 JSON 和启动 Windows Explorer。
 - `MainWindowViewModel` 通过 `Application.Current` 查找窗口，并成为 ViewModels 依赖具体 Views 的临时例外。
 - Repository、File Tree、声明关系和持久化操作的后续步骤分散在命令处理方法中，依靠调用方手工应用 ChangeSet、修复展示状态和标记脏文件。
+
+P5.1 已移除前两项耦合：`FileNode` 现在只保存数据和领域关系，
+`TreeDataStore` 只负责 JSON，目录遍历由独立的 `FileTreeScanner` 承担。
+其余职责是后续切片继续处理的当前重点；切片状态和完成证据以
+[项目路线图](roadmap.md#p5应用编排边界重构)为准。
 
 ## 目标架构
 
@@ -99,6 +104,10 @@ P5 不包含：
 - 保持 JSON 格式、声明同步、`TreeChangeSet` 和 `TreeProjection` 行为不变。
 
 本切片暂不移动 `RepoNode.CreateByJson` 和 `FileNode.CreateByJson`，也不拆分全部对话框或主 ViewModel。
+
+实现保持了上述范围：扫描协议位于 Application 层，物理文件系统实现位于 Services 层；
+`MainWindowViewModel` 暂时继续负责启动扫描、显示进度和应用成功结果，等待 P5.2
+隔离这些展示与平台交互。
 
 ### P5.2：外部交互与组合根
 
