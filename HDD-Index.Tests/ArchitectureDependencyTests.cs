@@ -15,6 +15,7 @@ public class ArchitectureDependencyTests
     private const string ModelsNamespace = RootNamespace + ".Models";
     private const string ApplicationNamespace = RootNamespace + ".Application";
     private const string ServicesNamespace = RootNamespace + ".Services";
+    private const string AdaptersNamespace = RootNamespace + ".Adapters";
     private const string MessagesNamespace = RootNamespace + ".Messages";
     private const string ViewModelsNamespace = RootNamespace + ".ViewModels";
     private const string ViewsNamespace = RootNamespace + ".Views";
@@ -29,6 +30,7 @@ public class ArchitectureDependencyTests
         ModelsNamespace,
         ApplicationNamespace,
         ServicesNamespace,
+        AdaptersNamespace,
         MessagesNamespace,
         ViewModelsNamespace,
         ViewsNamespace,
@@ -61,6 +63,7 @@ public class ArchitectureDependencyTests
             [
                 ApplicationNamespace,
                 ServicesNamespace,
+                AdaptersNamespace,
                 MessagesNamespace,
                 ViewModelsNamespace,
                 ViewsNamespace,
@@ -97,6 +100,7 @@ public class ArchitectureDependencyTests
             [ApplicationNamespace],
             [
                 ServicesNamespace,
+                AdaptersNamespace,
                 MessagesNamespace,
                 ViewModelsNamespace,
                 ViewsNamespace,
@@ -111,6 +115,7 @@ public class ArchitectureDependencyTests
             [ServicesNamespace],
             [
                 MessagesNamespace,
+                AdaptersNamespace,
                 ViewModelsNamespace,
                 ViewsNamespace,
             ]);
@@ -125,27 +130,34 @@ public class ArchitectureDependencyTests
             [
                 ApplicationNamespace,
                 ServicesNamespace,
+                AdaptersNamespace,
             ]);
     }
 
-    // 当前仅 MainWindowViewModel 仍负责创建对话框；将它锁定为唯一临时例外，
-    // 防止其他 ViewModel 继续产生 ViewModels -> Views 的反向依赖。
+    // ViewModels 只依赖 UI 无关端口，不能创建具体 Views 或依赖外部适配器。
     [Fact]
-    public void MainWindowViewModel_IsTheOnlyViewModelThatDependsOnViews()
+    public void ViewModels_DoNotDependOnViewsOrAdapters()
     {
-        var actualOffenders = FindDependencyViolations(
-                [ViewModelsNamespace],
-                [ViewsNamespace])
-            .Select(violation => violation.SourceType)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(typeName => typeName, StringComparer.Ordinal)
-            .ToList();
-        var expectedOffenders = new[]
-        {
-            typeof(MainWindowViewModel).FullName!,
-        };
+        AssertNoDependencies(
+            [ViewModelsNamespace],
+            [ViewsNamespace, AdaptersNamespace]);
+    }
 
-        Assert.Equal(expectedOffenders, actualOffenders);
+    // ViewModels 不得重新通过全局应用对象查找窗口，也不能直接启动平台进程。
+    [Fact]
+    public void ViewModels_DoNotUseGlobalApplicationOrProcesses()
+    {
+        var forbiddenTypes = new HashSet<Type>
+        {
+            typeof(Avalonia.Application),
+            typeof(System.Diagnostics.Process),
+            typeof(System.Diagnostics.ProcessStartInfo),
+        };
+        var violations = FindDependencyViolations(
+            [ViewModelsNamespace],
+            forbiddenTypes.Contains);
+
+        AssertNoViolations(violations);
     }
 
     // Messages 是独立的展示层契约，应保持轻量，不能依赖其他项目层。
@@ -158,6 +170,7 @@ public class ArchitectureDependencyTests
                 ModelsNamespace,
                 ApplicationNamespace,
                 ServicesNamespace,
+                AdaptersNamespace,
                 ViewModelsNamespace,
                 ViewsNamespace,
             ]);

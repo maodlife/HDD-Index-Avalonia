@@ -8,16 +8,14 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using DynamicData.Kernel;
+using HDD_Index.Application.ExternalInteractions;
 using HDD_Index.Application.FileScanning;
 using HDD_Index.Application.TreeEditing;
 using HDD_Index.Messages;
 using HDD_Index.Models;
 using HDD_Index.Services;
-using HDD_Index.Views;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 
@@ -25,14 +23,19 @@ namespace HDD_Index.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
-    private readonly AppConfigService _appConfigService = new();
-    private readonly TreeDataStore _treeDataStore = new();
-    private readonly DirtyJsonFileTracker _dirtyJsonFileTracker = new();
+    private readonly AppConfigService _appConfigService;
+    private readonly TreeDataStore _treeDataStore;
+    private readonly DirtyJsonFileTracker _dirtyJsonFileTracker;
     private readonly DeclarationSyncService _declarationSyncService;
     private readonly RepoTreeEditor _repoTreeEditor;
     private readonly FileTreeEditor _fileTreeEditor;
-    private readonly IFileTreeScanner _fileTreeScanner = new FileTreeScanner();
-    private readonly TreeProjection _treeProjection = new();
+    private readonly IFileTreeScanner _fileTreeScanner;
+    private readonly TreeProjection _treeProjection;
+    private readonly IUserInteraction _userInteraction;
+    private readonly IRepositoryInteraction _repositoryInteraction;
+    private readonly IFileTreeInteraction _fileTreeInteraction;
+    private readonly IFileTreeScanProgressRunner _fileTreeScanProgressRunner;
+    private readonly IPathOpener _pathOpener;
     private readonly AppConfig _appConfig;
     private bool _isSelectingRepoRowProgrammatically;
 
@@ -49,23 +52,43 @@ public class MainWindowViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> SaveCommand { get; private set; } = null!;
     public ReactiveCommand<Unit, Unit> OpenCreateNewFileTreeDialogCommand { get; private set; } = null!;
 
-    public MainWindowViewModel()
+    public MainWindowViewModel(
+        AppConfig appConfig,
+        AppConfigService appConfigService,
+        TreeDataStore treeDataStore,
+        DirtyJsonFileTracker dirtyJsonFileTracker,
+        DeclarationSyncService declarationSyncService,
+        RepoTreeEditor repoTreeEditor,
+        FileTreeEditor fileTreeEditor,
+        IFileTreeScanner fileTreeScanner,
+        TreeProjection treeProjection,
+        RepoBrowserViewModel repoBrowser,
+        FileBrowserViewModel fileBrowser,
+        RepositoryEditorViewModel repositoryEditor,
+        IUserInteraction userInteraction,
+        IRepositoryInteraction repositoryInteraction,
+        IFileTreeInteraction fileTreeInteraction,
+        IFileTreeScanProgressRunner fileTreeScanProgressRunner,
+        IPathOpener pathOpener)
     {
-        _appConfig = _appConfigService.LoadDefault();
-
-        var repoNodeRoot = _treeDataStore.LoadRepoRoot(_appConfig);
-        RepoBrowser = new RepoBrowserViewModel(repoNodeRoot, _treeProjection);
-        var fileDatas = _treeDataStore.LoadFileDatas(_appConfig);
-        FileBrowser = new FileBrowserViewModel(fileDatas, _treeProjection);
-        RepositoryEditor = new RepositoryEditorViewModel();
+        _appConfig = appConfig;
+        _appConfigService = appConfigService;
+        _treeDataStore = treeDataStore;
+        _dirtyJsonFileTracker = dirtyJsonFileTracker;
+        _declarationSyncService = declarationSyncService;
+        _repoTreeEditor = repoTreeEditor;
+        _fileTreeEditor = fileTreeEditor;
+        _fileTreeScanner = fileTreeScanner;
+        _treeProjection = treeProjection;
+        RepoBrowser = repoBrowser;
+        FileBrowser = fileBrowser;
+        RepositoryEditor = repositoryEditor;
+        _userInteraction = userInteraction;
+        _repositoryInteraction = repositoryInteraction;
+        _fileTreeInteraction = fileTreeInteraction;
+        _fileTreeScanProgressRunner = fileTreeScanProgressRunner;
+        _pathOpener = pathOpener;
         InitDirtyTracker();
-
-        _declarationSyncService = new DeclarationSyncService(
-            RepoBrowser.RepoNodeRoot,
-            FileBrowser.FileDatas);
-        _repoTreeEditor = new RepoTreeEditor(_declarationSyncService);
-        _fileTreeEditor = new FileTreeEditor(_declarationSyncService);
-
         InitCommand();
     }
 
@@ -337,21 +360,10 @@ public class MainWindowViewModel : ViewModelBase
         var shouldSaveStrategy = false;
         if (strategyType == null)
         {
-            var owner = GetMainWindow();
-            if (owner == null)
-                return;
-
-            var dialog = new StrategySelectionDialog(
-                DeclareHoldingStrategyFactory.GetAllOptions())
-            {
-                Title = "选择声明持有策略",
-                Width = 420,
-                Height = 260,
-            };
-
-            var selectedStrategy =
-                await dialog.ShowDialog<StrategySelectionDialogResult?>(owner);
-            if (selectedStrategy == null || selectedStrategy.StrategyType == null)
+            var selectedStrategy = await _repositoryInteraction
+                .SelectInitialDeclareHoldingStrategyAsync(
+                    DeclareHoldingStrategyFactory.GetAllOptions());
+            if (!selectedStrategy.IsAccepted || selectedStrategy.StrategyType == null)
                 return;
 
             strategyType = selectedStrategy.StrategyType;
@@ -395,19 +407,8 @@ public class MainWindowViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(diskLabel))
             return;
 
-        var owner = GetMainWindow();
-        if (owner == null)
-            return;
-
-        var dialog = new AbandonDeclareHoldingDialog(repoNodePaths)
-        {
-            Title = "放弃声明持有",
-            Width = 520,
-            Height = 320,
-        };
-
-        var selectedRepoNodePaths =
-            await dialog.ShowDialog<List<string>?>(owner);
+        var selectedRepoNodePaths = await _repositoryInteraction
+            .SelectDeclareHoldingsToAbandonAsync(repoNodePaths);
         if (selectedRepoNodePaths == null || selectedRepoNodePaths.Count == 0)
             return;
 
@@ -430,24 +431,12 @@ public class MainWindowViewModel : ViewModelBase
         if (nodeVM is not RepoNodeVM repoNodeVM)
             return;
 
-        var owner = GetMainWindow();
-        if (owner == null)
-            return;
-
         var repoNode = repoNodeVM.RepoNode;
-        var dialog = new StrategySelectionDialog(
-            DeclareHoldingStrategyFactory.GetAllOptions(),
-            includeClearOption: true,
-            selectedStrategyType: repoNode.DeclareHoldingStrategyType)
-        {
-            Title = "修改声明持有的策略",
-            Width = 420,
-            Height = 260,
-        };
-
-        var selectedStrategy =
-            await dialog.ShowDialog<StrategySelectionDialogResult?>(owner);
-        if (selectedStrategy == null)
+        var selectedStrategy = await _repositoryInteraction
+            .SelectReplacementDeclareHoldingStrategyAsync(
+                DeclareHoldingStrategyFactory.GetAllOptions(),
+                repoNode.DeclareHoldingStrategyType);
+        if (!selectedStrategy.IsAccepted)
             return;
 
         var failures = _declarationSyncService
@@ -519,18 +508,7 @@ public class MainWindowViewModel : ViewModelBase
         if (nodeVM is not RepoNodeVM repoNodeVM)
             return;
 
-        var owner = GetMainWindow();
-        if (owner == null)
-            return;
-
-        var dialog = new RenameRepoNodeDialog(repoNodeVM.Name)
-        {
-            Title = "重命名",
-            Width = 420,
-            Height = 160,
-        };
-
-        var result = await dialog.ShowDialog<string?>(owner);
+        var result = await _repositoryInteraction.RequestRenameAsync(repoNodeVM.Name);
         if (string.IsNullOrWhiteSpace(result))
             return;
 
@@ -551,18 +529,7 @@ public class MainWindowViewModel : ViewModelBase
         if (nodeVM is not RepoNodeVM repoNodeVM)
             return;
 
-        var owner = GetMainWindow();
-        if (owner == null)
-            return;
-
-        var dialog = new DeleteConfirmDialog(repoNodeVM.Name)
-        {
-            Title = "确认删除",
-            Width = 400,
-            Height = 150,
-        };
-
-        var result = await dialog.ShowDialog<bool>(owner);
+        var result = await _repositoryInteraction.ConfirmDeleteAsync(repoNodeVM.Name);
         if (!result)
             return;
 
@@ -582,18 +549,7 @@ public class MainWindowViewModel : ViewModelBase
         if (nodeVM is not RepoNodeVM repoNodeVM)
             return;
 
-        var owner = GetMainWindow();
-        if (owner == null)
-            return;
-
-        var searchDialog = new SearchDeleteNodeDialog
-        {
-            Title = "搜索并删除节点",
-            Width = 420,
-            Height = 160,
-        };
-
-        var searchText = await searchDialog.ShowDialog<string?>(owner);
+        var searchText = await _repositoryInteraction.RequestDeleteSearchAsync();
         if (string.IsNullOrWhiteSpace(searchText))
             return;
 
@@ -606,19 +562,8 @@ public class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        var pathsText = string.Join(
-            Environment.NewLine,
-            matchedNodes.Select(x => x.GetPath()));
-        var confirmDialog = new DeleteMatchedNodesDialog(
-            $"将删除以下 {matchedNodes.Count} 个节点。确认删除后只会修改索引数据，不会删除真实磁盘文件。",
-            pathsText)
-        {
-            Title = "确认删除搜索结果",
-            Width = 620,
-            Height = 420,
-        };
-
-        var confirmed = await confirmDialog.ShowDialog<bool>(owner);
+        var confirmed = await _repositoryInteraction.ConfirmDeleteMatchesAsync(
+            matchedNodes.Select(x => x.GetPath()).ToList());
         if (!confirmed)
             return;
 
@@ -646,18 +591,7 @@ public class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        var owner = GetMainWindow();
-        if (owner == null)
-            return;
-
-        var dialog = new DeleteConfirmDialog(fileNodeVM.Name)
-        {
-            Title = "确认删除",
-            Width = 400,
-            Height = 150,
-        };
-
-        var result = await dialog.ShowDialog<bool>(owner);
+        var result = await _fileTreeInteraction.ConfirmDeleteAsync(fileNodeVM.Name);
         if (!result)
             return;
 
@@ -921,7 +855,7 @@ public class MainWindowViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(localFolderPath))
             return;
 
-        OpenFolderInExplorer(localFolderPath);
+        _pathOpener.OpenFolder(localFolderPath);
     }
 
     private void OpenFileNodeInFolder(object nodeVM)
@@ -933,7 +867,10 @@ public class MainWindowViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(localPath))
             return;
 
-        OpenPathInExplorer(localPath, fileNodeVM.FileNode.Parent == null);
+        if (fileNodeVM.FileNode.Parent == null)
+            _pathOpener.OpenFolder(localPath);
+        else
+            _pathOpener.ShowPathInFolder(localPath);
     }
 
     private async Task RefreshFileNodeFromLocalFolderAsync(object nodeVM)
@@ -1071,40 +1008,6 @@ public class MainWindowViewModel : ViewModelBase
         return pathSegments.Aggregate(localFolderPath, Path.Combine);
     }
 
-    private static void OpenFolderInExplorer(string folderPath)
-    {
-        if (!Directory.Exists(folderPath))
-        {
-            Debug.WriteLine($"本地文件夹不存在: {folderPath}");
-            Console.WriteLine($"本地文件夹不存在: {folderPath}");
-            return;
-        }
-
-        StartExplorer($"\"{folderPath}\"");
-    }
-
-    private static void OpenPathInExplorer(string path, bool openFolderDirectly)
-    {
-        if (!File.Exists(path) && !Directory.Exists(path))
-        {
-            Debug.WriteLine($"本地路径不存在: {path}");
-            Console.WriteLine($"本地路径不存在: {path}");
-            return;
-        }
-
-        StartExplorer(openFolderDirectly ? $"\"{path}\"" : $"/select,\"{path}\"");
-    }
-
-    private static void StartExplorer(string arguments)
-    {
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = "explorer.exe",
-            Arguments = arguments,
-            UseShellExecute = true
-        });
-    }
-
     public async void OpenCreateNewFileTreeDialog()
     {
         await OpenCreateNewFileTreeDialogAsync();
@@ -1113,23 +1016,12 @@ public class MainWindowViewModel : ViewModelBase
     private async Task OpenCreateNewFileTreeDialogAsync()
     {
         Debug.WriteLine("OpenCreateNewFileTreeDialog");
-        var dialog = new FolderSelectDialog
-        {
-            Title = "选择文件夹并填写标签",
-            Width = 450,
-            Height = 150,
-        };
-
-        var owner = GetMainWindow();
-        if (owner == null)
+        var result = await _fileTreeInteraction.RequestNewFileTreeAsync();
+        if (result == null)
             return;
 
-        var result = await dialog.ShowDialog<(string? path, string? tag)?>(owner);
-        if (result is not { path: not null, tag: not null })
-            return;
-
-        var selectedPath = result.Value.path.Trim();
-        var tag = result.Value.tag.Trim();
+        var selectedPath = result.Path.Trim();
+        var tag = result.DiskLabel.Trim();
         if (string.IsNullOrWhiteSpace(selectedPath)
             || string.IsNullOrWhiteSpace(tag))
         {
@@ -1235,86 +1127,26 @@ public class MainWindowViewModel : ViewModelBase
         Console.WriteLine(select?.Name ?? "");
     }
 
-    private async Task<FileTreeScanRunResult<T>> RunFileTreeScanAsync<T>(
+    private async Task<FileTreeScanExecutionResult<T>> RunFileTreeScanAsync<T>(
         Func<IProgress<FileTreeScanProgress>, CancellationToken, T> scan)
     {
-        var owner = GetMainWindow();
-        if (owner == null)
-            return new FileTreeScanRunResult<T>(
-                default,
-                IsCancelled: false,
-                Error: new InvalidOperationException("找不到主窗口。"));
-
-        using var cancellationTokenSource = new CancellationTokenSource();
-        var progressViewModel =
-            new FileTreeScanProgressDialogViewModel(cancellationTokenSource);
-        var progressDialog = new FileTreeScanProgressDialog(progressViewModel)
-        {
-            Title = "正在读取",
-            Width = 520,
-            Height = 220,
-        };
-        var progress = new Progress<FileTreeScanProgress>(
-            progressViewModel.UpdateProgress);
-
         IsFileTreeScanRunning = true;
-        progressDialog.Show(owner);
         try
         {
-            var result = await Task.Run(
-                () => scan(progress, cancellationTokenSource.Token),
-                cancellationTokenSource.Token);
-            return new FileTreeScanRunResult<T>(
-                result,
-                IsCancelled: false,
-                Error: null);
-        }
-        catch (OperationCanceledException)
-        {
-            return new FileTreeScanRunResult<T>(
-                default,
-                IsCancelled: true,
-                Error: null);
-        }
-        catch (Exception ex)
-        {
-            return new FileTreeScanRunResult<T>(
-                default,
-                IsCancelled: false,
-                Error: ex);
+            return await _fileTreeScanProgressRunner.RunAsync(scan);
         }
         finally
         {
-            progressDialog.CloseAfterScan();
             IsFileTreeScanRunning = false;
         }
     }
 
-    private static Window? GetMainWindow()
+    private Task ShowMessageAsync(string message)
     {
-        return (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
-            ?.MainWindow;
+        return _userInteraction.ShowMessageAsync(new MessageRequest(message));
     }
 
-    private static async Task ShowMessageAsync(
-        string message,
-        double width = 400,
-        double height = 150)
-    {
-        var owner = GetMainWindow();
-        if (owner == null)
-            return;
-
-        var dialog = new MessageDialog(message)
-        {
-            Title = "提示",
-            Width = width,
-            Height = height,
-        };
-        await dialog.ShowDialog(owner);
-    }
-
-    private static async Task ShowFileTreeScanIssuesAsync(
+    private async Task ShowFileTreeScanIssuesAsync(
         string summary,
         IReadOnlyList<FileTreeScanIssue> issues)
     {
@@ -1343,24 +1175,16 @@ public class MainWindowViewModel : ViewModelBase
             }
         }
 
-        await ShowMessageAsync(builder.ToString(), width: 720, height: 480);
+        await _userInteraction.ShowMessageAsync(
+            new MessageRequest(builder.ToString(), MessageDisplayKind.Detailed));
     }
 
-    private static async Task<bool> ShowConfirmAsync(
+    private Task<bool> ShowConfirmAsync(
         string message,
         string title = "确认")
     {
-        var owner = GetMainWindow();
-        if (owner == null)
-            return false;
-
-        var dialog = new ConfirmMessageDialog(message)
-        {
-            Title = title,
-            Width = 520,
-            Height = 260,
-        };
-        return await dialog.ShowDialog<bool>(owner);
+        return _userInteraction.ConfirmAsync(
+            new ConfirmationRequest(message, title));
     }
 
     private static string BuildInvalidDeclareHoldingMessage(
@@ -1405,20 +1229,19 @@ public class MainWindowViewModel : ViewModelBase
 
     private static void ScrollToRepoRows()
     {
-        MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.ViewRepoTree));
-        MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.EditRepoTree));
+        MessageBus.Current.SendMessage(
+            new TargetTreeRowMessage(TreeControlNames.ViewRepoTree));
+        MessageBus.Current.SendMessage(
+            new TargetTreeRowMessage(TreeControlNames.EditRepoTree));
     }
 
     private static void ScrollToFileRows()
     {
-        MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.ViewFileTree));
-        MessageBus.Current.SendMessage(new TargetTreeRowMessage(ControlNames.EditFileTree));
+        MessageBus.Current.SendMessage(
+            new TargetTreeRowMessage(TreeControlNames.ViewFileTree));
+        MessageBus.Current.SendMessage(
+            new TargetTreeRowMessage(TreeControlNames.EditFileTree));
     }
-
-    private sealed record FileTreeScanRunResult<T>(
-        T? Value,
-        bool IsCancelled,
-        Exception? Error);
 
     private sealed record RefreshFileNodeScanResult(
         FileTreeScanResult FileTreeScan,

@@ -1,6 +1,6 @@
-namespace HDD_Index.Views;
+namespace HDD_Index.Messages;
 
-public class ControlNames
+public static class TreeControlNames
 {
     public const string ViewRepoTree = "ViewRepoTree";
     public const string ViewFileTree = "ViewFileTree";
