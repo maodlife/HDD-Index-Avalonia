@@ -117,6 +117,13 @@ P5 不包含：
 - 移除 `MainWindowViewModel` 对 Views、`Application.Current` 和 `Process` 的依赖。
 - 将架构测试从“只允许主 ViewModel 依赖 Views”收紧为“ViewModels 不依赖 Views”。
 
+实现保持了上述范围：UI 无关端口位于 Application 层，Avalonia 对话框、文件夹
+选择器和扫描进度窗口以及 Windows Explorer 调用位于 Adapters 层。`App` 负责加载
+现有数据并显式创建服务、投影、子 ViewModel 和适配器，再通过构造函数注入主
+ViewModel。ViewModels 不依赖具体 Views 或 Adapters，也不再查找
+`Application.Current` 或直接启动平台进程。加载和保存的失败语义保持不变，等待
+P5.3 收敛到会话与持久化边界。
+
 ### P5.3：会话与持久化边界
 
 - 将配置和树数据加载、脏文件登记、保存编排移出主 ViewModel。
