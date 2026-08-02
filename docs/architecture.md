@@ -20,7 +20,7 @@
 flowchart TB
     subgraph Bootstrap["启动与组合"]
         Program["Program<br/>Avalonia 启动"]
-        App["App<br/>创建 MainWindow"]
+        App["App<br/>手工组合根"]
         MainWindow["MainWindow"]
         Program --> App --> MainWindow
     end
@@ -48,10 +48,16 @@ flowchart TB
         Collector["TreeChangeCollector<br/>内部累积变化"]
         TreeChanges["TreeChange<br/>NodeAdded / NodeRemoved<br/>PresentationChanged / SubtreeReplaced"]
         ScanContract["FileScanning<br/>请求、进度、结果与问题契约"]
+        InteractionPorts["ExternalInteractions<br/>消息、领域对话、扫描进度、路径端口"]
 
         Collector --> ChangeSet
         ChangeSet --> TreeChanges
         EditResult --> ChangeSet
+    end
+
+    subgraph Adapters["外部适配器"]
+        AvaloniaAdapters["Avalonia Adapters<br/>对话框、文件夹选择、扫描进度"]
+        ExplorerAdapter["WindowsExplorerPathOpener<br/>Windows 路径打开"]
     end
 
     subgraph Services["业务与应用服务"]
@@ -103,6 +109,14 @@ flowchart TB
     MainVM --> DataStore
     MainVM --> ConfigService
     MainVM --> Scanner
+    MainVM --> InteractionPorts
+
+    App --> MainVM
+    App --> AvaloniaAdapters
+    App --> ExplorerAdapter
+    AvaloniaAdapters --> InteractionPorts
+    AvaloniaAdapters --> Views
+    ExplorerAdapter --> InteractionPorts
 
     RepoEditor --> RepoNode
     FileEditor --> FileNode
@@ -123,7 +137,7 @@ flowchart TB
     DataStore <-->|"读写"| FileJSON
     DataStore --> RepoNode
     DataStore --> FileData
-    MainVM -->|"打开路径"| Explorer
+    ExplorerAdapter -->|"打开路径"| Explorer
 ```
 
 ## 目录职责
@@ -162,6 +176,14 @@ flowchart TB
 - `FileTreeScanResult`：成功、取消、完整失败或局部失败状态。
 - `FileTreeScanIssue`：阻断性问题或非阻断性警告。
 
+`Application/ExternalInteractions` 定义表现编排使用的 UI 无关外部能力端口：
+
+- `IUserInteraction`：普通消息和确认消息。
+- `IRepositoryInteraction`：策略选择、放弃声明、重命名和删除确认。
+- `IFileTreeInteraction`：文件树删除确认和新索引输入。
+- `IFileTreeScanProgressRunner`：带进度与取消的后台扫描执行。
+- `IPathOpener`：打开文件夹或在文件夹中定位路径。
+
 ### `Services`
 
 服务分为四类：
@@ -175,15 +197,26 @@ flowchart TB
 
 `FileTreeScanner` 通过最小的文件系统读取接口遍历本地目录。完整成功才返回可应用的 `FileNode` 根；取消、根失败或任何阻断性局部问题都不返回可应用树。隐藏属性读取失败作为非阻断性警告，目录符号链接和 Windows junction 作为阻断性问题。
 
+### `Adapters`
+
+实现 Application 层定义的外部交互端口：
+
+- Avalonia 适配器负责创建具体对话框、调用文件夹选择器，以及显示带取消能力的扫描进度窗口。
+- `WindowsExplorerPathOpener` 负责验证本地路径并启动 Windows Explorer。
+
+适配器可以依赖端口、Views 和平台 API，但 ViewModels 不得反向依赖适配器。
+
 ### `ViewModels`
 
-- `MainWindowViewModel`：执行命令、调用服务和扫描器、应用 ChangeSet、标记脏文件和打开对话框。
+- `MainWindowViewModel`：执行命令、调用服务和外部交互端口、应用 ChangeSet、标记脏文件并维护窗口级扫描状态。
 - `TreeProjection`：维护 Model 对象引用到节点 ViewModel 的会话级映射。
 - `RepoNodeVM`、`FileNodeVM`：直接读取 Model 属性，只提供展示计算和变化通知。
 - `RepoBrowserViewModel`、`FileBrowserViewModel`：管理选择、当前磁盘和 TreeDataGrid 数据源。
 - `TreeNavigationService`：处理 ViewModel 树上的搜索、路径定位和展开。
 
 `TreeProjection` 使用 Model 对象引用作为映射键。该身份只需要在一次应用运行期间稳定，不写入 JSON。
+
+`App` 加载现有配置和树数据，显式创建服务、会话级投影、子 ViewModel 和外部适配器，再通过构造函数注入 `MainWindowViewModel`。当前不使用依赖注入容器。
 
 ### `Views`
 
@@ -259,20 +292,22 @@ flowchart LR
 
 1. `Models` 不得引用 Avalonia、ReactiveUI 或 ViewModels。
 2. `Models` 不得通过 `File`、`Directory` 等类型直接访问本地文件系统。
-3. `Services` 不得引用 ViewModels。
-4. ViewModel 不得复制并独立维护可变业务数据。
-5. 树编辑必须通过服务修改 Model，并返回 `TreeChangeSet`。
-6. `MainWindowViewModel` 负责应用 ChangeSet 和标记脏文件。
-7. `TreeProjection` 是节点结构从 Model 投影到 ViewModel 的统一入口。
-8. UI 展开、选择、颜色和格式化等状态留在 ViewModel。
-9. JSON 属性或结构发生变化时，必须处理旧数据兼容。
-10. 新增跨层依赖时，应更新或通过架构依赖测试。
+3. `Services` 不得引用 ViewModels、Views 或 Adapters。
+4. ViewModels 不得依赖具体 Views 或 Adapters，不得查找 `Application.Current` 或直接启动平台进程。
+5. ViewModel 不得复制并独立维护可变业务数据。
+6. 树编辑必须通过服务修改 Model，并返回 `TreeChangeSet`。
+7. `MainWindowViewModel` 负责应用 ChangeSet 和标记脏文件。
+8. `TreeProjection` 是节点结构从 Model 投影到 ViewModel 的统一入口。
+9. UI 展开、选择、颜色和格式化等状态留在 ViewModel。
+10. 外部交互契约必须保持 UI 无关，具体 Avalonia 或平台调用只放在 Adapters。
+11. JSON 属性或结构发生变化时，必须处理旧数据兼容。
+12. 新增跨层依赖时，应更新或通过架构依赖测试。
 
 ## 当前限制
 
-- 没有依赖注入容器，应用依赖由 `MainWindowViewModel` 直接组合。
+- 没有依赖注入容器，应用依赖由 `App` 显式手工组合。
 - 没有通用事务回滚、撤销或重做机制。
-- 文件树扫描已经从 `FileNode` 提取，但后台任务、进度窗口和扫描结果展示仍由 `MainWindowViewModel` 编排。
-- `MainWindowViewModel` 仍负责服务组合、持久化和较多界面编排。
-- Avalonia UI 支持跨平台，但资源管理器调用当前是 Windows 专用实现。
+- 文件树扫描、后台执行和进度窗口已经分离，但扫描成功后的业务应用仍由 `MainWindowViewModel` 编排。
+- `MainWindowViewModel` 仍负责加载后的持久化、声明关系和树编辑用例编排。
+- Avalonia UI 支持跨平台，但路径打开适配器当前是 Windows Explorer 专用实现。
 - 应用启动依赖默认路径下已经存在有效配置和 Repository 数据文件。
