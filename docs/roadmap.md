@@ -136,6 +136,7 @@ P5.2 完成结果：
 - `MainWindowViewModel` 不再创建具体 View，不再查找 `Application.Current`，也不再直接调用 `Process`；扫描运行状态仍由它作为窗口展示状态维护。
 - 架构测试取消 ViewModels → Views 临时例外，并禁止 ViewModels 依赖外部适配器、全局应用对象和进程 API。
 - 文件夹选择 ViewModel 改用注入的选择与关闭操作，并用单元测试覆盖选择成功、取消和确认结果；JSON、AXAML 命令和现有交互行为保持兼容。
+- [PR #17](https://github.com/maodlife/HDD-Index-Avalonia/pull/17)：完成 P5.2 外部交互与组合根重构，并通过与 CI 等价的完整检查和 Windows x64 发布包验证。
 
 P5 除扫描失败安全策略外均为行为保持型重构，不包含首次启动、数据恢复、保存事务、界面改版或跨平台文件管理器支持。完整目标架构、已确认的设计决策和验收标准参见 [P5 应用编排边界重构计划](p5-application-orchestration.md)。
 
