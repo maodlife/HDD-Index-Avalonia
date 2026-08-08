@@ -73,6 +73,11 @@ public sealed class ApplicationSessionManager
 
     public void MarkDirty(params PersistenceTarget[] targets)
     {
+        MarkDirty((IEnumerable<PersistenceTarget>)targets);
+    }
+
+    public void MarkDirty(IEnumerable<PersistenceTarget> targets)
+    {
         foreach (var target in targets)
         {
             if (CanResolve(target))

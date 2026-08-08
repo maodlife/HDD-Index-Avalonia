@@ -14,6 +14,9 @@ public class ArchitectureDependencyTests
     private const string RootNamespace = "HDD_Index";
     private const string ModelsNamespace = RootNamespace + ".Models";
     private const string ApplicationNamespace = RootNamespace + ".Application";
+    private const string DeclarationsNamespace = ApplicationNamespace + ".Declarations";
+    private const string ExternalInteractionsNamespace =
+        ApplicationNamespace + ".ExternalInteractions";
     private const string ServicesNamespace = RootNamespace + ".Services";
     private const string AdaptersNamespace = RootNamespace + ".Adapters";
     private const string MessagesNamespace = RootNamespace + ".Messages";
@@ -121,6 +124,15 @@ public class ArchitectureDependencyTests
                 ViewModelsNamespace,
                 ViewsNamespace,
             ]);
+    }
+
+    // 声明用例返回计划和验证结果，不能直接调用消息、确认或领域对话端口。
+    [Fact]
+    public void DeclarationUseCases_DoNotDependOnExternalInteractions()
+    {
+        AssertNoDependencies(
+            [DeclarationsNamespace],
+            [ExternalInteractionsNamespace]);
     }
 
     // Services 可以使用 Models 和 Application，但不能知道展示层的存在。

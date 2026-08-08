@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using DynamicData.Kernel;
+using HDD_Index.Application.Declarations;
 using HDD_Index.Application.ExternalInteractions;
 using HDD_Index.Application.FileScanning;
 using HDD_Index.Application.Persistence;
@@ -27,6 +28,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly ApplicationSessionManager _sessionManager;
     private readonly ApplicationSession _session;
     private readonly DeclarationSyncService _declarationSyncService;
+    private readonly DeclarationUseCases _declarationUseCases;
     private readonly RepoTreeEditor _repoTreeEditor;
     private readonly FileTreeEditor _fileTreeEditor;
     private readonly IFileTreeScanner _fileTreeScanner;
@@ -54,6 +56,7 @@ public class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(
         ApplicationSessionManager sessionManager,
         DeclarationSyncService declarationSyncService,
+        DeclarationUseCases declarationUseCases,
         RepoTreeEditor repoTreeEditor,
         FileTreeEditor fileTreeEditor,
         IFileTreeScanner fileTreeScanner,
@@ -70,6 +73,7 @@ public class MainWindowViewModel : ViewModelBase
         _sessionManager = sessionManager;
         _session = sessionManager.Session;
         _declarationSyncService = declarationSyncService;
+        _declarationUseCases = declarationUseCases;
         _repoTreeEditor = repoTreeEditor;
         _fileTreeEditor = fileTreeEditor;
         _fileTreeScanner = fileTreeScanner;
@@ -338,7 +342,6 @@ public class MainWindowViewModel : ViewModelBase
 
         var repoNode = repoNodeVM.RepoNode;
         var strategyType = repoNode.DeclareHoldingStrategyType;
-        var shouldSaveStrategy = false;
         if (strategyType == null)
         {
             var selectedStrategy = await _repositoryInteraction
@@ -348,15 +351,13 @@ public class MainWindowViewModel : ViewModelBase
                 return;
 
             strategyType = selectedStrategy.StrategyType;
-            shouldSaveStrategy = true;
         }
 
-        var declareResult = _declarationSyncService.TryDeclareHolding(
-                repoNode,
-                fileNodeVM.FileNode,
-                diskLabel,
-                strategyType.Value,
-                shouldSaveStrategy);
+        var declareResult = _declarationUseCases.DeclareHolding(
+            repoNode,
+            fileNodeVM.FileNode,
+            diskLabel,
+            strategyType);
         if (!declareResult.Succeeded)
         {
             await ShowMessageAsync(
@@ -368,7 +369,7 @@ public class MainWindowViewModel : ViewModelBase
 
         ApplyChanges(declareResult.Changes);
         RepoBrowser.UpdateCurrentRepoNode(repoNode);
-        MarkRepoAndFileDirty(diskLabel);
+        MarkDirty(declareResult.PersistenceTargets);
     }
 
     private async Task AbandonDeclareHoldingAsync(object nodeVM)
@@ -376,11 +377,8 @@ public class MainWindowViewModel : ViewModelBase
         if (nodeVM is not FileNodeVM fileNodeVM)
             return;
 
-        var repoNodePaths = fileNodeVM.FileNode.DeclareRepoNodeDatas
-            .Select(x => x.RepoNodePath)
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct()
-            .ToList();
+        var repoNodePaths = _declarationUseCases
+            .GetDeclaredRepoNodePaths(fileNodeVM.FileNode);
         if (repoNodePaths.Count == 0)
             return;
 
@@ -393,12 +391,15 @@ public class MainWindowViewModel : ViewModelBase
         if (selectedRepoNodePaths == null || selectedRepoNodePaths.Count == 0)
             return;
 
-        var changes = _declarationSyncService.AbandonDeclareHoldings(
+        var abandonResult = _declarationUseCases.AbandonDeclareHoldings(
             fileNodeVM.FileNode,
             diskLabel,
             selectedRepoNodePaths);
-        ApplyChanges(changes);
-        MarkRepoAndFileDirty(diskLabel);
+        if (!abandonResult.Succeeded)
+            return;
+
+        ApplyChanges(abandonResult.Changes);
+        MarkDirty(abandonResult.PersistenceTargets);
 
         var currentRepoNode = RepoBrowser.RepoNodeSource.RowSelection
             ?.SelectedItem
@@ -420,10 +421,10 @@ public class MainWindowViewModel : ViewModelBase
         if (!selectedStrategy.IsAccepted)
             return;
 
-        var failures = _declarationSyncService
-            .GetInvalidSaveFileNodeDatasForStrategy(
-                repoNode,
-                selectedStrategy.StrategyType);
+        var plan = _declarationUseCases.PlanStrategyChange(
+            repoNode,
+            selectedStrategy.StrategyType);
+        var failures = plan.ValidationFailures;
         if (failures.Count > 0)
         {
             var confirmed = await ShowConfirmAsync(
@@ -433,15 +434,10 @@ public class MainWindowViewModel : ViewModelBase
                 return;
         }
 
-        var changes = _declarationSyncService.ApplyDeclareHoldingStrategy(
-            repoNode,
-            selectedStrategy.StrategyType,
-            failures);
-        ApplyChanges(changes);
+        var changeResult = _declarationUseCases.ApplyStrategyChange(plan);
+        ApplyChanges(changeResult.Changes);
         RepoBrowser.UpdateCurrentRepoNode(repoNode);
-        MarkRepoDirty();
-        foreach (var diskLabel in failures.Select(x => x.DiskLabel).Distinct())
-            MarkFileDirty(diskLabel);
+        MarkDirty(changeResult.PersistenceTargets);
     }
 
     private void CreateChildFolder(object nodeVM)
@@ -615,6 +611,12 @@ public class MainWindowViewModel : ViewModelBase
         _sessionManager.MarkDirty(
             PersistenceTarget.Repository,
             PersistenceTarget.ForFileData(diskLabel));
+        RefreshHasDirtyFiles();
+    }
+
+    private void MarkDirty(IEnumerable<PersistenceTarget> persistenceTargets)
+    {
+        _sessionManager.MarkDirty(persistenceTargets);
         RefreshHasDirtyFiles();
     }
 
