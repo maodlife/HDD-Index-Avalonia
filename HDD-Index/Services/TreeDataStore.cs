@@ -19,10 +19,11 @@ public class TreeDataStore
     {
         var repoNodeFilePath = GetRepoFilePath(appConfig);
         var json = File.ReadAllText(repoNodeFilePath);
-        var root = RepoNode.CreateByJson(json);
+        var root = JsonSerializer.Deserialize<RepoNode>(json);
         if (root == null)
             throw new InvalidOperationException($"无法读取仓库树: {repoNodeFilePath}");
 
+        root.RestoreParentReferences();
         return root;
     }
 
@@ -92,10 +93,11 @@ public class TreeDataStore
         string localFolderPath = "")
     {
         var json = File.ReadAllText(file);
-        var root = FileNode.CreateByJson(json);
+        var root = JsonSerializer.Deserialize<FileNode>(json);
         if (root == null)
             throw new InvalidOperationException($"无法读取文件树: {file}");
 
+        root.RestoreParentReferences();
         return new FileData
         {
             DiskLabel = Path.GetFileNameWithoutExtension(file),

@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using HDD_Index.Adapters;
+using HDD_Index.Application.Persistence;
 using HDD_Index.Services;
 using HDD_Index.ViewModels;
 using HDD_Index.Views;
@@ -34,19 +35,26 @@ public partial class App : Avalonia.Application
     {
         var appConfigService = new AppConfigService();
         var treeDataStore = new TreeDataStore();
-        var dirtyJsonFileTracker = new DirtyJsonFileTracker();
+        var sessionStore = new JsonApplicationSessionStore(
+            appConfigService,
+            treeDataStore);
+        var sessionManager = new ApplicationSessionManager(
+            sessionStore.LoadDefault(),
+            sessionStore);
         var fileTreeScanner = new FileTreeScanner();
 
-        var appConfig = appConfigService.LoadDefault();
-        var repoNodeRoot = treeDataStore.LoadRepoRoot(appConfig);
-        var fileDatas = treeDataStore.LoadFileDatas(appConfig);
+        var session = sessionManager.Session;
         var treeProjection = new TreeProjection();
-        var repoBrowser = new RepoBrowserViewModel(repoNodeRoot, treeProjection);
-        var fileBrowser = new FileBrowserViewModel(fileDatas, treeProjection);
+        var repoBrowser = new RepoBrowserViewModel(
+            session.RepoNodeRoot,
+            treeProjection);
+        var fileBrowser = new FileBrowserViewModel(
+            session.FileDatas,
+            treeProjection);
         var repositoryEditor = new RepositoryEditorViewModel();
         var declarationSyncService = new DeclarationSyncService(
-            repoNodeRoot,
-            fileDatas);
+            session.RepoNodeRoot,
+            session.FileDatas);
         var repoTreeEditor = new RepoTreeEditor(declarationSyncService);
         var fileTreeEditor = new FileTreeEditor(declarationSyncService);
 
@@ -58,10 +66,7 @@ public partial class App : Avalonia.Application
         var pathOpener = new WindowsExplorerPathOpener();
 
         mainWindow.DataContext = new MainWindowViewModel(
-            appConfig,
-            appConfigService,
-            treeDataStore,
-            dirtyJsonFileTracker,
+            sessionManager,
             declarationSyncService,
             repoTreeEditor,
             fileTreeEditor,

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HDD_Index.Models;
@@ -13,12 +12,12 @@ public class TreeNodeBase
     public string Name { get; set; } = string.Empty;
     public bool IsDirectory { get; set; }
 
-    protected void SetParent()
+    internal void RestoreParentReferences()
     {
         foreach (var child in Children)
         {
             child.Parent = this;
-            child.SetParent();
+            child.RestoreParentReferences();
         }
     }
 
