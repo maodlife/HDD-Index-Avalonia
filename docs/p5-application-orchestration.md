@@ -145,6 +145,13 @@ File Tree 顺序执行，任一失败时保留整批脏目标；现有 JSON 格�
 - 用例返回验证失败、`TreeChangeSet` 和受影响持久化范围，不直接显示确认窗口。
 - 展示层负责收集用户选择和确认，并应用结果。
 
+实现保持了上述范围：`DeclarationUseCases` 通过最小的
+`IDeclarationHoldingService` 端口执行建立声明、放弃声明和策略修改，统一返回
+失败原因、`TreeChangeSet` 与 `PersistenceTarget`。策略修改先生成不修改 Model 的
+计划和验证失败列表，展示层确认后才应用；具体对话框、消息和确认继续留在
+`MainWindowViewModel` 与外部交互适配器。`DeclarationSyncService` 实现领域操作端口，
+并继续为后续 Repository 与 File Tree 用例提供底层双向关系维护原语。
+
 ### P5.5：Repository 编辑用例
 
 - 提取创建目录、复制 File 子树、重命名、删除和搜索删除用例。

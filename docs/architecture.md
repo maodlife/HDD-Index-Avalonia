@@ -49,6 +49,8 @@ flowchart TB
         TreeChanges["TreeChange<br/>NodeAdded / NodeRemoved<br/>PresentationChanged / SubtreeReplaced"]
         ScanContract["FileScanning<br/>请求、进度、结果与问题契约"]
         InteractionPorts["ExternalInteractions<br/>消息、领域对话、扫描进度、路径端口"]
+        DeclarationUseCases["Declarations<br/>声明、放弃、策略修改用例"]
+        DeclarationPort["IDeclarationHoldingService<br/>声明领域操作端口"]
         Session["ApplicationSession<br/>共享会话 Model"]
         SessionManager["ApplicationSessionManager<br/>逻辑脏目标与保存编排"]
         SessionStorePort["IApplicationSessionStore<br/>会话持久化端口"]
@@ -56,6 +58,8 @@ flowchart TB
         Collector --> ChangeSet
         ChangeSet --> TreeChanges
         EditResult --> ChangeSet
+        DeclarationUseCases --> DeclarationPort
+        DeclarationUseCases --> ChangeSet
         SessionManager --> Session
         SessionManager --> SessionStorePort
     end
@@ -112,6 +116,7 @@ flowchart TB
     MainVM --> RepoEditor
     MainVM --> FileEditor
     MainVM --> Declaration
+    MainVM --> DeclarationUseCases
     MainVM --> SessionManager
     MainVM --> Scanner
     MainVM --> InteractionPorts
@@ -125,6 +130,7 @@ flowchart TB
     AvaloniaAdapters --> Views
     ExplorerAdapter --> InteractionPorts
     SessionStore -. "实现" .-> SessionStorePort
+    Declaration -. "实现" .-> DeclarationPort
     Session --> AppConfig
     Session --> RepoNode
     Session --> FileData
@@ -203,6 +209,13 @@ flowchart TB
 - `ApplicationSessionManager`：登记脏目标、解析未保存文件列表，并按配置、Repository、File Tree 的稳定顺序保存；整批成功后才清除脏状态。
 - `IApplicationSessionStore`：加载会话、解析目标文件路径和保存单个逻辑目标的 UI 无关端口。
 
+`Application/Declarations` 定义声明持有命令的 UI 无关应用编排：
+
+- `DeclarationUseCases`：执行建立声明、放弃声明，并以“计划、确认、应用”两阶段处理策略修改。
+- `IDeclarationHoldingService`：用例调用的最小声明领域操作端口，由 `DeclarationSyncService` 实现。
+- `DeclarationOperationResult`：统一返回失败原因、`TreeChangeSet` 和受影响的逻辑持久化目标。
+- `DeclareHoldingStrategyChangePlan`：在不修改 Model 的前提下返回策略和验证失败列表，供展示层确认后再应用。
+
 ### `Services`
 
 服务分为四类：
@@ -212,7 +225,7 @@ flowchart TB
 - 持久化：`JsonApplicationSessionStore`、`TreeDataStore`、`AppConfigService`。
 - 外部数据读取：`FileTreeScanner`。
 
-树编辑和声明同步服务只接收 Model，并在修改完成后返回 ChangeSet。`JsonApplicationSessionStore` 组合配置和树数据存储，创建共享会话；具体持久化服务直接读写 Model，不创建 ViewModel。
+树编辑和声明同步服务只接收 Model，并在修改完成后返回 ChangeSet。`DeclarationSyncService` 为声明用例提供双向关系维护和策略验证原语，也继续被 Repository/File Tree 编辑服务复用。`JsonApplicationSessionStore` 组合配置和树数据存储，创建共享会话；具体持久化服务直接读写 Model，不创建 ViewModel。
 
 `FileTreeScanner` 通过最小的文件系统读取接口遍历本地目录。完整成功才返回可应用的 `FileNode` 根；取消、根失败或任何阻断性局部问题都不返回可应用树。隐藏属性读取失败作为非阻断性警告，目录符号链接和 Windows junction 作为阻断性问题。
 
@@ -227,7 +240,7 @@ flowchart TB
 
 ### `ViewModels`
 
-- `MainWindowViewModel`：执行命令、调用服务和外部交互端口、应用 ChangeSet、向会话管理器报告受影响的逻辑持久化目标，并维护窗口级扫描状态。
+- `MainWindowViewModel`：收集用户选择和确认、调用应用用例与外部交互端口、应用 ChangeSet 和持久化目标，并维护窗口级扫描状态。
 - `TreeProjection`：维护 Model 对象引用到节点 ViewModel 的会话级映射。
 - `RepoNodeVM`、`FileNodeVM`：直接读取 Model 属性，只提供展示计算和变化通知。
 - `RepoBrowserViewModel`、`FileBrowserViewModel`：管理选择、当前磁盘和 TreeDataGrid 数据源。
@@ -267,6 +280,31 @@ sequenceDiagram
 
 普通创建、删除和重命名操作使用细粒度变化。文件树刷新可能一次替换大量后代，因此使用 `FileNodeSubtreeReplaced`，保留刷新根节点的 ViewModel，仅重建其后代投影。
 
+## 声明持有命令时序
+
+```mermaid
+sequenceDiagram
+    participant UI as View
+    participant VM as MainWindowViewModel
+    participant UseCase as DeclarationUseCases
+    participant Service as IDeclarationHoldingService
+    participant Model as RepoNode / FileNode
+    participant Projection as TreeProjection
+    participant SessionManager as ApplicationSessionManager
+
+    UI->>VM: 执行声明、放弃或策略修改命令
+    VM->>UI: 收集策略、放弃项或确认
+    VM->>UseCase: 传入用户选择和 Model
+    UseCase->>Service: 校验并维护双向关系
+    Service->>Model: 修改唯一业务状态
+    Service-->>UseCase: TreeChangeSet / 验证失败
+    UseCase-->>VM: 结果 + ChangeSet + PersistenceTargets
+    VM->>Projection: Apply(changeSet)
+    VM->>SessionManager: MarkDirty(targets)
+```
+
+策略修改先由用例生成不修改 Model 的 `DeclareHoldingStrategyChangePlan`。如果计划包含验证失败，展示层负责向用户确认；只有确认后才调用应用操作并删除失效的双向关系。用例不打开窗口，也不依赖 Avalonia。
+
 ## Repository 与 File 双向关系
 
 ```mermaid
@@ -282,7 +320,7 @@ flowchart LR
     DeclareData -->|"定位"| Repo
 ```
 
-`DeclarationSyncService` 负责保证两边关系一致，包括：
+`DeclarationSyncService` 负责保证两边关系一致；`DeclarationUseCases` 将前三项组织成用户命令，包括：
 
 - 建立声明持有关系。
 - 放弃声明持有关系。
@@ -304,7 +342,7 @@ flowchart LR
              └── 各索引对应的本地目录
 ```
 
-`ApplicationSessionManager` 记录发生变化的逻辑目标，并由 `IApplicationSessionStore` 将目标解析为具体 JSON 路径。保存时依次处理配置、Repository 和会话中的 File Tree；只有整批保存成功才清除脏目标，失败时保留整批目标供再次保存。该机制不提供原子写入或多文件事务，ChangeSet 也暂不负责决定哪些文件需要保存。
+`ApplicationSessionManager` 记录发生变化的逻辑目标，并由 `IApplicationSessionStore` 将目标解析为具体 JSON 路径。保存时依次处理配置、Repository 和会话中的 File Tree；只有整批保存成功才清除脏目标，失败时保留整批目标供再次保存。声明用例的结果已经携带对应持久化目标；尚未拆分的 Repository 和 File Tree 命令仍由 ViewModel 决定目标。该机制不提供原子写入或多文件事务。
 
 ## 依赖约束
 
@@ -319,17 +357,18 @@ flowchart LR
 7. 树编辑必须通过服务修改 Model，并返回 `TreeChangeSet`。
 8. `ApplicationSession`、服务、投影和 ViewModel 必须共享同一组 Model 对象。
 9. 脏目标登记与保存编排统一通过 `ApplicationSessionManager`，具体文件路径和 JSON I/O 由持久化实现负责。
-10. `TreeProjection` 是节点结构从 Model 投影到 ViewModel 的统一入口。
-11. UI 展开、选择、颜色和格式化等状态留在 ViewModel。
-12. 外部交互契约必须保持 UI 无关，具体 Avalonia 或平台调用只放在 Adapters。
-13. JSON 属性或结构发生变化时，必须处理旧数据兼容。
-14. 新增跨层依赖时，应更新或通过架构依赖测试。
+10. 应用用例不得打开窗口；其业务结果应返回 ChangeSet、验证信息和受影响持久化目标。
+11. `TreeProjection` 是节点结构从 Model 投影到 ViewModel 的统一入口。
+12. UI 展开、选择、颜色和格式化等状态留在 ViewModel。
+13. 外部交互契约必须保持 UI 无关，具体 Avalonia 或平台调用只放在 Adapters。
+14. JSON 属性或结构发生变化时，必须处理旧数据兼容。
+15. 新增跨层依赖时，应更新或通过架构依赖测试。
 
 ## 当前限制
 
 - 没有依赖注入容器，应用依赖由 `App` 显式手工组合。
 - 没有通用事务回滚、撤销或重做机制。
 - 文件树扫描、后台执行和进度窗口已经分离，但扫描成功后的业务应用仍由 `MainWindowViewModel` 编排。
-- `MainWindowViewModel` 不再加载或保存 JSON，但仍由各命令处理方法决定受影响的持久化目标，并继续负责声明关系和树编辑用例编排。
+- 声明持有命令已经使用独立用例，但 `MainWindowViewModel` 仍负责 Repository 和 File Tree 编辑用例编排，并为这些未拆分命令决定持久化目标。
 - Avalonia UI 支持跨平台，但路径打开适配器当前是 Windows Explorer 专用实现。
 - 应用启动依赖默认路径下已经存在有效配置和 Repository 数据文件。
