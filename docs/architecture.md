@@ -49,10 +49,15 @@ flowchart TB
         TreeChanges["TreeChange<br/>NodeAdded / NodeRemoved<br/>PresentationChanged / SubtreeReplaced"]
         ScanContract["FileScanning<br/>请求、进度、结果与问题契约"]
         InteractionPorts["ExternalInteractions<br/>消息、领域对话、扫描进度、路径端口"]
+        Session["ApplicationSession<br/>共享会话 Model"]
+        SessionManager["ApplicationSessionManager<br/>逻辑脏目标与保存编排"]
+        SessionStorePort["IApplicationSessionStore<br/>会话持久化端口"]
 
         Collector --> ChangeSet
         ChangeSet --> TreeChanges
         EditResult --> ChangeSet
+        SessionManager --> Session
+        SessionManager --> SessionStorePort
     end
 
     subgraph Adapters["外部适配器"]
@@ -64,7 +69,7 @@ flowchart TB
         RepoEditor["RepoTreeEditor<br/>创建、改名、删除、复制"]
         FileEditor["FileTreeEditor<br/>删除文件树节点"]
         Declaration["DeclarationSyncService<br/>声明持有与双向同步"]
-        DirtyTracker["DirtyJsonFileTracker<br/>脏文件追踪"]
+        SessionStore["JsonApplicationSessionStore<br/>会话加载与保存"]
         DataStore["TreeDataStore<br/>树数据持久化"]
         ConfigService["AppConfigService<br/>配置持久化"]
         Scanner["FileTreeScanner<br/>本地目录扫描"]
@@ -75,6 +80,8 @@ flowchart TB
         FileEditor --> Collector
         Declaration --> Collector
         Scanner --> ScanContract
+        SessionStore --> DataStore
+        SessionStore --> ConfigService
     end
 
     subgraph Domain["Models / 领域数据"]
@@ -105,18 +112,22 @@ flowchart TB
     MainVM --> RepoEditor
     MainVM --> FileEditor
     MainVM --> Declaration
-    MainVM --> DirtyTracker
-    MainVM --> DataStore
-    MainVM --> ConfigService
+    MainVM --> SessionManager
     MainVM --> Scanner
     MainVM --> InteractionPorts
 
     App --> MainVM
+    App --> SessionStore
+    App --> SessionManager
     App --> AvaloniaAdapters
     App --> ExplorerAdapter
     AvaloniaAdapters --> InteractionPorts
     AvaloniaAdapters --> Views
     ExplorerAdapter --> InteractionPorts
+    SessionStore -. "实现" .-> SessionStorePort
+    Session --> AppConfig
+    Session --> RepoNode
+    Session --> FileData
 
     RepoEditor --> RepoNode
     FileEditor --> FileNode
@@ -154,6 +165,7 @@ flowchart TB
 - `DeclareHoldingStrategy`
 
 这些类型不引用 Avalonia、ReactiveUI 或 ViewModels。`FileNode` 只保存文件树数据和声明关系，不再遍历本地文件系统。
+`RepoNode` 和 `FileNode` 也不再调用 JSON 序列化器；反序列化和父引用恢复由持久化实现负责。
 
 ### `Application`
 
@@ -184,16 +196,23 @@ flowchart TB
 - `IFileTreeScanProgressRunner`：带进度与取消的后台扫描执行。
 - `IPathOpener`：打开文件夹或在文件夹中定位路径。
 
+`Application/Persistence` 定义一次运行期间共享的数据和持久化编排：
+
+- `ApplicationSession`：持有配置、Repository 根和全部 File Tree，供服务和 ViewModel 共享同一组 Model 对象。
+- `PersistenceTarget`：使用配置、Repository 或磁盘标签描述逻辑持久化目标，不把裸文件路径传播到业务命令。
+- `ApplicationSessionManager`：登记脏目标、解析未保存文件列表，并按配置、Repository、File Tree 的稳定顺序保存；整批成功后才清除脏状态。
+- `IApplicationSessionStore`：加载会话、解析目标文件路径和保存单个逻辑目标的 UI 无关端口。
+
 ### `Services`
 
 服务分为四类：
 
 - 编辑服务：`RepoTreeEditor`、`FileTreeEditor`。
 - 关系同步：`DeclarationSyncService`。
-- 持久化与状态：`TreeDataStore`、`AppConfigService`、`DirtyJsonFileTracker`。
+- 持久化：`JsonApplicationSessionStore`、`TreeDataStore`、`AppConfigService`。
 - 外部数据读取：`FileTreeScanner`。
 
-树编辑和声明同步服务只接收 Model，并在修改完成后返回 ChangeSet。持久化服务直接读写 Model，不创建 ViewModel。
+树编辑和声明同步服务只接收 Model，并在修改完成后返回 ChangeSet。`JsonApplicationSessionStore` 组合配置和树数据存储，创建共享会话；具体持久化服务直接读写 Model，不创建 ViewModel。
 
 `FileTreeScanner` 通过最小的文件系统读取接口遍历本地目录。完整成功才返回可应用的 `FileNode` 根；取消、根失败或任何阻断性局部问题都不返回可应用树。隐藏属性读取失败作为非阻断性警告，目录符号链接和 Windows junction 作为阻断性问题。
 
@@ -208,7 +227,7 @@ flowchart TB
 
 ### `ViewModels`
 
-- `MainWindowViewModel`：执行命令、调用服务和外部交互端口、应用 ChangeSet、标记脏文件并维护窗口级扫描状态。
+- `MainWindowViewModel`：执行命令、调用服务和外部交互端口、应用 ChangeSet、向会话管理器报告受影响的逻辑持久化目标，并维护窗口级扫描状态。
 - `TreeProjection`：维护 Model 对象引用到节点 ViewModel 的会话级映射。
 - `RepoNodeVM`、`FileNodeVM`：直接读取 Model 属性，只提供展示计算和变化通知。
 - `RepoBrowserViewModel`、`FileBrowserViewModel`：管理选择、当前磁盘和 TreeDataGrid 数据源。
@@ -216,7 +235,7 @@ flowchart TB
 
 `TreeProjection` 使用 Model 对象引用作为映射键。该身份只需要在一次应用运行期间稳定，不写入 JSON。
 
-`App` 加载现有配置和树数据，显式创建服务、会话级投影、子 ViewModel 和外部适配器，再通过构造函数注入 `MainWindowViewModel`。当前不使用依赖注入容器。
+`App` 创建 JSON 会话存储并加载 `ApplicationSession`，再围绕同一组会话 Model 显式创建服务、投影、子 ViewModel 和外部适配器，通过构造函数注入 `MainWindowViewModel`。当前不使用依赖注入容器。
 
 ### `Views`
 
@@ -233,6 +252,7 @@ sequenceDiagram
     participant Changes as TreeChangeSet
     participant Projection as TreeProjection
     participant NodeVM as Node ViewModel
+    participant SessionManager as ApplicationSessionManager
 
     UI->>VM: 执行 ReactiveCommand
     VM->>Service: 传入 RepoNode / FileNode
@@ -242,7 +262,7 @@ sequenceDiagram
     VM->>Projection: Apply(changeSet)
     Projection->>NodeVM: 定点刷新或重建子树
     NodeVM-->>UI: PropertyChanged / 集合变化
-    VM->>VM: 单独标记脏 JSON
+    VM->>SessionManager: 登记逻辑持久化目标
 ```
 
 普通创建、删除和重命名操作使用细粒度变化。文件树刷新可能一次替换大量后代，因此使用 `FileNodeSubtreeReplaced`，保留刷新根节点的 ViewModel，仅重建其后代投影。
@@ -284,7 +304,7 @@ flowchart LR
              └── 各索引对应的本地目录
 ```
 
-`DirtyJsonFileTracker` 记录发生变化的配置、Repository 树和磁盘文件树。保存时只写入被标记的文件。ChangeSet 不负责决定哪些文件需要保存。
+`ApplicationSessionManager` 记录发生变化的逻辑目标，并由 `IApplicationSessionStore` 将目标解析为具体 JSON 路径。保存时依次处理配置、Repository 和会话中的 File Tree；只有整批保存成功才清除脏目标，失败时保留整批目标供再次保存。该机制不提供原子写入或多文件事务，ChangeSet 也暂不负责决定哪些文件需要保存。
 
 ## 依赖约束
 
@@ -292,22 +312,24 @@ flowchart LR
 
 1. `Models` 不得引用 Avalonia、ReactiveUI 或 ViewModels。
 2. `Models` 不得通过 `File`、`Directory` 等类型直接访问本地文件系统。
-3. `Services` 不得引用 ViewModels、Views 或 Adapters。
-4. ViewModels 不得依赖具体 Views 或 Adapters，不得查找 `Application.Current` 或直接启动平台进程。
-5. ViewModel 不得复制并独立维护可变业务数据。
-6. 树编辑必须通过服务修改 Model，并返回 `TreeChangeSet`。
-7. `MainWindowViewModel` 负责应用 ChangeSet 和标记脏文件。
-8. `TreeProjection` 是节点结构从 Model 投影到 ViewModel 的统一入口。
-9. UI 展开、选择、颜色和格式化等状态留在 ViewModel。
-10. 外部交互契约必须保持 UI 无关，具体 Avalonia 或平台调用只放在 Adapters。
-11. JSON 属性或结构发生变化时，必须处理旧数据兼容。
-12. 新增跨层依赖时，应更新或通过架构依赖测试。
+3. `Models` 不得调用 JSON 序列化器；兼容现有格式所需的声明性序列化特性可以保留。
+4. `Services` 不得引用 ViewModels、Views 或 Adapters。
+5. ViewModels 不得依赖具体 Views 或 Adapters，不得查找 `Application.Current` 或直接启动平台进程。
+6. ViewModel 不得复制并独立维护可变业务数据。
+7. 树编辑必须通过服务修改 Model，并返回 `TreeChangeSet`。
+8. `ApplicationSession`、服务、投影和 ViewModel 必须共享同一组 Model 对象。
+9. 脏目标登记与保存编排统一通过 `ApplicationSessionManager`，具体文件路径和 JSON I/O 由持久化实现负责。
+10. `TreeProjection` 是节点结构从 Model 投影到 ViewModel 的统一入口。
+11. UI 展开、选择、颜色和格式化等状态留在 ViewModel。
+12. 外部交互契约必须保持 UI 无关，具体 Avalonia 或平台调用只放在 Adapters。
+13. JSON 属性或结构发生变化时，必须处理旧数据兼容。
+14. 新增跨层依赖时，应更新或通过架构依赖测试。
 
 ## 当前限制
 
 - 没有依赖注入容器，应用依赖由 `App` 显式手工组合。
 - 没有通用事务回滚、撤销或重做机制。
 - 文件树扫描、后台执行和进度窗口已经分离，但扫描成功后的业务应用仍由 `MainWindowViewModel` 编排。
-- `MainWindowViewModel` 仍负责加载后的持久化、声明关系和树编辑用例编排。
+- `MainWindowViewModel` 不再加载或保存 JSON，但仍由各命令处理方法决定受影响的持久化目标，并继续负责声明关系和树编辑用例编排。
 - Avalonia UI 支持跨平台，但路径打开适配器当前是 Windows Explorer 专用实现。
 - 应用启动依赖默认路径下已经存在有效配置和 Repository 数据文件。
