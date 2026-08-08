@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using HDD_Index.Adapters;
+using HDD_Index.Application.Declarations;
 using HDD_Index.Application.Persistence;
 using HDD_Index.Services;
 using HDD_Index.ViewModels;
@@ -55,6 +56,7 @@ public partial class App : Avalonia.Application
         var declarationSyncService = new DeclarationSyncService(
             session.RepoNodeRoot,
             session.FileDatas);
+        var declarationUseCases = new DeclarationUseCases(declarationSyncService);
         var repoTreeEditor = new RepoTreeEditor(declarationSyncService);
         var fileTreeEditor = new FileTreeEditor(declarationSyncService);
 
@@ -68,6 +70,7 @@ public partial class App : Avalonia.Application
         mainWindow.DataContext = new MainWindowViewModel(
             sessionManager,
             declarationSyncService,
+            declarationUseCases,
             repoTreeEditor,
             fileTreeEditor,
             fileTreeScanner,

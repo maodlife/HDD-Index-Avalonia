@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HDD_Index.Application.Declarations;
 using HDD_Index.Application.TreeEditing;
 using HDD_Index.Models;
 
 namespace HDD_Index.Services;
 
-public class DeclarationSyncService
+public class DeclarationSyncService : IDeclarationHoldingService
 {
     private readonly RepoNode _repoNodeRoot;
     private readonly IList<FileData> _fileDatas;
@@ -723,9 +724,3 @@ public class DeclarationSyncService
             UpdateDeclareRepoNodePaths(child, oldPath, newPath, changes);
     }
 }
-
-public sealed record DeclareHoldingValidationFailure(
-    string DiskLabel,
-    string FileNodePath,
-    string FailureReason,
-    string RepoNodePath = "");
