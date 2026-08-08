@@ -12,6 +12,7 @@ using Avalonia.Controls;
 using DynamicData.Kernel;
 using HDD_Index.Application.ExternalInteractions;
 using HDD_Index.Application.FileScanning;
+using HDD_Index.Application.Persistence;
 using HDD_Index.Application.TreeEditing;
 using HDD_Index.Messages;
 using HDD_Index.Models;
@@ -23,9 +24,8 @@ namespace HDD_Index.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
-    private readonly AppConfigService _appConfigService;
-    private readonly TreeDataStore _treeDataStore;
-    private readonly DirtyJsonFileTracker _dirtyJsonFileTracker;
+    private readonly ApplicationSessionManager _sessionManager;
+    private readonly ApplicationSession _session;
     private readonly DeclarationSyncService _declarationSyncService;
     private readonly RepoTreeEditor _repoTreeEditor;
     private readonly FileTreeEditor _fileTreeEditor;
@@ -36,7 +36,6 @@ public class MainWindowViewModel : ViewModelBase
     private readonly IFileTreeInteraction _fileTreeInteraction;
     private readonly IFileTreeScanProgressRunner _fileTreeScanProgressRunner;
     private readonly IPathOpener _pathOpener;
-    private readonly AppConfig _appConfig;
     private bool _isSelectingRepoRowProgrammatically;
 
     public RepoBrowserViewModel RepoBrowser { get; }
@@ -53,10 +52,7 @@ public class MainWindowViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> OpenCreateNewFileTreeDialogCommand { get; private set; } = null!;
 
     public MainWindowViewModel(
-        AppConfig appConfig,
-        AppConfigService appConfigService,
-        TreeDataStore treeDataStore,
-        DirtyJsonFileTracker dirtyJsonFileTracker,
+        ApplicationSessionManager sessionManager,
         DeclarationSyncService declarationSyncService,
         RepoTreeEditor repoTreeEditor,
         FileTreeEditor fileTreeEditor,
@@ -71,10 +67,8 @@ public class MainWindowViewModel : ViewModelBase
         IFileTreeScanProgressRunner fileTreeScanProgressRunner,
         IPathOpener pathOpener)
     {
-        _appConfig = appConfig;
-        _appConfigService = appConfigService;
-        _treeDataStore = treeDataStore;
-        _dirtyJsonFileTracker = dirtyJsonFileTracker;
+        _sessionManager = sessionManager;
+        _session = sessionManager.Session;
         _declarationSyncService = declarationSyncService;
         _repoTreeEditor = repoTreeEditor;
         _fileTreeEditor = fileTreeEditor;
@@ -88,20 +82,7 @@ public class MainWindowViewModel : ViewModelBase
         _fileTreeInteraction = fileTreeInteraction;
         _fileTreeScanProgressRunner = fileTreeScanProgressRunner;
         _pathOpener = pathOpener;
-        InitDirtyTracker();
         InitCommand();
-    }
-
-    private void InitDirtyTracker()
-    {
-        _dirtyJsonFileTracker.SetAppConfigPath(_appConfigService.GetDefaultConfigPath());
-        _dirtyJsonFileTracker.SetRepoFilePath(_treeDataStore.GetRepoFilePath(_appConfig));
-        foreach (var fileData in FileBrowser.FileDatas)
-        {
-            _dirtyJsonFileTracker.SetFileNodePath(
-                fileData.DiskLabel,
-                fileData.JsonFilePath);
-        }
     }
 
     private void InitCommand()
@@ -608,19 +589,17 @@ public class MainWindowViewModel : ViewModelBase
 
     public IReadOnlyList<string> GetDirtyJsonFilePaths()
     {
-        return _dirtyJsonFileTracker.GetDirtyFilePaths();
+        return _sessionManager.GetDirtyFilePaths();
     }
 
     public async Task<bool> SaveDirtyFilesAsync()
     {
-        var dirtyFilePaths = _dirtyJsonFileTracker.GetDirtyFilePaths();
-        if (dirtyFilePaths.Count == 0)
+        if (!_sessionManager.HasDirtyFiles)
             return true;
 
         try
         {
-            SaveDirtyJsonFiles(dirtyFilePaths);
-            _dirtyJsonFileTracker.ClearDirtyFiles(dirtyFilePaths);
+            _sessionManager.SaveDirtyFiles();
             RefreshHasDirtyFiles();
             return true;
         }
@@ -631,67 +610,44 @@ public class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private void SaveDirtyJsonFiles(IReadOnlyList<string> dirtyFilePaths)
-    {
-        var dirtySet = new HashSet<string>(
-            dirtyFilePaths,
-            StringComparer.OrdinalIgnoreCase);
-        var appConfigPath = _appConfigService.GetDefaultConfigPath();
-        var isAppConfigDirty = dirtySet.Contains(appConfigPath);
-        if (isAppConfigDirty)
-            _appConfigService.SaveDefault(_appConfig);
-
-        if (dirtySet.Contains(_treeDataStore.GetRepoFilePath(_appConfig)))
-            _treeDataStore.SaveRepoRoot(_appConfig, RepoBrowser.RepoNodeRoot);
-
-        foreach (var fileData in FileBrowser.FileDatas)
-        {
-            var jsonFilePath = fileData.JsonFilePath;
-            if (dirtySet.Contains(jsonFilePath))
-                _treeDataStore.SaveFileData(fileData);
-        }
-
-        if (isAppConfigDirty)
-            _appConfig.IsDirty = false;
-    }
-
     private void MarkRepoAndFileDirty(string diskLabel)
     {
-        _dirtyJsonFileTracker.MarkRepoDirty();
-        _dirtyJsonFileTracker.MarkFileDirty(diskLabel);
+        _sessionManager.MarkDirty(
+            PersistenceTarget.Repository,
+            PersistenceTarget.ForFileData(diskLabel));
         RefreshHasDirtyFiles();
     }
 
     private void MarkRepoAndAllFilesDirty()
     {
-        _dirtyJsonFileTracker.MarkRepoDirty();
-        _dirtyJsonFileTracker.MarkAllFileNodesDirty();
+        _sessionManager.MarkDirty(PersistenceTarget.Repository);
+        _sessionManager.MarkAllFileDataDirty();
         RefreshHasDirtyFiles();
     }
 
     private void MarkRepoDirty()
     {
-        _dirtyJsonFileTracker.MarkRepoDirty();
+        _sessionManager.MarkDirty(PersistenceTarget.Repository);
         RefreshHasDirtyFiles();
     }
 
     private void MarkFileDirty(string diskLabel)
     {
-        _dirtyJsonFileTracker.MarkFileDirty(diskLabel);
+        _sessionManager.MarkDirty(PersistenceTarget.ForFileData(diskLabel));
         RefreshHasDirtyFiles();
     }
 
     private void MarkAppConfigAndFileDirty(string diskLabel)
     {
-        _appConfig.IsDirty = true;
-        _dirtyJsonFileTracker.MarkAppConfigDirty();
-        _dirtyJsonFileTracker.MarkFileDirty(diskLabel);
+        _sessionManager.MarkDirty(
+            PersistenceTarget.AppConfig,
+            PersistenceTarget.ForFileData(diskLabel));
         RefreshHasDirtyFiles();
     }
 
     private void RefreshHasDirtyFiles()
     {
-        HasDirtyFiles = _dirtyJsonFileTracker.HasDirtyFiles;
+        HasDirtyFiles = _sessionManager.HasDirtyFiles;
     }
 
     private void ApplyChanges(TreeChangeSet changes)
@@ -1036,7 +992,9 @@ public class MainWindowViewModel : ViewModelBase
         }
 
         var relativeJsonFilePath = $"{tag}.json";
-        var jsonFilePath = Path.Combine(_appConfig.JsonFilePath, relativeJsonFilePath);
+        var jsonFilePath = Path.Combine(
+            _session.AppConfig.JsonFilePath,
+            relativeJsonFilePath);
         if (FileBrowser.FileDatas.Any(x =>
                 string.Equals(x.DiskLabel, tag, StringComparison.OrdinalIgnoreCase)))
         {
@@ -1086,12 +1044,11 @@ public class MainWindowViewModel : ViewModelBase
         };
         EnsureAppConfigFileDataFilesInitialized();
         FileBrowser.AddFileData(fileData);
-        _appConfig.FileDataFiles.Add(new FileDataFileConfig
+        _session.AppConfig.FileDataFiles.Add(new FileDataFileConfig
         {
             JsonFilePath = relativeJsonFilePath,
             LocalFolderPath = selectedPath
         });
-        _dirtyJsonFileTracker.SetFileNodePath(tag, jsonFilePath);
         MarkAppConfigAndFileDirty(tag);
 
         if (scanResult.Value.Warnings.Count > 0)
@@ -1104,7 +1061,7 @@ public class MainWindowViewModel : ViewModelBase
 
     private void EnsureAppConfigFileDataFilesInitialized()
     {
-        if (_appConfig.FileDataFiles.Count > 0)
+        if (_session.AppConfig.FileDataFiles.Count > 0)
             return;
 
         foreach (var fileData in FileBrowser.FileDatas)
@@ -1113,9 +1070,11 @@ public class MainWindowViewModel : ViewModelBase
             if (string.IsNullOrWhiteSpace(jsonFilePath))
                 continue;
 
-            _appConfig.FileDataFiles.Add(new FileDataFileConfig
+            _session.AppConfig.FileDataFiles.Add(new FileDataFileConfig
             {
-                JsonFilePath = Path.GetRelativePath(_appConfig.JsonFilePath, jsonFilePath),
+                JsonFilePath = Path.GetRelativePath(
+                    _session.AppConfig.JsonFilePath,
+                    jsonFilePath),
                 LocalFolderPath = fileData.LocalFolderPath
             });
         }

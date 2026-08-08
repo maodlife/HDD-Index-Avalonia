@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text.Json;
 
 namespace HDD_Index.Models;
 
@@ -16,12 +15,6 @@ public class FileNode : TreeNodeBase
     public List<DeclareRepoNodeData> DeclareRepoNodeDatas { get; set; } =
         new List<DeclareRepoNodeData>();
 
-    public static FileNode? CreateByJson(string json)
-    {
-        var root = JsonSerializer.Deserialize<FileNode>(json);
-        root?.SetParent();
-        return root;
-    }
 }
 
 /// <summary>

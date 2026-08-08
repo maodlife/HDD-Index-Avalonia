@@ -92,6 +92,22 @@ public class ArchitectureDependencyTests
         AssertNoViolations(violations);
     }
 
+    // JSON 序列化属于持久化实现；Model 只保留兼容现有格式所需的声明性特性。
+    [Fact]
+    public void Models_DoNotUseJsonSerializer()
+    {
+        var forbiddenTypes = new HashSet<Type>
+        {
+            typeof(System.Text.Json.JsonSerializer),
+            typeof(System.Text.Json.JsonSerializerOptions),
+        };
+        var violations = FindDependencyViolations(
+            [ModelsNamespace],
+            forbiddenTypes.Contains);
+
+        AssertNoViolations(violations);
+    }
+
     // Application 负责编排领域操作，可以依赖 Models，但不能依赖更高层。
     [Fact]
     public void ApplicationLayer_DoesNotDependOnHigherLayers()

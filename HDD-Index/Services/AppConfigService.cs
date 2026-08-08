@@ -21,11 +21,6 @@ public class AppConfigService
             "HDD-Index/config.json");
     }
 
-    public AppConfig LoadDefault()
-    {
-        return Load(GetDefaultConfigPath());
-    }
-
     public AppConfig Load(string configPath)
     {
         var content = File.ReadAllText(configPath);
@@ -34,11 +29,6 @@ public class AppConfigService
             throw new InvalidOperationException($"无法读取配置文件: {configPath}");
 
         return config;
-    }
-
-    public void SaveDefault(AppConfig appConfig)
-    {
-        Save(GetDefaultConfigPath(), appConfig);
     }
 
     public void Save(string configPath, AppConfig appConfig)

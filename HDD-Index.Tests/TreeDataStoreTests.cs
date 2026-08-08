@@ -1,5 +1,6 @@
 using HDD_Index.Models;
 using HDD_Index.Services;
+using System.Text.Json;
 
 namespace HDD_Index.Tests;
 
@@ -59,6 +60,66 @@ public class TreeDataStoreTests
         Assert.Equal(@"C:\DiskA", loaded.LocalFolderPath);
         Assert.Equal(filePath, loaded.JsonFilePath);
         Assert.Equal("Movies", loaded.FileNodeRoot.Children[0].Name);
+    }
+
+    [Fact]
+    public void LoadFileDatas_WithoutConfiguredFilesUsesLegacyDirectoryDiscovery()
+    {
+        using var tempDir = new TempDirectory();
+        var appConfig = new AppConfig
+        {
+            JsonFilePath = tempDir.Path,
+            RepoFileName = "repo.json",
+        };
+        var store = new TreeDataStore();
+        store.SaveRepoRoot(appConfig, TestTreeFactory.Repo("Repo"));
+        store.SaveFileData(CreateFileData(
+            "DiskB",
+            System.IO.Path.Combine(tempDir.Path, "disk-b.json")));
+        store.SaveFileData(CreateFileData(
+            "DiskA",
+            System.IO.Path.Combine(tempDir.Path, "disk-a.json")));
+
+        var loaded = store.LoadFileDatas(appConfig);
+
+        Assert.Equal(new[] { "disk-a", "disk-b" }, loaded.Select(x => x.DiskLabel));
+        Assert.All(loaded, fileData => Assert.Empty(fileData.LocalFolderPath));
+    }
+
+    [Fact]
+    public void SaveRepoRoot_PreservesPolymorphicJsonContract()
+    {
+        using var tempDir = new TempDirectory();
+        var appConfig = new AppConfig
+        {
+            JsonFilePath = tempDir.Path,
+            RepoFileName = "repo.json",
+        };
+        var store = new TreeDataStore();
+        var repoRoot = TestTreeFactory.Repo(
+            "Repo",
+            TestTreeFactory.Repo("Movies"));
+
+        store.SaveRepoRoot(appConfig, repoRoot);
+
+        using var document = JsonDocument.Parse(
+            File.ReadAllText(System.IO.Path.Combine(tempDir.Path, "repo.json")));
+        var child = document.RootElement.GetProperty("Children")[0];
+        Assert.Equal("repoNode", child.GetProperty("$type").GetString());
+        Assert.False(document.RootElement.TryGetProperty("Parent", out _));
+        Assert.False(child.TryGetProperty("Parent", out _));
+    }
+
+    private static FileData CreateFileData(
+        string diskLabel,
+        string jsonFilePath)
+    {
+        return new FileData
+        {
+            DiskLabel = diskLabel,
+            JsonFilePath = jsonFilePath,
+            FileNodeRoot = TestTreeFactory.File(diskLabel),
+        };
     }
 
     private sealed class TempDirectory : IDisposable
