@@ -147,6 +147,7 @@ P5.3 完成结果：
 - 删除路径型 `DirtyJsonFileTracker` 和 `AppConfig.IsDirty`；新增磁盘索引可以直接通过共享会话参与脏状态和保存，不再单独登记路径。
 - `RepoNode` 和 `FileNode` 不再调用 JSON 序列化器，持久化实现负责反序列化及父引用恢复，架构测试防止该依赖回退。
 - 测试覆盖逻辑目标、保存顺序、失败后保留整批脏状态、旧配置目录枚举、JSON 多态结构和共享会话加载；现有启动失败、路径和 JSON 行为保持兼容。
+- [PR #18](https://github.com/maodlife/HDD-Index-Avalonia/pull/18)：完成 P5.3 会话与持久化边界重构，并通过与 CI 等价的完整检查和 Windows x64 发布包验证。
 
 P5 除扫描失败安全策略外均为行为保持型重构，不包含首次启动、数据恢复、保存事务、界面改版或跨平台文件管理器支持。完整目标架构、已确认的设计决策和验收标准参见 [P5 应用编排边界重构计划](p5-application-orchestration.md)。
 
