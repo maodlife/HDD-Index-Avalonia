@@ -131,6 +131,14 @@ P5.3 收敛到会话与持久化边界。
 - 将 `RepoNode.CreateByJson` 和 `FileNode.CreateByJson` 移入持久化实现。
 - 保持现有 JSON 属性、结构、路径规则和启动失败行为。
 
+实现保持了上述范围：`ApplicationSession` 持有本次运行共享的配置、Repository 根和
+File Tree 集合，`ApplicationSessionManager` 使用逻辑目标登记脏状态并编排选择性保存，
+`JsonApplicationSessionStore` 负责加载会话、解析路径和执行具体 JSON I/O。
+`MainWindowViewModel` 不再直接依赖配置、树数据存储或路径型脏文件追踪器；
+`RepoNode` 和 `FileNode` 也不再调用 JSON 序列化器。保存仍按配置、Repository、
+File Tree 顺序执行，任一失败时保留整批脏目标；现有 JSON 格式、旧配置目录枚举、
+相对路径规则和启动失败语义保持不变。
+
 ### P5.4：声明关系用例
 
 - 提取声明持有、放弃声明和修改验证策略的 UI 无关用例。
