@@ -15,6 +15,7 @@ public class ArchitectureDependencyTests
     private const string ModelsNamespace = RootNamespace + ".Models";
     private const string ApplicationNamespace = RootNamespace + ".Application";
     private const string DeclarationsNamespace = ApplicationNamespace + ".Declarations";
+    private const string RepositoriesNamespace = ApplicationNamespace + ".Repositories";
     private const string ExternalInteractionsNamespace =
         ApplicationNamespace + ".ExternalInteractions";
     private const string ServicesNamespace = RootNamespace + ".Services";
@@ -132,6 +133,15 @@ public class ArchitectureDependencyTests
     {
         AssertNoDependencies(
             [DeclarationsNamespace],
+            [ExternalInteractionsNamespace]);
+    }
+
+    // Repository 用例返回计划和业务结果，不能直接调用重命名、删除确认或消息端口。
+    [Fact]
+    public void RepositoryUseCases_DoNotDependOnExternalInteractions()
+    {
+        AssertNoDependencies(
+            [RepositoriesNamespace],
             [ExternalInteractionsNamespace]);
     }
 

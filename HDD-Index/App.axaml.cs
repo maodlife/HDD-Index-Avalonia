@@ -6,6 +6,7 @@ using Avalonia.Markup.Xaml;
 using HDD_Index.Adapters;
 using HDD_Index.Application.Declarations;
 using HDD_Index.Application.Persistence;
+using HDD_Index.Application.Repositories;
 using HDD_Index.Services;
 using HDD_Index.ViewModels;
 using HDD_Index.Views;
@@ -58,6 +59,9 @@ public partial class App : Avalonia.Application
             session.FileDatas);
         var declarationUseCases = new DeclarationUseCases(declarationSyncService);
         var repoTreeEditor = new RepoTreeEditor(declarationSyncService);
+        var repositoryUseCases = new RepositoryUseCases(
+            repoTreeEditor,
+            session.FileDatas);
         var fileTreeEditor = new FileTreeEditor(declarationSyncService);
 
         var mainWindow = new MainWindow();
@@ -71,7 +75,7 @@ public partial class App : Avalonia.Application
             sessionManager,
             declarationSyncService,
             declarationUseCases,
-            repoTreeEditor,
+            repositoryUseCases,
             fileTreeEditor,
             fileTreeScanner,
             treeProjection,

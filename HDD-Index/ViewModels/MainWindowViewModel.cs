@@ -14,6 +14,7 @@ using HDD_Index.Application.Declarations;
 using HDD_Index.Application.ExternalInteractions;
 using HDD_Index.Application.FileScanning;
 using HDD_Index.Application.Persistence;
+using HDD_Index.Application.Repositories;
 using HDD_Index.Application.TreeEditing;
 using HDD_Index.Messages;
 using HDD_Index.Models;
@@ -29,7 +30,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly ApplicationSession _session;
     private readonly DeclarationSyncService _declarationSyncService;
     private readonly DeclarationUseCases _declarationUseCases;
-    private readonly RepoTreeEditor _repoTreeEditor;
+    private readonly RepositoryUseCases _repositoryUseCases;
     private readonly FileTreeEditor _fileTreeEditor;
     private readonly IFileTreeScanner _fileTreeScanner;
     private readonly TreeProjection _treeProjection;
@@ -57,7 +58,7 @@ public class MainWindowViewModel : ViewModelBase
         ApplicationSessionManager sessionManager,
         DeclarationSyncService declarationSyncService,
         DeclarationUseCases declarationUseCases,
-        RepoTreeEditor repoTreeEditor,
+        RepositoryUseCases repositoryUseCases,
         FileTreeEditor fileTreeEditor,
         IFileTreeScanner fileTreeScanner,
         TreeProjection treeProjection,
@@ -74,7 +75,7 @@ public class MainWindowViewModel : ViewModelBase
         _session = sessionManager.Session;
         _declarationSyncService = declarationSyncService;
         _declarationUseCases = declarationUseCases;
-        _repoTreeEditor = repoTreeEditor;
+        _repositoryUseCases = repositoryUseCases;
         _fileTreeEditor = fileTreeEditor;
         _fileTreeScanner = fileTreeScanner;
         _treeProjection = treeProjection;
@@ -445,20 +446,20 @@ public class MainWindowViewModel : ViewModelBase
         if (nodeVM is not RepoNodeVM repoNodeVM)
             return;
 
-        var result = _repoTreeEditor.CreateChildFolder(repoNodeVM.RepoNode);
-        if (!result.Succeeded || result.Value == null)
+        var result = _repositoryUseCases.CreateChildFolder(repoNodeVM.RepoNode);
+        if (!result.Succeeded || result.PreferredNode == null)
             return;
 
         ApplyChanges(result.Changes);
-        var createdVm = _treeProjection.GetRepoNodeVm(result.Value);
-        Debug.WriteLine($"CreateChildFolder: {result.Value.GetPath()}");
+        var createdVm = _treeProjection.GetRepoNodeVm(result.PreferredNode);
+        Debug.WriteLine($"CreateChildFolder: {result.PreferredNode.GetPath()}");
         RefreshRepoSearch(createdVm);
-        MarkRepoAndAllFilesDirty();
+        MarkDirty(result.PersistenceTargets);
     }
 
     private void CopySelectedFileNodeToRepoNode(object nodeVM)
     {
-        if (nodeVM is not RepoNodeVM { IsDirectory: true } repoNodeVM)
+        if (nodeVM is not RepoNodeVM repoNodeVM)
             return;
 
         var selectedFileNode = FileBrowser.CurrFileNodeSource
@@ -468,16 +469,16 @@ public class MainWindowViewModel : ViewModelBase
         if (selectedFileNode == null)
             return;
 
-        var result = _repoTreeEditor.CopyFileNodeSubtreeToRepoDirectory(
+        var result = _repositoryUseCases.CopyFileNodeSubtreeToRepoDirectory(
             repoNodeVM.RepoNode,
             selectedFileNode);
-        if (!result.Succeeded || result.Value == null)
+        if (!result.Succeeded || result.PreferredNode == null)
             return;
 
         ApplyChanges(result.Changes);
-        var copiedVm = _treeProjection.GetRepoNodeVm(result.Value);
+        var copiedVm = _treeProjection.GetRepoNodeVm(result.PreferredNode);
         RefreshRepoSearch(copiedVm);
-        MarkRepoDirty();
+        MarkDirty(result.PersistenceTargets);
     }
 
     private async Task RenameRepoNodeAsync(object nodeVM)
@@ -489,7 +490,7 @@ public class MainWindowViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(result))
             return;
 
-        var renameResult = _repoTreeEditor.RenameRepoNode(
+        var renameResult = _repositoryUseCases.RenameRepoNode(
             repoNodeVM.RepoNode,
             result);
         if (renameResult.Succeeded)
@@ -497,7 +498,7 @@ public class MainWindowViewModel : ViewModelBase
             ApplyChanges(renameResult.Changes);
             RepoBrowser.RepoNodePathString = repoNodeVM.RepoNode.GetPath();
             RefreshRepoSearch(repoNodeVM);
-            MarkRepoAndAllFilesDirty();
+            MarkDirty(renameResult.PersistenceTargets);
         }
     }
 
@@ -510,14 +511,14 @@ public class MainWindowViewModel : ViewModelBase
         if (!result)
             return;
 
-        var deleteResult = _repoTreeEditor.DeleteRepoNode(
+        var deleteResult = _repositoryUseCases.DeleteRepoNode(
             repoNodeVM.RepoNode,
             RepoBrowser.RepoNodeRoot);
         if (deleteResult.Succeeded)
         {
             ApplyChanges(deleteResult.Changes);
             RefreshRepoSearch();
-            MarkRepoAndAllFilesDirty();
+            MarkDirty(deleteResult.PersistenceTargets);
         }
     }
 
@@ -530,28 +531,27 @@ public class MainWindowViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(searchText))
             return;
 
-        var matchedNodes = _repoTreeEditor
-            .FindDescendantRepoNodesByName(repoNodeVM.RepoNode, searchText)
-            .ToList();
-        if (matchedNodes.Count == 0)
+        var plan = _repositoryUseCases.PlanSearchDelete(
+            repoNodeVM.RepoNode,
+            RepoBrowser.RepoNodeRoot,
+            searchText);
+        if (!plan.HasMatches)
         {
             await ShowMessageAsync("没有找到同名文件或目录节点。");
             return;
         }
 
         var confirmed = await _repositoryInteraction.ConfirmDeleteMatchesAsync(
-            matchedNodes.Select(x => x.GetPath()).ToList());
+            plan.MatchedNodePaths);
         if (!confirmed)
             return;
 
-        var deleteResult = _repoTreeEditor.DeleteRepoNodes(
-            matchedNodes,
-            RepoBrowser.RepoNodeRoot);
+        var deleteResult = _repositoryUseCases.ApplySearchDelete(plan);
         if (deleteResult.Succeeded)
         {
             ApplyChanges(deleteResult.Changes);
             RefreshRepoSearch();
-            MarkRepoAndAllFilesDirty();
+            MarkDirty(deleteResult.PersistenceTargets);
         }
     }
 
@@ -617,19 +617,6 @@ public class MainWindowViewModel : ViewModelBase
     private void MarkDirty(IEnumerable<PersistenceTarget> persistenceTargets)
     {
         _sessionManager.MarkDirty(persistenceTargets);
-        RefreshHasDirtyFiles();
-    }
-
-    private void MarkRepoAndAllFilesDirty()
-    {
-        _sessionManager.MarkDirty(PersistenceTarget.Repository);
-        _sessionManager.MarkAllFileDataDirty();
-        RefreshHasDirtyFiles();
-    }
-
-    private void MarkRepoDirty()
-    {
-        _sessionManager.MarkDirty(PersistenceTarget.Repository);
         RefreshHasDirtyFiles();
     }
 

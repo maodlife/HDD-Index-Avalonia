@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HDD_Index.Application.Repositories;
 using HDD_Index.Application.TreeEditing;
 using HDD_Index.Models;
 
 namespace HDD_Index.Services;
 
-public class RepoTreeEditor
+public class RepoTreeEditor : IRepositoryEditingService
 {
     private readonly DeclarationSyncService _declarationSyncService;
 
