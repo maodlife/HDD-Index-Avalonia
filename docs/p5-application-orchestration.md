@@ -158,6 +158,14 @@ File Tree 顺序执行，任一失败时保留整批脏目标；现有 JSON 格�
 - 统一业务结果、投影变化和受影响持久化范围。
 - 保持当前搜索刷新、选中节点和路径导航体验。
 
+实现保持了上述范围：`RepositoryUseCases` 通过最小的
+`IRepositoryEditingService` 端口执行创建目录、复制 File 子树、重命名和删除，统一
+返回失败原因、`TreeChangeSet`、建议保持选中的节点与 `PersistenceTarget`。
+搜索删除先生成不修改 Model 的 `RepositorySearchDeletePlan`，展示层确认命中路径后
+才应用删除。创建、重命名和删除仍会保存 Repository 与全部当前 File Tree，复制子树
+仍只保存 Repository；搜索刷新、节点选择、路径导航和具体对话框继续留在
+`MainWindowViewModel`。`RepoTreeEditor` 实现编辑端口，并继续复用声明同步服务维护双向关系。
+
 ### P5.6：File Tree 编辑用例与收尾
 
 - 提取新建索引、刷新、跳过声明子树刷新、删除节点和本地路径计算用例。
