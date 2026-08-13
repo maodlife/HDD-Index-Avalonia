@@ -173,6 +173,7 @@ P5.6 待合入结果：
 - 用例结果统一携带失败原因、`TreeChangeSet`、新增 `FileData` 和逻辑持久化目标，主 ViewModel 不再直接依赖扫描器、File Tree 编辑器、声明同步服务或本地文件系统。
 - 普通刷新只标记当前 File Tree；新建标记配置与新 File Tree；声明失效刷新和删除同时标记 Repository 与当前 File Tree。
 - 单元测试覆盖输入验证、旧配置迁移、扫描失败无副作用、路径计算、跳过声明子树、确认前无修改、声明清理、删除保护与持久化范围；架构测试禁止 File Tree 用例依赖外部交互端口。
+- [PR #21](https://github.com/maodlife/HDD-Index-Avalonia/pull/21)：完成 P5.6 File Tree 编辑用例提取与 P5 架构收尾，并通过与 CI 等价的完整检查和 Windows x64 发布包验证。
 
 P5 除扫描失败安全策略外均为行为保持型重构，不包含首次启动、数据恢复、保存事务、界面改版或跨平台文件管理器支持。完整目标架构、已确认的设计决策和验收标准参见 [P5 应用编排边界重构计划](p5-application-orchestration.md)。
 
