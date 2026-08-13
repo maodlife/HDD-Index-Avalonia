@@ -27,7 +27,7 @@ flowchart TB
 
     subgraph Presentation["表现层"]
         Views["Views / Dialogs<br/>AXAML 界面"]
-        MainVM["MainWindowViewModel<br/>应用编排入口"]
+        MainVM["MainWindowViewModel<br/>窗口级交互与导航"]
         BrowserVM["RepoBrowserViewModel<br/>FileBrowserViewModel"]
         NodeVM["RepoNodeVM / FileNodeVM<br/>轻量 Model 包装器"]
         Navigation["TreeNavigationService<br/>搜索、定位、展开"]
@@ -53,6 +53,8 @@ flowchart TB
         DeclarationPort["IDeclarationHoldingService<br/>声明领域操作端口"]
         RepositoryUseCases["Repositories<br/>创建、复制、改名、删除用例"]
         RepositoryPort["IRepositoryEditingService<br/>Repository 编辑端口"]
+        FileTreeUseCases["FileTrees<br/>新建、刷新、删除、路径用例"]
+        FileTreePorts["IFileTreeEditingService / IFileTreePathService"]
         Session["ApplicationSession<br/>共享会话 Model"]
         SessionManager["ApplicationSessionManager<br/>逻辑脏目标与保存编排"]
         SessionStorePort["IApplicationSessionStore<br/>会话持久化端口"]
@@ -64,6 +66,9 @@ flowchart TB
         DeclarationUseCases --> ChangeSet
         RepositoryUseCases --> RepositoryPort
         RepositoryUseCases --> ChangeSet
+        FileTreeUseCases --> FileTreePorts
+        FileTreeUseCases --> ScanContract
+        FileTreeUseCases --> ChangeSet
         SessionManager --> Session
         SessionManager --> SessionStorePort
     end
@@ -75,7 +80,8 @@ flowchart TB
 
     subgraph Services["业务与应用服务"]
         RepoEditor["RepoTreeEditor<br/>创建、改名、删除、复制"]
-        FileEditor["FileTreeEditor<br/>删除文件树节点"]
+        FileEditor["FileTreeEditor<br/>删除、刷新与关系同步适配"]
+        PathService["FileTreePathService<br/>文件树路径与存在性"]
         Declaration["DeclarationSyncService<br/>声明持有与双向同步"]
         SessionStore["JsonApplicationSessionStore<br/>会话加载与保存"]
         DataStore["TreeDataStore<br/>树数据持久化"]
@@ -117,12 +123,10 @@ flowchart TB
         Explorer["Windows Explorer"]
     end
 
-    MainVM --> FileEditor
-    MainVM --> Declaration
     MainVM --> DeclarationUseCases
     MainVM --> RepositoryUseCases
+    MainVM --> FileTreeUseCases
     MainVM --> SessionManager
-    MainVM --> Scanner
     MainVM --> InteractionPorts
 
     App --> MainVM
@@ -136,6 +140,8 @@ flowchart TB
     SessionStore -. "实现" .-> SessionStorePort
     Declaration -. "实现" .-> DeclarationPort
     RepoEditor -. "实现" .-> RepositoryPort
+    FileEditor -. "实现编辑端口" .-> FileTreePorts
+    PathService -. "实现路径端口" .-> FileTreePorts
     Session --> AppConfig
     Session --> RepoNode
     Session --> FileData
@@ -144,6 +150,7 @@ flowchart TB
     FileEditor --> FileNode
     Declaration --> RepoNode
     Declaration --> FileNode
+    FileTreeUseCases --> Session
 
     MainVM -. "应用 ChangeSet" .-> Projection
     ChangeSet -. "投影变化" .-> Projection
@@ -228,6 +235,15 @@ flowchart TB
 - `RepositoryOperationResult`：统一返回失败原因、`TreeChangeSet`、建议保持选中的节点和受影响的逻辑持久化目标。
 - `RepositorySearchDeletePlan`：在不修改 Model 的前提下冻结命中节点及其展示路径，供展示层确认后再应用。
 
+`Application/FileTrees` 定义 File Tree 命令的 UI 无关应用编排：
+
+- `FileTreeUseCases`：验证新建与刷新输入，执行扫描，并在成功且经过展示层确认后应用新索引、刷新或删除。
+- `IFileTreeEditingService`：封装删除、刷新及声明关系重新验证，由 `FileTreeEditor` 实现。
+- `IFileTreePathService`：封装文件名校验、JSON 存在性与路径组合，由 `FileTreePathService` 实现。
+- `NewFileTreePlan`、`FileTreeRefreshPlan`：在不修改 Model 的前提下固定扫描输入。
+- `FileTreeRefreshScanResult`：携带扫描结果、待应用子树和声明验证失败，供展示层确认。
+- `FileTreeOperationResult`：统一返回失败原因、`TreeChangeSet`、新增 `FileData` 与持久化目标。
+
 ### `Services`
 
 服务分为四类：
@@ -235,9 +251,9 @@ flowchart TB
 - 编辑服务：`RepoTreeEditor`、`FileTreeEditor`。
 - 关系同步：`DeclarationSyncService`。
 - 持久化：`JsonApplicationSessionStore`、`TreeDataStore`、`AppConfigService`。
-- 外部数据读取：`FileTreeScanner`。
+- 外部数据与路径：`FileTreeScanner`、`FileTreePathService`。
 
-树编辑和声明同步服务只接收 Model，并在修改完成后返回 ChangeSet。`RepoTreeEditor` 实现 Repository 用例使用的编辑端口；`DeclarationSyncService` 为声明用例提供双向关系维护和策略验证原语，也继续被 Repository/File Tree 编辑服务复用。`JsonApplicationSessionStore` 组合配置和树数据存储，创建共享会话；具体持久化服务直接读写 Model，不创建 ViewModel。
+树编辑和声明同步服务只接收 Model，并在修改完成后返回 ChangeSet。`RepoTreeEditor` 实现 Repository 用例使用的编辑端口；`FileTreeEditor` 实现 File Tree 用例使用的删除、刷新与关系同步端口；`DeclarationSyncService` 为声明用例提供双向关系维护和策略验证原语，也继续被 Repository/File Tree 编辑服务复用。`JsonApplicationSessionStore` 组合配置和树数据存储，创建共享会话；具体持久化服务直接读写 Model，不创建 ViewModel。
 
 `FileTreeScanner` 通过最小的文件系统读取接口遍历本地目录。完整成功才返回可应用的 `FileNode` 根；取消、根失败或任何阻断性局部问题都不返回可应用树。隐藏属性读取失败作为非阻断性警告，目录符号链接和 Windows junction 作为阻断性问题。
 
@@ -342,6 +358,35 @@ sequenceDiagram
 
 搜索删除先由用例生成不修改 Model 的 `RepositorySearchDeletePlan`，其中包含命中节点和供确认窗口展示的路径。展示层确认后才应用删除。创建、重命名和删除会返回 Repository 及当前全部 File Tree 持久化目标；复制 File 子树只返回 Repository 目标。搜索刷新、节点选择和路径导航仍由 ViewModel 维护。
 
+## File Tree 命令时序
+
+```mermaid
+sequenceDiagram
+    participant UI as View
+    participant VM as MainWindowViewModel
+    participant UseCase as FileTreeUseCases
+    participant Scanner as IFileTreeScanner
+    participant Service as IFileTreeEditingService
+    participant Model as ApplicationSession / FileNode
+    participant Projection as TreeProjection
+    participant SessionManager as ApplicationSessionManager
+
+    UI->>VM: 新建、刷新或删除 File Tree
+    VM->>UseCase: 创建不修改 Model 的计划
+    UseCase->>Scanner: 扫描本地目录
+    Scanner-->>UseCase: 成功、取消、失败或警告
+    UseCase-->>VM: 扫描结果 + 声明验证失败
+    VM->>UI: 必要时确认失效声明
+    VM->>UseCase: 应用成功结果
+    UseCase->>Service: 更新树和双向关系
+    Service->>Model: 一次性修改唯一业务状态
+    UseCase-->>VM: ChangeSet + PersistenceTargets
+    VM->>Projection: Apply(changeSet)
+    VM->>SessionManager: MarkDirty(targets)
+```
+
+新建和刷新使用“计划、扫描、应用”三阶段流程。计划和扫描均不修改 Model；取消、失败或用户拒绝删除失效声明时不会添加索引、替换子树或登记脏目标。普通刷新只保存当前 File Tree；刷新导致声明失效以及删除节点时，同时保存 Repository 和当前 File Tree。主 ViewModel 只维护扫描进度、提示、确认、选择和投影。
+
 ## Repository 与 File 双向关系
 
 ```mermaid
@@ -357,7 +402,7 @@ flowchart LR
     DeclareData -->|"定位"| Repo
 ```
 
-`DeclarationSyncService` 负责保证两边关系一致。`DeclarationUseCases` 将前三项组织成用户命令，`RepositoryUseCases` 通过 `RepoTreeEditor` 处理 Repository 改名和删除，后续 File Tree 用例将负责刷新后的重新验证：
+`DeclarationSyncService` 负责保证两边关系一致。`DeclarationUseCases` 将前三项组织成用户命令，`RepositoryUseCases` 通过 `RepoTreeEditor` 处理 Repository 改名和删除，`FileTreeUseCases` 通过 `FileTreeEditor` 处理 File Tree 删除和刷新后的重新验证：
 
 - 建立声明持有关系。
 - 放弃声明持有关系。
@@ -379,7 +424,7 @@ flowchart LR
              └── 各索引对应的本地目录
 ```
 
-`ApplicationSessionManager` 记录发生变化的逻辑目标，并由 `IApplicationSessionStore` 将目标解析为具体 JSON 路径。保存时依次处理配置、Repository 和会话中的 File Tree；只有整批保存成功才清除脏目标，失败时保留整批目标供再次保存。声明和 Repository 用例的结果已经携带对应持久化目标；尚未拆分的 File Tree 命令仍由 ViewModel 决定目标。该机制不提供原子写入或多文件事务。
+`ApplicationSessionManager` 记录发生变化的逻辑目标，并由 `IApplicationSessionStore` 将目标解析为具体 JSON 路径。保存时依次处理配置、Repository 和会话中的 File Tree；只有整批保存成功才清除脏目标，失败时保留整批目标供再次保存。声明、Repository 和 File Tree 用例的结果都携带对应持久化目标，ViewModel 只登记结果。该机制不提供原子写入或多文件事务。
 
 ## 依赖约束
 
@@ -389,7 +434,7 @@ flowchart LR
 2. `Models` 不得通过 `File`、`Directory` 等类型直接访问本地文件系统。
 3. `Models` 不得调用 JSON 序列化器；兼容现有格式所需的声明性序列化特性可以保留。
 4. `Services` 不得引用 ViewModels、Views 或 Adapters。
-5. ViewModels 不得依赖具体 Views 或 Adapters，不得查找 `Application.Current` 或直接启动平台进程。
+5. Application 和 ViewModels 不得直接读写本地文件系统；ViewModels 也不得依赖具体 Views 或 Adapters、查找 `Application.Current` 或直接启动平台进程。
 6. ViewModel 不得复制并独立维护可变业务数据。
 7. 树编辑必须通过服务修改 Model，并返回 `TreeChangeSet`。
 8. `ApplicationSession`、服务、投影和 ViewModel 必须共享同一组 Model 对象。
@@ -405,7 +450,6 @@ flowchart LR
 
 - 没有依赖注入容器，应用依赖由 `App` 显式手工组合。
 - 没有通用事务回滚、撤销或重做机制。
-- 文件树扫描、后台执行和进度窗口已经分离，但扫描成功后的业务应用仍由 `MainWindowViewModel` 编排。
-- 声明持有和 Repository 编辑命令已经使用独立用例，但 `MainWindowViewModel` 仍负责 File Tree 编辑用例编排，并为这些未拆分命令决定持久化目标。
+- `MainWindowViewModel` 仍集中维护窗口级命令、导航、选择、扫描进度和结果展示，尚未进一步拆分成多个领域命令 ViewModel。
 - Avalonia UI 支持跨平台，但路径打开适配器当前是 Windows Explorer 专用实现。
 - 应用启动依赖默认路径下已经存在有效配置和 Repository 数据文件。

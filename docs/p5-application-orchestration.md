@@ -173,6 +173,15 @@ File Tree 顺序执行，任一失败时保留整批脏目标；现有 JSON 格�
 - 将主 ViewModel 缩减为窗口级状态、导航、投影和子模块组合。
 - 更新架构文档和依赖测试，确认 P5 完成标准。
 
+实现保持了上述范围：`FileTreeUseCases` 通过 `IFileTreeScanner`、
+`IFileTreeEditingService` 和 `IFileTreePathService` 编排新建索引、普通刷新、跳过声明
+子树刷新、删除节点及本地路径计算。新建和刷新使用“计划、扫描、应用”三阶段流程，
+计划与扫描不修改 Model；扫描取消、失败或展示层拒绝失效声明确认时不会留下半成品。
+统一操作结果携带 `TreeChangeSet`、新增 `FileData` 和逻辑持久化目标，
+`MainWindowViewModel` 不再直接调用文件系统、扫描器、File Tree 编辑器或声明同步服务，
+只保留窗口级进度、提示、确认、选择、导航和投影应用。架构测试禁止 File Tree 用例
+依赖外部交互端口，现有 JSON、AXAML 命令和用户交互保持兼容。
+
 这些切片有明确依赖，均在前一项合入后从最新 `origin/master` 开始，不使用 stacked pull request。
 
 ## P5.1 扫描结果语义
