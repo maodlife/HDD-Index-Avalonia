@@ -79,9 +79,11 @@ public class FileBrowserViewModel : ViewModelBase
 
     public void AddFileData(FileData fileData)
     {
-        FileDatas.Add(fileData);
+        if (!FileDatas.Contains(fileData))
+            FileDatas.Add(fileData);
         _projection.CreateFileTree(fileData.FileNodeRoot);
-        DiskLabels.Add(fileData.DiskLabel);
+        if (!DiskLabels.Contains(fileData.DiskLabel))
+            DiskLabels.Add(fileData.DiskLabel);
         UpdateCurrentLocalFolderPathState();
     }
 

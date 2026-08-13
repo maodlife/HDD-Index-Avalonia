@@ -5,6 +5,7 @@ using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using HDD_Index.Adapters;
 using HDD_Index.Application.Declarations;
+using HDD_Index.Application.FileTrees;
 using HDD_Index.Application.Persistence;
 using HDD_Index.Application.Repositories;
 using HDD_Index.Services;
@@ -63,6 +64,11 @@ public partial class App : Avalonia.Application
             repoTreeEditor,
             session.FileDatas);
         var fileTreeEditor = new FileTreeEditor(declarationSyncService);
+        var fileTreeUseCases = new FileTreeUseCases(
+            session,
+            fileTreeEditor,
+            fileTreeScanner,
+            new FileTreePathService());
 
         var mainWindow = new MainWindow();
         var userInteraction = new AvaloniaUserInteraction(mainWindow);
@@ -73,11 +79,9 @@ public partial class App : Avalonia.Application
 
         mainWindow.DataContext = new MainWindowViewModel(
             sessionManager,
-            declarationSyncService,
             declarationUseCases,
             repositoryUseCases,
-            fileTreeEditor,
-            fileTreeScanner,
+            fileTreeUseCases,
             treeProjection,
             repoBrowser,
             fileBrowser,
