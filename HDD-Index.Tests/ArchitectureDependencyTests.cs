@@ -15,6 +15,7 @@ public class ArchitectureDependencyTests
     private const string ModelsNamespace = RootNamespace + ".Models";
     private const string ApplicationNamespace = RootNamespace + ".Application";
     private const string DeclarationsNamespace = ApplicationNamespace + ".Declarations";
+    private const string FileTreesNamespace = ApplicationNamespace + ".FileTrees";
     private const string RepositoriesNamespace = ApplicationNamespace + ".Repositories";
     private const string ExternalInteractionsNamespace =
         ApplicationNamespace + ".ExternalInteractions";
@@ -96,6 +97,28 @@ public class ArchitectureDependencyTests
         AssertNoViolations(violations);
     }
 
+    // 文件系统访问应通过扫描、路径或持久化端口进入 Services，不应回流到编排或展示层。
+    [Fact]
+    public void ApplicationAndViewModels_DoNotAccessTheLocalFileSystem()
+    {
+        var forbiddenTypes = new HashSet<Type>
+        {
+            typeof(Directory),
+            typeof(DirectoryInfo),
+            typeof(DriveInfo),
+            typeof(File),
+            typeof(FileInfo),
+            typeof(FileStream),
+            typeof(FileSystemInfo),
+            typeof(FileSystemWatcher),
+        };
+        var violations = FindDependencyViolations(
+            [ApplicationNamespace, ViewModelsNamespace],
+            forbiddenTypes.Contains);
+
+        AssertNoViolations(violations);
+    }
+
     // JSON 序列化属于持久化实现；Model 只保留兼容现有格式所需的声明性特性。
     [Fact]
     public void Models_DoNotUseJsonSerializer()
@@ -142,6 +165,15 @@ public class ArchitectureDependencyTests
     {
         AssertNoDependencies(
             [RepositoriesNamespace],
+            [ExternalInteractionsNamespace]);
+    }
+
+    // File Tree 用例返回扫描、验证和业务结果，不能直接调用消息、确认或进度窗口。
+    [Fact]
+    public void FileTreeUseCases_DoNotDependOnExternalInteractions()
+    {
+        AssertNoDependencies(
+            [FileTreesNamespace],
             [ExternalInteractionsNamespace]);
     }
 

@@ -1,17 +1,62 @@
 using System.Collections.Generic;
 using System.Linq;
+using HDD_Index.Application.Declarations;
+using HDD_Index.Application.FileTrees;
 using HDD_Index.Application.TreeEditing;
 using HDD_Index.Models;
 
 namespace HDD_Index.Services;
 
-public class FileTreeEditor
+public sealed class FileTreeEditor : IFileTreeEditingService
 {
     private readonly DeclarationSyncService _declarationSyncService;
 
     public FileTreeEditor(DeclarationSyncService declarationSyncService)
     {
         _declarationSyncService = declarationSyncService;
+    }
+
+    public bool CheckRepoNodeAndFileNodeIsSync(
+        RepoNode? repoNode,
+        FileNode? fileNode)
+    {
+        return _declarationSyncService.CheckRepoNodeAndFileNodeIsSync(
+            repoNode,
+            fileNode);
+    }
+
+    public FileNode BuildRefreshedFileNodeSubtree(
+        FileNode currentFileNode,
+        FileNode scannedFileNode)
+    {
+        return _declarationSyncService.BuildRefreshedFileNodeSubtree(
+            currentFileNode,
+            scannedFileNode);
+    }
+
+    public IReadOnlyList<DeclareHoldingValidationFailure>
+        GetInvalidDeclareHoldingsAfterRefresh(
+            string diskLabel,
+            FileNode currentFileNode,
+            FileNode refreshedFileNode)
+    {
+        return _declarationSyncService.GetInvalidDeclareHoldingsAfterRefresh(
+            diskLabel,
+            currentFileNode,
+            refreshedFileNode);
+    }
+
+    public TreeChangeSet ApplyFileNodeRefresh(
+        string diskLabel,
+        FileNode currentFileNode,
+        FileNode refreshedFileNode,
+        IEnumerable<DeclareHoldingValidationFailure> failuresToRemove)
+    {
+        return _declarationSyncService.ApplyFileNodeRefresh(
+            diskLabel,
+            currentFileNode,
+            refreshedFileNode,
+            failuresToRemove);
     }
 
     /// <summary>
@@ -24,11 +69,11 @@ public class FileTreeEditor
         string diskLabel)
     {
         if (fileNode == fileNodeRoot)
-            return TreeEditResult<FileNode>.Failure();
+            return TreeEditResult<FileNode>.Failure("不能删除文件树根节点。");
 
         var parent = fileNode.Parent as FileNode;
         if (parent == null)
-            return TreeEditResult<FileNode>.Failure();
+            return TreeEditResult<FileNode>.Failure("找不到文件节点的父目录。");
 
         var changes = new TreeChangeCollector();
         var deletedNodes = EnumerateFileNodes(fileNode).ToList();
