@@ -36,6 +36,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly IFileTreeInteraction _fileTreeInteraction;
     private readonly IFileTreeScanProgressRunner _fileTreeScanProgressRunner;
     private readonly IPathOpener _pathOpener;
+    private readonly IReadOnlyList<SessionLoadIssue> _startupWarnings;
     private bool _isSelectingRepoRowProgrammatically;
 
     public RepoBrowserViewModel RepoBrowser { get; }
@@ -64,7 +65,8 @@ public class MainWindowViewModel : ViewModelBase
         IRepositoryInteraction repositoryInteraction,
         IFileTreeInteraction fileTreeInteraction,
         IFileTreeScanProgressRunner fileTreeScanProgressRunner,
-        IPathOpener pathOpener)
+        IPathOpener pathOpener,
+        IReadOnlyList<SessionLoadIssue>? startupWarnings = null)
     {
         _sessionManager = sessionManager;
         _declarationUseCases = declarationUseCases;
@@ -79,6 +81,7 @@ public class MainWindowViewModel : ViewModelBase
         _fileTreeInteraction = fileTreeInteraction;
         _fileTreeScanProgressRunner = fileTreeScanProgressRunner;
         _pathOpener = pathOpener;
+        _startupWarnings = startupWarnings ?? Array.Empty<SessionLoadIssue>();
         InitCommand();
     }
 
@@ -170,6 +173,8 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.CreateFromTask<object>(ChangeDeclareHoldingStrategyAsync);
         RepositoryEditor.OpenCurrentFileDataFolderCommand =
             ReactiveCommand.Create(OpenCurrentFileDataFolder);
+        RepositoryEditor.RepairCurrentFileDataPathCommand =
+            ReactiveCommand.CreateFromTask(RepairCurrentFileDataPathAsync);
         RepositoryEditor.OpenFileNodeInFolderCommand =
             ReactiveCommand.Create<object>(OpenFileNodeInFolder);
         RepositoryEditor.RefreshFileNodeFromLocalFolderCommand =
@@ -770,6 +775,51 @@ public class MainWindowViewModel : ViewModelBase
             return;
 
         _pathOpener.OpenFolder(localFolderPath);
+    }
+
+    private async Task RepairCurrentFileDataPathAsync()
+    {
+        var fileData = FileBrowser.CurrentFileData;
+        if (fileData == null)
+            return;
+
+        var selectedPath = await _fileTreeInteraction.RequestLocalFolderPathAsync(
+            fileData.DiskLabel,
+            fileData.LocalFolderPath);
+        if (string.IsNullOrWhiteSpace(selectedPath))
+            return;
+
+        var result = _fileTreeUseCases.UpdateLocalFolderPath(fileData, selectedPath);
+        if (!result.Succeeded)
+        {
+            await ShowMessageAsync(result.FailureReason);
+            return;
+        }
+
+        FileBrowser.RefreshCurrentLocalFolderPathState();
+        MarkDirty(result.PersistenceTargets);
+    }
+
+    public Task ShowStartupWarningsAsync()
+    {
+        if (_startupWarnings.Count == 0)
+            return Task.CompletedTask;
+
+        var message = new StringBuilder();
+        message.AppendLine(
+            $"有 {_startupWarnings.Count} 个磁盘索引未能加载。其他索引仍可正常使用；未加载的文件不会被本次会话覆盖。");
+        foreach (var warning in _startupWarnings)
+        {
+            message.AppendLine();
+            message.AppendLine($"- {warning.DiskLabel ?? "未命名索引"}");
+            message.AppendLine($"  {warning.Message}");
+            message.AppendLine($"  {warning.FilePath}");
+        }
+
+        return _userInteraction.ShowMessageAsync(
+            new MessageRequest(
+                message.ToString().TrimEnd(),
+                MessageDisplayKind.Detailed));
     }
 
     private void OpenFileNodeInFolder(object nodeVM)

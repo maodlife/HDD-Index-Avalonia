@@ -91,6 +91,18 @@ public sealed class FileTreeUseCases
         }
 
         var relativeJsonFilePath = $"{diskLabel}.json";
+        if (_session.AppConfig.FileDataFiles.Any(config =>
+                config != null
+                &&
+                string.Equals(
+                    _pathService.GetFileNameWithoutExtension(config.JsonFilePath),
+                    diskLabel,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            return NewFileTreePlan.Failure(
+                $"配置中已存在标签为 {diskLabel} 的文件树；它可能因启动加载失败而暂时不可用。请先修复原索引。");
+        }
+
         var jsonFilePath = _pathService.Combine(
             _session.AppConfig.JsonFilePath,
             relativeJsonFilePath);
@@ -306,6 +318,39 @@ public sealed class FileTreeUseCases
                 PersistenceTarget.Repository,
                 PersistenceTarget.ForFileData(fileData.DiskLabel),
             ]);
+    }
+
+    public FileTreeOperationResult UpdateLocalFolderPath(
+        FileData fileData,
+        string localFolderPath)
+    {
+        ArgumentNullException.ThrowIfNull(fileData);
+        localFolderPath = localFolderPath.Trim();
+        if (string.IsNullOrWhiteSpace(localFolderPath))
+            return FileTreeOperationResult.Failure("本地文件夹路径不能为空。");
+
+        EnsureAppConfigFileDataFilesInitialized();
+        var relativeJsonFilePath = _pathService.GetRelativePath(
+            _session.AppConfig.JsonFilePath,
+            fileData.JsonFilePath);
+        var fileDataConfig = _session.AppConfig.FileDataFiles.FirstOrDefault(config =>
+            config != null
+            &&
+            string.Equals(
+                config.JsonFilePath,
+                relativeJsonFilePath,
+                StringComparison.OrdinalIgnoreCase));
+        if (fileDataConfig == null)
+        {
+            return FileTreeOperationResult.Failure(
+                $"配置中找不到磁盘索引 {fileData.DiskLabel}，无法更新路径。");
+        }
+
+        fileData.LocalFolderPath = localFolderPath;
+        fileDataConfig.LocalFolderPath = localFolderPath;
+        return FileTreeOperationResult.Success(
+            TreeChangeSet.Empty,
+            [PersistenceTarget.AppConfig]);
     }
 
     private void EnsureAppConfigFileDataFilesInitialized()

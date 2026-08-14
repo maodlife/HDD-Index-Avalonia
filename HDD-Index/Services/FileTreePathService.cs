@@ -24,4 +24,9 @@ public sealed class FileTreePathService : IFileTreePathService
     {
         return Path.GetRelativePath(relativeTo, path);
     }
+
+    public string GetFileNameWithoutExtension(string path)
+    {
+        return Path.GetFileNameWithoutExtension(path);
+    }
 }

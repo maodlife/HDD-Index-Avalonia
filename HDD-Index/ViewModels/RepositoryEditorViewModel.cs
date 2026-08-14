@@ -49,6 +49,9 @@ public class RepositoryEditorViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> OpenCurrentFileDataFolderCommand { get; set; }
         = ReactiveCommand.Create(() => { });
 
+    public ReactiveCommand<Unit, Unit> RepairCurrentFileDataPathCommand { get; set; }
+        = ReactiveCommand.Create(() => { });
+
     public ReactiveCommand<object, Unit> OpenFileNodeInFolderCommand { get; set; }
         = ReactiveCommand.Create<object>(_ => { });
 

@@ -28,6 +28,11 @@ public interface IUserInteraction
     Task<bool> ConfirmAsync(ConfirmationRequest request);
 }
 
+public interface IStartupInteraction
+{
+    Task<string?> SelectDataDirectoryAsync(string title);
+}
+
 public sealed record DeclareHoldingStrategySelection(
     bool IsAccepted,
     DeclareHoldingStrategyType? StrategyType);
@@ -62,6 +67,10 @@ public interface IFileTreeInteraction
     Task<bool> ConfirmDeleteAsync(string targetName);
 
     Task<NewFileTreeSelection?> RequestNewFileTreeAsync();
+
+    Task<string?> RequestLocalFolderPathAsync(
+        string diskLabel,
+        string currentPath);
 }
 
 public interface IFileTreeScanProgressRunner

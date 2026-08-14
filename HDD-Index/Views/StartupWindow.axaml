@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HDD_Index.ViewModels"
+        x:Class="HDD_Index.Views.StartupWindow"
+        x:DataType="vm:StartupViewModel"
+        Width="680"
+        Height="440"
+        MinWidth="560"
+        MinHeight="360"
+        WindowStartupLocation="CenterScreen"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="HDD Index 启动设置">
+    <Grid Margin="28" RowDefinitions="Auto,Auto,*,Auto">
+        <TextBlock Grid.Row="0"
+                   FontSize="24"
+                   FontWeight="SemiBold"
+                   Text="{Binding Heading}" />
+        <TextBlock Grid.Row="1"
+                   Margin="0,14,0,18"
+                   TextWrapping="Wrap"
+                   Text="{Binding Summary}" />
+        <Border Grid.Row="2"
+                Padding="14"
+                BorderBrush="Gray"
+                BorderThickness="1"
+                CornerRadius="4">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <TextBlock TextWrapping="Wrap"
+                           FontFamily="Consolas"
+                           Text="{Binding Details}" />
+            </ScrollViewer>
+        </Border>
+        <StackPanel Grid.Row="3"
+                    Margin="0,20,0,0"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal"
+                    Spacing="10">
+            <Button Content="选择数据目录并创建"
+                    Command="{Binding CreateCommand}"
+                    IsVisible="{Binding CanCreate}" />
+            <Button Content="选择新的数据目录"
+                    Command="{Binding RepairDataDirectoryCommand}"
+                    IsVisible="{Binding CanRepairDataDirectory}" />
+            <Button Content="重试"
+                    Command="{Binding RetryCommand}" />
+            <Button Content="退出"
+                    Command="{Binding ExitCommand}" />
+        </StackPanel>
+    </Grid>
+</Window>
