@@ -4,6 +4,8 @@
 [项目路线图](roadmap.md)仍是阶段状态和完成证据的唯一事实来源；
 [架构文档](architecture.md)只描述已经实现的状态，并在各切片合入时同步更新。
 
+P5.1 至 P5.6 已全部完成并合入；本文作为当时的设计依据保留。
+
 ## 背景
 
 P5 启动时，树编辑主链路已经具备稳定边界：
@@ -21,9 +23,9 @@ P5 不替换这些机制，而是处理它们外围仍然集中的职责。启�
 - `MainWindowViewModel` 通过 `Application.Current` 查找窗口，并成为 ViewModels 依赖具体 Views 的临时例外。
 - Repository、File Tree、声明关系和持久化操作的后续步骤分散在命令处理方法中，依靠调用方手工应用 ChangeSet、修复展示状态和标记脏文件。
 
-P5.1 已移除前两项耦合：`FileNode` 现在只保存数据和领域关系，
-`TreeDataStore` 只负责 JSON，目录遍历由独立的 `FileTreeScanner` 承担。
-其余职责是后续切片继续处理的当前重点；切片状态和完成证据以
+P5.1 移除了前两项耦合：`FileNode` 只保存数据和领域关系，`TreeDataStore`
+只负责 JSON，目录遍历由独立的 `FileTreeScanner` 承担。P5.2 至 P5.6 随后完成了
+外部交互、共享会话与持久化、声明、Repository 和 File Tree 用例边界；完成证据以
 [项目路线图](roadmap.md#p5应用编排边界重构)为准。
 
 ## 目标架构
