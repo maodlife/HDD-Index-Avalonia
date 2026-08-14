@@ -9,11 +9,23 @@ namespace HDD_Index.Services;
 
 public class TreeDataStore
 {
+    private readonly IAtomicFileWriter _fileWriter;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
+
+    public TreeDataStore()
+        : this(new AtomicFileWriter())
+    {
+    }
+
+    public TreeDataStore(IAtomicFileWriter fileWriter)
+    {
+        _fileWriter = fileWriter ?? throw new ArgumentNullException(nameof(fileWriter));
+    }
 
     public RepoNode LoadRepoRoot(AppConfig appConfig)
     {
@@ -72,7 +84,7 @@ public class TreeDataStore
     public void SaveRepoRoot(AppConfig appConfig, RepoNode repoNodeRoot)
     {
         var json = JsonSerializer.Serialize(repoNodeRoot, JsonOptions);
-        File.WriteAllText(GetRepoFilePath(appConfig), json);
+        _fileWriter.WriteAllText(GetRepoFilePath(appConfig), json);
     }
 
     public void SaveFileData(FileData fileData)
@@ -85,7 +97,14 @@ public class TreeDataStore
         var json = JsonSerializer.Serialize(
             fileData.FileNodeRoot,
             JsonOptions);
-        File.WriteAllText(jsonFilePath, json);
+        _fileWriter.WriteAllText(jsonFilePath, json);
+    }
+
+    public FileData LoadFileData(
+        string jsonFilePath,
+        string localFolderPath = "")
+    {
+        return CreateFileData(jsonFilePath, localFolderPath);
     }
 
     private static FileData CreateFileData(

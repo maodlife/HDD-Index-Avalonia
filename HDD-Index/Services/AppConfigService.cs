@@ -8,11 +8,23 @@ namespace HDD_Index.Services;
 
 public class AppConfigService
 {
+    private readonly IAtomicFileWriter _fileWriter;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
+
+    public AppConfigService()
+        : this(new AtomicFileWriter())
+    {
+    }
+
+    public AppConfigService(IAtomicFileWriter fileWriter)
+    {
+        _fileWriter = fileWriter ?? throw new ArgumentNullException(nameof(fileWriter));
+    }
 
     public string GetDefaultConfigPath()
     {
@@ -33,11 +45,7 @@ public class AppConfigService
 
     public void Save(string configPath, AppConfig appConfig)
     {
-        var directory = Path.GetDirectoryName(configPath);
-        if (!string.IsNullOrWhiteSpace(directory))
-            Directory.CreateDirectory(directory);
-
         var json = JsonSerializer.Serialize(appConfig, JsonOptions);
-        File.WriteAllText(configPath, json);
+        _fileWriter.WriteAllText(configPath, json);
     }
 }
