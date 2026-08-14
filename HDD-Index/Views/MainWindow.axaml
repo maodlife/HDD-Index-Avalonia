@@ -246,7 +246,7 @@
                         Margin="20"
                         RowDefinitions="Auto,*,Auto">
                         <Grid Grid.Row="0"
-                              ColumnDefinitions="*,Auto">
+                              ColumnDefinitions="*,Auto,Auto">
                             <ComboBox Grid.Column="0"
                                       ItemsSource="{Binding FileBrowser.DiskLabels}"
                                       SelectedItem="{Binding FileBrowser.SelectedDiskLabel}">
@@ -256,6 +256,12 @@
                                     Content="打开文件夹"
                                     Command="{Binding RepositoryEditor.OpenCurrentFileDataFolderCommand}"
                                     IsEnabled="{Binding FileBrowser.HasCurrentLocalFolderPath}">
+                            </Button>
+                            <Button Grid.Column="2"
+                                    Margin="8,0,0,0"
+                                    Content="修复路径"
+                                    Command="{Binding RepositoryEditor.RepairCurrentFileDataPathCommand}"
+                                    IsEnabled="{Binding FileBrowser.HasCurrentFileData}">
                             </Button>
                         </Grid>
                         <TreeDataGrid Grid.Row="1"

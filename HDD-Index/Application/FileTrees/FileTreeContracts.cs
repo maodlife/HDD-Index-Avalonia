@@ -46,6 +46,8 @@ public interface IFileTreePathService
     string Combine(string firstPath, string secondPath);
 
     string GetRelativePath(string relativeTo, string path);
+
+    string GetFileNameWithoutExtension(string path);
 }
 
 public sealed record NewFileTreePlan(

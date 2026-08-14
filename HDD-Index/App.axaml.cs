@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -8,6 +9,7 @@ using HDD_Index.Application.Declarations;
 using HDD_Index.Application.FileTrees;
 using HDD_Index.Application.Persistence;
 using HDD_Index.Application.Repositories;
+using HDD_Index.Application.Startup;
 using HDD_Index.Services;
 using HDD_Index.ViewModels;
 using HDD_Index.Views;
@@ -28,25 +30,76 @@ public partial class App : Avalonia.Application
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
             // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
             DisableAvaloniaDataAnnotationValidation();
-            desktop.MainWindow = CreateMainWindow();
+            var atomicFileWriter = new AtomicFileWriter();
+            var appConfigService = new AppConfigService(atomicFileWriter);
+            var treeDataStore = new TreeDataStore(atomicFileWriter);
+            var sessionStore = new JsonApplicationSessionStore(
+                appConfigService,
+                treeDataStore);
+            var startupService = new ApplicationStartupService(
+                appConfigService.GetDefaultConfigPath(),
+                appConfigService,
+                treeDataStore,
+                sessionStore);
+            var startupResult = startupService.LoadDefault();
+            if (startupResult.State == ApplicationStartupState.Ready)
+            {
+                desktop.MainWindow = CreateMainWindow(
+                    startupResult.Session!,
+                    sessionStore,
+                    startupResult.Warnings);
+            }
+            else
+            {
+                var startupWindow = new StartupWindow();
+                var startupInteraction = new AvaloniaStartupInteraction(startupWindow);
+                startupWindow.DataContext = new StartupViewModel(
+                    startupResult,
+                    startupService,
+                    startupInteraction,
+                    result => CompleteStartup(
+                        desktop,
+                        startupWindow,
+                        sessionStore,
+                        result));
+                desktop.MainWindow = startupWindow;
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static MainWindow CreateMainWindow()
+    private static void CompleteStartup(
+        IClassicDesktopStyleApplicationLifetime desktop,
+        StartupWindow startupWindow,
+        JsonApplicationSessionStore sessionStore,
+        ApplicationStartupResult? result)
     {
-        var appConfigService = new AppConfigService();
-        var treeDataStore = new TreeDataStore();
-        var sessionStore = new JsonApplicationSessionStore(
-            appConfigService,
-            treeDataStore);
+        if (result?.Session == null)
+        {
+            desktop.Shutdown();
+            return;
+        }
+
+        var mainWindow = CreateMainWindow(
+            result.Session,
+            sessionStore,
+            result.Warnings);
+        desktop.MainWindow = mainWindow;
+        mainWindow.Show();
+        startupWindow.Close();
+    }
+
+    private static MainWindow CreateMainWindow(
+        ApplicationSession session,
+        JsonApplicationSessionStore sessionStore,
+        IReadOnlyList<SessionLoadIssue> startupWarnings)
+    {
         var sessionManager = new ApplicationSessionManager(
-            sessionStore.LoadDefault(),
+            session,
             sessionStore);
         var fileTreeScanner = new FileTreeScanner();
 
-        var session = sessionManager.Session;
         var treeProjection = new TreeProjection();
         var repoBrowser = new RepoBrowserViewModel(
             session.RepoNodeRoot,
@@ -90,7 +143,8 @@ public partial class App : Avalonia.Application
             repositoryInteraction,
             fileTreeInteraction,
             scanProgressRunner,
-            pathOpener);
+            pathOpener,
+            startupWarnings);
         return mainWindow;
     }
 

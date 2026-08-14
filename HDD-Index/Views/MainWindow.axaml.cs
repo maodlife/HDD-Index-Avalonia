@@ -15,11 +15,13 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         if (Avalonia.Application.Current is { } application)
             NativeMenu.SetMenu(application, NativeMenu.GetMenu(this));
+        if (DataContext is MainWindowViewModel vm)
+            await vm.ShowStartupWarningsAsync();
     }
 
     protected override async void OnClosing(WindowClosingEventArgs e)

@@ -29,6 +29,8 @@ public class FileBrowserViewModel : ViewModelBase
 
     [Reactive] public bool HasCurrentLocalFolderPath { get; set; }
 
+    [Reactive] public bool HasCurrentFileData { get; set; }
+
     [Reactive] public bool HasSelectedFileNode { get; set; }
 
     public ReactiveCommand<FileNodeVM, Unit> FileNodeSelectedCommand { get; set; }
@@ -95,7 +97,13 @@ public class FileBrowserViewModel : ViewModelBase
 
     private void UpdateCurrentLocalFolderPathState()
     {
+        HasCurrentFileData = CurrentFileData != null;
         HasCurrentLocalFolderPath =
             !string.IsNullOrWhiteSpace(CurrentFileData?.LocalFolderPath);
+    }
+
+    public void RefreshCurrentLocalFolderPathState()
+    {
+        UpdateCurrentLocalFolderPathState();
     }
 }

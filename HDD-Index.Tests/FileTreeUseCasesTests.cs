@@ -91,6 +91,23 @@ public class FileTreeUseCasesTests
     }
 
     [Fact]
+    public void NewFileTreePlanRejectsConfiguredIndexThatWasNotLoaded()
+    {
+        var (useCases, session, _, _) = CreateUseCases();
+        session.AppConfig.FileDataFiles.Add(new FileDataFileConfig
+        {
+            JsonFilePath = "Unavailable\\DiskA.json",
+            LocalFolderPath = "D:\\Unavailable",
+        });
+
+        var plan = useCases.PlanNewFileTree("E:\\Data", "diska");
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("启动加载失败", plan.FailureReason);
+        Assert.Empty(session.FileDatas);
+    }
+
+    [Fact]
     public void CreatingFirstConfiguredTreeMigratesLegacyFileDataEntries()
     {
         var legacy = TestTreeFactory.Bundle(
@@ -280,6 +297,28 @@ public class FileTreeUseCasesTests
         Assert.Empty(rootResult.PersistenceTargets);
     }
 
+    [Fact]
+    public void UpdateLocalFolderPathChangesConfigAndMarksOnlyConfigDirty()
+    {
+        var fileData = TestTreeFactory.Bundle(
+            "DiskA",
+            TestTreeFactory.File("DiskA"));
+        fileData.JsonFilePath = "C:\\Index\\DiskA.json";
+        fileData.LocalFolderPath = "D:\\Old";
+        var (useCases, session, _, _) = CreateUseCases(fileData);
+
+        var result = useCases.UpdateLocalFolderPath(fileData, " E:\\Moved ");
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("E:\\Moved", fileData.LocalFolderPath);
+        var config = Assert.Single(session.AppConfig.FileDataFiles);
+        Assert.Equal("DiskA.json", config.JsonFilePath);
+        Assert.Equal("E:\\Moved", config.LocalFolderPath);
+        Assert.Equal(
+            new[] { PersistenceTarget.AppConfig },
+            result.PersistenceTargets);
+    }
+
     private static (
         FileTreeUseCases UseCases,
         ApplicationSession Session,
@@ -367,6 +406,11 @@ public class FileTreeUseCasesTests
             return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
                 ? path[prefix.Length..]
                 : path;
+        }
+
+        public string GetFileNameWithoutExtension(string path)
+        {
+            return System.IO.Path.GetFileNameWithoutExtension(path);
         }
     }
 }
