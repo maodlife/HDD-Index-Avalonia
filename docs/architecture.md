@@ -12,6 +12,8 @@
 - 业务操作通过 `TreeChangeSet` 描述需要更新的投影。
 - ViewModel 只保留展示数据、树节点包装和 UI 状态。
 - 脏文件追踪与 UI 投影变化相互独立。
+- 启动失败以强类型结果进入恢复界面，单个磁盘索引故障与共享会话故障分开处理。
+- JSON 写入先落到同目录临时文件，再以逐文件原子操作发布。
 - 现有 JSON 数据格式保持向后兼容。
 
 ## 整体架构
@@ -21,13 +23,17 @@ flowchart TB
     subgraph Bootstrap["启动与组合"]
         Program["Program<br/>Avalonia 启动"]
         App["App<br/>手工组合根"]
+        StartupWindow["StartupWindow<br/>首次设置与故障恢复"]
         MainWindow["MainWindow"]
-        Program --> App --> MainWindow
+        Program --> App
+        App --> StartupWindow
+        App --> MainWindow
     end
 
     subgraph Presentation["表现层"]
         Views["Views / Dialogs<br/>AXAML 界面"]
         MainVM["MainWindowViewModel<br/>窗口级交互与导航"]
+        StartupVM["StartupViewModel<br/>启动状态与恢复命令"]
         BrowserVM["RepoBrowserViewModel<br/>FileBrowserViewModel"]
         NodeVM["RepoNodeVM / FileNodeVM<br/>轻量 Model 包装器"]
         Navigation["TreeNavigationService<br/>搜索、定位、展开"]
@@ -35,6 +41,7 @@ flowchart TB
 
         MainWindow --> Views
         Views <-->|"绑定 / ReactiveCommand"| MainVM
+        StartupWindow <-->|"绑定 / Command"| StartupVM
         MainVM --> BrowserVM
         BrowserVM --> NodeVM
         MainVM --> Navigation
@@ -58,6 +65,8 @@ flowchart TB
         Session["ApplicationSession<br/>共享会话 Model"]
         SessionManager["ApplicationSessionManager<br/>逻辑脏目标与保存编排"]
         SessionStorePort["IApplicationSessionStore<br/>会话持久化端口"]
+        StartupContracts["Startup<br/>启动状态、诊断与恢复端口"]
+        SessionLoadResult["SessionLoadResult<br/>共享故障与隔离警告"]
 
         Collector --> ChangeSet
         ChangeSet --> TreeChanges
@@ -71,6 +80,7 @@ flowchart TB
         FileTreeUseCases --> ChangeSet
         SessionManager --> Session
         SessionManager --> SessionStorePort
+        StartupContracts --> SessionLoadResult
     end
 
     subgraph Adapters["外部适配器"]
@@ -84,8 +94,10 @@ flowchart TB
         PathService["FileTreePathService<br/>文件树路径与存在性"]
         Declaration["DeclarationSyncService<br/>声明持有与双向同步"]
         SessionStore["JsonApplicationSessionStore<br/>会话加载与保存"]
+        StartupService["ApplicationStartupService<br/>首次创建与路径修复"]
         DataStore["TreeDataStore<br/>树数据持久化"]
         ConfigService["AppConfigService<br/>配置持久化"]
+        AtomicWriter["AtomicFileWriter<br/>刷新临时文件并原子发布"]
         Scanner["FileTreeScanner<br/>本地目录扫描"]
 
         RepoEditor --> Declaration
@@ -96,6 +108,11 @@ flowchart TB
         Scanner --> ScanContract
         SessionStore --> DataStore
         SessionStore --> ConfigService
+        StartupService --> SessionStore
+        StartupService --> DataStore
+        StartupService --> ConfigService
+        DataStore --> AtomicWriter
+        ConfigService --> AtomicWriter
     end
 
     subgraph Domain["Models / 领域数据"]
@@ -120,6 +137,7 @@ flowchart TB
         ConfigJSON["config.json"]
         RepoJSON["Repository JSON"]
         FileJSON["各磁盘 File Tree JSON"]
+        TempJSON["同目录临时 JSON"]
         Explorer["Windows Explorer"]
     end
 
@@ -130,6 +148,8 @@ flowchart TB
     MainVM --> InteractionPorts
 
     App --> MainVM
+    App --> StartupVM
+    App --> StartupService
     App --> SessionStore
     App --> SessionManager
     App --> AvaloniaAdapters
@@ -138,6 +158,7 @@ flowchart TB
     AvaloniaAdapters --> Views
     ExplorerAdapter --> InteractionPorts
     SessionStore -. "实现" .-> SessionStorePort
+    StartupService -. "实现" .-> StartupContracts
     Declaration -. "实现" .-> DeclarationPort
     RepoEditor -. "实现" .-> RepositoryPort
     FileEditor -. "实现编辑端口" .-> FileTreePorts
@@ -164,6 +185,10 @@ flowchart TB
     ConfigService <-->|"读写"| ConfigJSON
     DataStore <-->|"读写"| RepoJSON
     DataStore <-->|"读写"| FileJSON
+    AtomicWriter -->|"写入并刷新"| TempJSON
+    TempJSON -->|"原子替换 / 移动"| ConfigJSON
+    TempJSON -->|"原子替换 / 移动"| RepoJSON
+    TempJSON -->|"原子替换 / 移动"| FileJSON
     DataStore --> RepoNode
     DataStore --> FileData
     ExplorerAdapter -->|"打开路径"| Explorer
@@ -220,6 +245,12 @@ flowchart TB
 - `PersistenceTarget`：使用配置、Repository 或磁盘标签描述逻辑持久化目标，不把裸文件路径传播到业务命令。
 - `ApplicationSessionManager`：登记脏目标、解析未保存文件列表，并按配置、Repository、File Tree 的稳定顺序保存；整批成功后才清除脏状态。
 - `IApplicationSessionStore`：加载会话、解析目标文件路径和保存单个逻辑目标的 UI 无关端口。
+- `SessionLoadResult`、`SessionLoadIssue`：区分阻断共享会话的故障与可隔离的 File Tree 警告，并携带问题类型、实际文件路径和磁盘标签。
+
+`Application/Startup` 定义启动恢复的 UI 无关协议：
+
+- `ApplicationStartupResult`：明确表示正常就绪、首次运行或阻断启动。
+- `IApplicationStartupService`：加载默认会话、创建首次运行数据，以及验证并修复数据目录。
 
 `Application/Declarations` 定义声明持有命令的 UI 无关应用编排：
 
@@ -250,10 +281,13 @@ flowchart TB
 
 - 编辑服务：`RepoTreeEditor`、`FileTreeEditor`。
 - 关系同步：`DeclarationSyncService`。
-- 持久化：`JsonApplicationSessionStore`、`TreeDataStore`、`AppConfigService`。
+- 持久化：`JsonApplicationSessionStore`、`TreeDataStore`、`AppConfigService`、`AtomicFileWriter`。
+- 启动恢复：`ApplicationStartupService`。
 - 外部数据与路径：`FileTreeScanner`、`FileTreePathService`。
 
-树编辑和声明同步服务只接收 Model，并在修改完成后返回 ChangeSet。`RepoTreeEditor` 实现 Repository 用例使用的编辑端口；`FileTreeEditor` 实现 File Tree 用例使用的删除、刷新与关系同步端口；`DeclarationSyncService` 为声明用例提供双向关系维护和策略验证原语，也继续被 Repository/File Tree 编辑服务复用。`JsonApplicationSessionStore` 组合配置和树数据存储，创建共享会话；具体持久化服务直接读写 Model，不创建 ViewModel。
+树编辑和声明同步服务只接收 Model，并在修改完成后返回 ChangeSet。`RepoTreeEditor` 实现 Repository 用例使用的编辑端口；`FileTreeEditor` 实现 File Tree 用例使用的删除、刷新与关系同步端口；`DeclarationSyncService` 为声明用例提供双向关系维护和策略验证原语，也继续被 Repository/File Tree 编辑服务复用。`JsonApplicationSessionStore` 组合配置和树数据存储，创建共享会话；配置或 Repository 故障返回阻断问题，单个 File Tree 故障返回警告并继续加载其他索引。`ApplicationStartupService` 在其上组织首次创建和数据目录修复。具体持久化服务直接读写 Model，不创建 ViewModel。
+
+`AppConfigService` 与 `TreeDataStore` 不直接覆盖目标 JSON，而是共用 `AtomicFileWriter`：在目标目录写入唯一临时文件、显式刷新，再对已有目标执行原子替换或对新目标执行同目录移动。任何发布失败都会保留旧目标，并尽力清理临时文件。
 
 `FileTreeScanner` 通过最小的文件系统读取接口遍历本地目录。完整成功才返回可应用的 `FileNode` 根；取消、根失败或任何阻断性局部问题都不返回可应用树。隐藏属性读取失败作为非阻断性警告，目录符号链接和 Windows junction 作为阻断性问题。
 
@@ -262,6 +296,7 @@ flowchart TB
 实现 Application 层定义的外部交互端口：
 
 - Avalonia 适配器负责创建具体对话框、调用文件夹选择器，以及显示带取消能力的扫描进度窗口。
+- 启动与 File Tree 适配器分别为首次创建、数据目录修复和单个索引的本地目录修复提供文件夹选择能力。
 - `WindowsExplorerPathOpener` 负责验证本地路径并启动 Windows Explorer。
 
 适配器可以依赖端口、Views 和平台 API，但 ViewModels 不得反向依赖适配器。
@@ -269,6 +304,7 @@ flowchart TB
 ### `ViewModels`
 
 - `MainWindowViewModel`：收集用户选择和确认、调用应用用例与外部交互端口、应用 ChangeSet 和持久化目标，并维护窗口级扫描状态。
+- `StartupViewModel`：把首次运行或阻断诊断转换为可重试、可创建或可修复的启动命令，不直接访问文件系统。
 - `TreeProjection`：维护 Model 对象引用到节点 ViewModel 的会话级映射。
 - `RepoNodeVM`、`FileNodeVM`：直接读取 Model 属性，只提供展示计算和变化通知。
 - `RepoBrowserViewModel`、`FileBrowserViewModel`：管理选择、当前磁盘和 TreeDataGrid 数据源。
@@ -276,7 +312,7 @@ flowchart TB
 
 `TreeProjection` 使用 Model 对象引用作为映射键。该身份只需要在一次应用运行期间稳定，不写入 JSON。
 
-`App` 创建 JSON 会话存储并加载 `ApplicationSession`，再围绕同一组会话 Model 显式创建服务、投影、子 ViewModel 和外部适配器，通过构造函数注入 `MainWindowViewModel`。当前不使用依赖注入容器。
+`App` 创建共用的原子写入器、JSON 会话存储和启动服务。启动就绪时，它围绕同一组会话 Model 显式创建服务、投影、子 ViewModel 和外部适配器；首次运行或阻断时先展示 `StartupWindow`，恢复成功后再切换到 `MainWindow`。当前不使用依赖注入容器。
 
 ### `Views`
 
@@ -411,6 +447,39 @@ flowchart LR
 - 删除节点后的关联清理。
 - 文件树刷新后的关系重新验证。
 
+## 启动与故障隔离
+
+```mermaid
+flowchart TD
+    Start["读取默认 config.json"]
+    Missing{"配置是否存在？"}
+    Setup["首次启动窗口<br/>选择数据目录"]
+    Required["加载配置与 Repository"]
+    Blocking{"共享数据是否有效？"}
+    Repair["显示路径与原因<br/>重试或选择迁移后的数据目录"]
+    Indexes["逐个加载 File Tree"]
+    Isolate["隔离失败索引<br/>保留原配置与原文件"]
+    Main["进入主窗口"]
+    Warning["汇总显示被隔离索引"]
+
+    Start --> Missing
+    Missing -->|"否"| Setup
+    Setup -->|"不存在同名数据时创建"| Required
+    Missing -->|"是"| Required
+    Required --> Blocking
+    Blocking -->|"否"| Repair
+    Repair -->|"新目录验证成功后写回"| Required
+    Blocking -->|"是"| Indexes
+    Indexes -->|"全部成功"| Main
+    Indexes -->|"部分失败"| Isolate --> Main --> Warning
+```
+
+配置和 Repository 共同定义一次运行的共享会话，因此缺失、无效或不可读时必须停留在启动窗口。配置仍可读时，数据目录修复会先用候选路径完整加载 Repository，再原子写回 `JsonFilePath`；验证失败不会改动原配置。
+
+File Tree 相互独立。`JsonApplicationSessionStore` 按配置逐个加载，记录缺失、无效或不可读的索引并跳过，健康索引仍加入 `ApplicationSession`。被隔离项继续留在 `AppConfig.FileDataFiles` 中，但不进入会话的 `FileDatas`，所以脏目标枚举和保存不会触及故障文件；新建索引也会拒绝复用其已配置标签。
+
+真实本地目录不参与 JSON 索引加载，因为离线浏览是正常使用场景。迁移磁盘或盘符后，用户可在主界面为当前索引选择新的 `LocalFolderPath`；该修改只登记配置文件为脏目标。
+
 ## 持久化
 
 系统不使用数据库，数据存放在 JSON 文件中：
@@ -424,7 +493,9 @@ flowchart LR
              └── 各索引对应的本地目录
 ```
 
-`ApplicationSessionManager` 记录发生变化的逻辑目标，并由 `IApplicationSessionStore` 将目标解析为具体 JSON 路径。保存时依次处理配置、Repository 和会话中的 File Tree；只有整批保存成功才清除脏目标，失败时保留整批目标供再次保存。声明、Repository 和 File Tree 用例的结果都携带对应持久化目标，ViewModel 只登记结果。该机制不提供原子写入或多文件事务。
+`ApplicationSessionManager` 记录发生变化的逻辑目标，并由 `IApplicationSessionStore` 将目标解析为具体 JSON 路径。保存时依次处理配置、Repository 和会话中的 File Tree；只有整批保存成功才清除脏目标，失败时保留整批目标供再次保存。声明、Repository 和 File Tree 用例的结果都携带对应持久化目标，ViewModel 只登记结果。
+
+每个目标由 `AtomicFileWriter` 单独原子发布：临时文件与目标位于同一目录，内容写完并刷新到磁盘后才替换旧文件。这样单次写入失败不会留下被截断的目标 JSON，但多个目标之间仍不是一个事务；如果第三个文件失败，前两个已经成功发布的文件不会自动回滚，所有逻辑脏目标则继续保留以便用户重试。
 
 ## 依赖约束
 
@@ -439,17 +510,19 @@ flowchart LR
 7. 树编辑必须通过服务修改 Model，并返回 `TreeChangeSet`。
 8. `ApplicationSession`、服务、投影和 ViewModel 必须共享同一组 Model 对象。
 9. 脏目标登记与保存编排统一通过 `ApplicationSessionManager`，具体文件路径和 JSON I/O 由持久化实现负责。
-10. 应用用例不得打开窗口；其业务结果应返回 ChangeSet、验证信息和受影响持久化目标。
-11. `TreeProjection` 是节点结构从 Model 投影到 ViewModel 的统一入口。
-12. UI 展开、选择、颜色和格式化等状态留在 ViewModel。
-13. 外部交互契约必须保持 UI 无关，具体 Avalonia 或平台调用只放在 Adapters。
-14. JSON 属性或结构发生变化时，必须处理旧数据兼容。
-15. 新增跨层依赖时，应更新或通过架构依赖测试。
+10. JSON 持久化必须通过逐文件原子写入器，不得重新直接截断目标文件。
+11. 应用用例不得打开窗口；其业务结果应返回 ChangeSet、验证信息和受影响持久化目标。
+12. `TreeProjection` 是节点结构从 Model 投影到 ViewModel 的统一入口。
+13. UI 展开、选择、颜色和格式化等状态留在 ViewModel。
+14. 外部交互契约必须保持 UI 无关，具体 Avalonia 或平台调用只放在 Adapters。
+15. JSON 属性或结构发生变化时，必须处理旧数据兼容。
+16. 启动故障必须携带类型和实际路径；不得静默重建损坏数据，单个 File Tree 故障不得阻断健康索引。
+17. 新增跨层依赖时，应更新或通过架构依赖测试。
 
 ## 当前限制
 
 - 没有依赖注入容器，应用依赖由 `App` 显式手工组合。
-- 没有通用事务回滚、撤销或重做机制。
+- 没有多文件事务回滚、自动备份、应用内损坏文件恢复、撤销或重做机制。
 - `MainWindowViewModel` 仍集中维护窗口级命令、导航、选择、扫描进度和结果展示，尚未进一步拆分成多个领域命令 ViewModel。
 - Avalonia UI 支持跨平台，但路径打开适配器当前是 Windows Explorer 专用实现。
-- 应用启动依赖默认路径下已经存在有效配置和 Repository 数据文件。
+- 配置或 Repository 损坏时只提供诊断、重试和数据目录重选；从备份恢复仍需在应用外完成。
