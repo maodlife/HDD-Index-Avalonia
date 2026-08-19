@@ -1,5 +1,9 @@
 # 升级说明
 
+## .NET 10 LTS 开发基线
+
+自 2026-08-20 起，`master` 上的应用、测试、CI 和 Windows 发布链路统一使用 .NET 10 LTS。运行时迁移不改变配置、Repository 或 File Tree 的 JSON 格式。Windows x64 发布包仍是自包含版本，普通用户不需要单独安装 .NET 10。
+
 ## v1.2 升级说明
 
 `v1.2` 不改变现有配置、Repository 或 File Tree 的 JSON 格式，不需要执行数据迁移。升级后：
@@ -14,7 +18,7 @@
 ## 标准升级步骤
 
 1. 在旧版本中保存所有未保存修改并退出应用。
-2. 按照[数据目录说明](data-directory.md)备份配置文件和全部索引 JSON。
+2. 按照[数据目录说明](data-directory.md)保护配置文件和全部索引 JSON：使用 Git/GitHub 时确认最新变化已经提交并推送，否则创建手工备份。
 3. 从 GitHub Releases 下载目标版本的 `HDD-Index-<版本tag>-win-x64.zip`。
 4. 可选：使用同一 Release 中的 `.sha256` 文件校验 ZIP。
 5. 将 ZIP 解压到一个新的空目录，不要直接覆盖正在使用的旧程序目录。

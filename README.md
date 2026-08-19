@@ -1,6 +1,6 @@
 # HDD-Index-Avalonia
 
-HDD Index 是一个基于 C#、.NET 9 和 Avalonia 的桌面端离线磁盘目录索引工具。
+HDD Index 是一个基于 C#、.NET 10 LTS 和 Avalonia 的桌面端离线磁盘目录索引工具。
 
 它通过两类树帮助用户整理分散在多块磁盘中的文件：
 
@@ -46,7 +46,7 @@ Windows 用户可以从 [GitHub Releases](https://github.com/maodlife/HDD-Index-
 
 ## 技术栈
 
-- .NET 9
+- .NET 10 LTS
 - Avalonia 11
 - ReactiveUI
 - CommunityToolkit.Mvvm
@@ -126,6 +126,8 @@ flowchart LR
 真实本地目录移动或盘符变化后，在主界面的磁盘索引区域选择对应标签并点击“修复路径”。这只更新配置中的 `LocalFolderPath`，不会重新扫描或覆盖现有索引。
 
 配置、Repository 和每个磁盘索引都会先完整写入同目录临时文件并刷新，再原子替换目标。该保证以单个 JSON 为单位；一次保存涉及多个 JSON 时，它们之间不构成全局事务。
+
+当前维护者将这些 JSON 放在 Git 仓库中并推送到 GitHub，已提交并推送的版本可以通过 Git 历史恢复。因此自动备份和应用内恢复目前暂缓；Git 无法保护尚未提交的本地修改，不使用 Git 管理数据的用户仍应按[数据目录说明](docs/data-directory.md)自行备份。
 
 ## 构建与测试
 

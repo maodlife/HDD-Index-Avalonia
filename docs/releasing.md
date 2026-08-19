@@ -7,7 +7,7 @@
 推送符合 `vMAJOR.MINOR` 或 `vMAJOR.MINOR.PATCH` 格式的 Git tag 后，GitHub Actions 会在全新的 Windows runner 上执行：
 
 1. 检出 tag 对应的提交
-2. 安装并选择 .NET 9 SDK
+2. 安装并选择 .NET 10 SDK
 3. 恢复依赖、执行严格 Release 构建和全部测试
 4. 发布自包含的 Windows x64 程序
 5. 将程序、README、LICENSE、文档和截图压缩为 ZIP
@@ -16,9 +16,10 @@
 
 Release 工作流不会修改或上传用户的配置和索引数据。
 
-## v1.2 发布清单
+## v1.2 发布记录
 
-`v1.2` 是 P4 与 P3.1 的可靠性版本，包含：
+[`v1.2`](https://github.com/maodlife/HDD-Index-Avalonia/releases/tag/v1.2)
+已于 2026-08-19 通过自动发布流程创建。它是 P4 与 P3.1 的可靠性版本，包含：
 
 - 首次启动设置和空 Repository 创建。
 - 数据目录与单个索引本地目录的路径修复。
@@ -26,7 +27,7 @@ Release 工作流不会修改或上传用户的配置和索引数据。
 - 单个缺失、损坏或不可读索引的故障隔离。
 - 配置、Repository 和 File Tree JSON 的逐文件原子保存。
 
-创建 tag 前必须满足：
+发布前已经完成：
 
 1. 路线图已将 P4、P4.1 至 P4.3、P3.1 标为已完成。
 2. 发布准备 PR 已合入，并且最新 `master` 的 CI 成功。
@@ -36,17 +37,11 @@ Release 工作流不会修改或上传用户的配置和索引数据。
    - 两个索引中损坏一个时，健康索引仍可打开，损坏文件不会被保存覆盖。
    - 修改并保存健康数据后，退出和重新启动均能正常加载。
 4. Windows x64 自包含发布包能够生成、解压并启动，ZIP 的 SHA-256 与校验文件一致。
-5. `v1.2` tag 和 GitHub Release 尚不存在。
+5. `v1.2` tag 指向当时最新的 `master`，Release 工作流成功创建公开附件。
 
 首次启动会使用当前 Windows 用户的“文档”目录。为了不影响真实配置，专项冒烟验证应在 Windows Sandbox、一次性 Windows 用户或其他隔离环境中进行，不要临时删除或移动正在使用的真实配置。
 
-全部满足后，按照下文通用流程发布，版本变量使用：
-
-```powershell
-$versionTag = "v1.2"
-```
-
-`v1.2` 会被工作流转换为程序集版本 `1.2.0`，并生成：
+`v1.2` 被工作流转换为程序集版本 `1.2.0`，生成：
 
 ```text
 HDD-Index-v1.2-win-x64.zip

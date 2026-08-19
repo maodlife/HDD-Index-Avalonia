@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- 测试项目使用的 .NET 版本，需要和主项目兼容。 -->
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>HDD_Index.Tests</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
