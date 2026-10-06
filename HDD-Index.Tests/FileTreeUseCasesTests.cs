@@ -90,13 +90,16 @@ public class FileTreeUseCasesTests
         Assert.Empty(session.AppConfig.FileDataFiles);
     }
 
-    [Fact]
-    public void NewFileTreePlanRejectsConfiguredIndexThatWasNotLoaded()
+    [Theory]
+    [InlineData(@"Unavailable\DiskA.json")]
+    [InlineData("Unavailable/DiskA.json")]
+    [InlineData(@"Unavailable\Nested/DiskA.json")]
+    public void NewFileTreePlanRejectsConfiguredIndexThatWasNotLoaded(string configuredPath)
     {
         var (useCases, session, _, _) = CreateUseCases();
         session.AppConfig.FileDataFiles.Add(new FileDataFileConfig
         {
-            JsonFilePath = "Unavailable\\DiskA.json",
+            JsonFilePath = configuredPath,
             LocalFolderPath = "D:\\Unavailable",
         });
 
@@ -319,6 +322,49 @@ public class FileTreeUseCasesTests
             result.PersistenceTargets);
     }
 
+    [Theory]
+    [InlineData(@"Nested\DiskA.json")]
+    [InlineData("Nested/DiskA.json")]
+    public void UpdateLocalFolderPathMatchesConfiguredIndexAcrossSeparators(string configuredPath)
+    {
+        var fileData = TestTreeFactory.Bundle("DiskA", TestTreeFactory.File("DiskA"));
+        fileData.JsonFilePath = @"C:\Index\Nested\DiskA.json";
+        var (useCases, session, _, _) = CreateUseCases(fileData);
+        var config = new FileDataFileConfig
+        {
+            JsonFilePath = configuredPath,
+            LocalFolderPath = @"D:\Old",
+        };
+        session.AppConfig.FileDataFiles.Add(config);
+
+        var result = useCases.UpdateLocalFolderPath(fileData, @"E:\Moved");
+
+        Assert.True(result.Succeeded);
+        Assert.Same(config, Assert.Single(session.AppConfig.FileDataFiles));
+        Assert.Equal(@"E:\Moved", config.LocalFolderPath);
+        Assert.Equal(@"E:\Moved", fileData.LocalFolderPath);
+        Assert.Equal(new[] { PersistenceTarget.AppConfig }, result.PersistenceTargets);
+    }
+
+    [Fact]
+    public void IndexPathChecksIgnoreInvalidConfiguredEntries()
+    {
+        var fileData = TestTreeFactory.Bundle("DiskA", TestTreeFactory.File("DiskA"));
+        fileData.JsonFilePath = @"C:\Index\DiskA.json";
+        var (useCases, session, _, _) = CreateUseCases(fileData);
+        session.AppConfig.FileDataFiles.Add(new FileDataFileConfig { JsonFilePath = null! });
+        var validConfig = new FileDataFileConfig { JsonFilePath = "DiskA.json" };
+        session.AppConfig.FileDataFiles.Add(validConfig);
+
+        var plan = useCases.PlanNewFileTree(@"E:\Data", "DiskB");
+        var repair = useCases.UpdateLocalFolderPath(fileData, @"E:\Moved");
+
+        Assert.True(plan.Succeeded);
+        Assert.True(repair.Succeeded);
+        Assert.Equal(@"E:\Moved", validConfig.LocalFolderPath);
+        Assert.Equal(2, session.AppConfig.FileDataFiles.Count);
+    }
+
     private static (
         FileTreeUseCases UseCases,
         ApplicationSession Session,
@@ -410,7 +456,12 @@ public class FileTreeUseCasesTests
 
         public string GetFileNameWithoutExtension(string path)
         {
-            return System.IO.Path.GetFileNameWithoutExtension(path);
+            return new FileTreePathService().GetFileNameWithoutExtension(path);
+        }
+
+        public bool AreIndexPathsEqual(string firstPath, string secondPath)
+        {
+            return new FileTreePathService().AreIndexPathsEqual(firstPath, secondPath);
         }
     }
 }

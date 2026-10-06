@@ -61,6 +61,45 @@ public class JsonApplicationSessionStoreTests
             loadedFileData.FileNodeRoot.Children[0].Parent);
     }
 
+    [Theory]
+    [InlineData(@"Nested\Indexes\DiskA.json")]
+    [InlineData("Nested/Indexes/DiskA.json")]
+    [InlineData(@"Nested\Indexes/DiskA.json")]
+    public void LoadWithDiagnostics_LoadsPortableAndLegacyIndexPaths(string configuredPath)
+    {
+        using var tempDirectory = new TempDirectory();
+        var dataDirectory = Path.Combine(tempDirectory.Path, "data");
+        var indexDirectory = Path.Combine(dataDirectory, "Nested", "Indexes");
+        Directory.CreateDirectory(indexDirectory);
+        var configPath = Path.Combine(tempDirectory.Path, "config.json");
+        var appConfig = new AppConfig
+        {
+            JsonFilePath = dataDirectory,
+            RepoFileName = "repo.json",
+            FileDataFiles = [new FileDataFileConfig { JsonFilePath = configuredPath }],
+        };
+        var configService = new AppConfigService();
+        var treeDataStore = new TreeDataStore();
+        configService.Save(configPath, appConfig);
+        treeDataStore.SaveRepoRoot(appConfig, TestTreeFactory.Repo("Repo"));
+        var indexPath = Path.Combine(indexDirectory, "DiskA.json");
+        treeDataStore.SaveFileData(new FileData
+        {
+            DiskLabel = "DiskA",
+            JsonFilePath = indexPath,
+            FileNodeRoot = TestTreeFactory.File("DiskA"),
+        });
+        var store = new JsonApplicationSessionStore(configService, treeDataStore);
+
+        var result = store.LoadWithDiagnostics(configPath);
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Warnings);
+        var loaded = Assert.Single(result.Session!.FileDatas);
+        Assert.Equal("DiskA", loaded.DiskLabel);
+        Assert.Equal(indexPath, loaded.JsonFilePath);
+    }
+
     [Fact]
     public void Save_AppConfigTargetUsesTheSessionConfigPath()
     {

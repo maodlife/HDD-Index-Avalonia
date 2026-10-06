@@ -49,7 +49,7 @@ public class TreeDataStore
                 if (string.IsNullOrWhiteSpace(fileDataConfig.JsonFilePath))
                     continue;
 
-                var file = Path.Combine(
+                var file = ConfiguredIndexPath.Combine(
                     appConfig.JsonFilePath,
                     fileDataConfig.JsonFilePath);
                 fileDatas.Add(CreateFileData(

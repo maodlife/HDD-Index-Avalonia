@@ -27,9 +27,11 @@ public class JsonPersistenceAtomicityTests
     {
         var writer = new RecordingAtomicFileWriter();
         var service = new TreeDataStore(writer);
+        var dataDirectory = Path.Combine(Path.GetTempPath(), "Data");
+        var indexPath = Path.Combine(dataDirectory, "disk-a.json");
         var appConfig = new AppConfig
         {
-            JsonFilePath = "C:\\Data",
+            JsonFilePath = dataDirectory,
             RepoFileName = "repo.json",
         };
 
@@ -37,13 +39,13 @@ public class JsonPersistenceAtomicityTests
         service.SaveFileData(new FileData
         {
             DiskLabel = "DiskA",
-            JsonFilePath = "C:\\Data\\disk-a.json",
+            JsonFilePath = indexPath,
             FileNodeRoot = TestTreeFactory.File("DiskA"),
         });
 
         Assert.Equal(2, writer.Writes.Count);
-        Assert.Equal("C:\\Data\\repo.json", writer.Writes[0].FilePath);
-        Assert.Equal("C:\\Data\\disk-a.json", writer.Writes[1].FilePath);
+        Assert.Equal(Path.Combine(dataDirectory, "repo.json"), writer.Writes[0].FilePath);
+        Assert.Equal(indexPath, writer.Writes[1].FilePath);
     }
 
     private sealed class RecordingAtomicFileWriter : IAtomicFileWriter
