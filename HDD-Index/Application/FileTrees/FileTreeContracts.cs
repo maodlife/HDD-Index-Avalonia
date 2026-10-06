@@ -48,6 +48,8 @@ public interface IFileTreePathService
     string GetRelativePath(string relativeTo, string path);
 
     string GetFileNameWithoutExtension(string path);
+
+    bool AreIndexPathsEqual(string firstPath, string secondPath);
 }
 
 public sealed record NewFileTreePlan(

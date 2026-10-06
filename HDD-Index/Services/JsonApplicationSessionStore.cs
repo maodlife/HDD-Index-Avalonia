@@ -306,7 +306,7 @@ public sealed class JsonApplicationSessionStore : IApplicationSessionStore
         string filePath;
         try
         {
-            filePath = Path.GetFullPath(Path.Combine(
+            filePath = Path.GetFullPath(ConfiguredIndexPath.Combine(
                 appConfig.JsonFilePath,
                 fileDataConfig.JsonFilePath));
         }
@@ -316,7 +316,7 @@ public sealed class JsonApplicationSessionStore : IApplicationSessionStore
                 SessionLoadIssueKind.FileIndexConfigurationInvalid,
                 fileDataConfig.JsonFilePath,
                 $"磁盘索引路径无效，已跳过：{ex.Message}",
-                Path.GetFileNameWithoutExtension(fileDataConfig.JsonFilePath)));
+                ConfiguredIndexPath.GetFileNameWithoutExtension(fileDataConfig.JsonFilePath)));
             return;
         }
 

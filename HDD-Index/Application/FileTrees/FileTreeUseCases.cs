@@ -94,6 +94,8 @@ public sealed class FileTreeUseCases
         if (_session.AppConfig.FileDataFiles.Any(config =>
                 config != null
                 &&
+                !string.IsNullOrWhiteSpace(config.JsonFilePath)
+                &&
                 string.Equals(
                     _pathService.GetFileNameWithoutExtension(config.JsonFilePath),
                     diskLabel,
@@ -336,10 +338,11 @@ public sealed class FileTreeUseCases
         var fileDataConfig = _session.AppConfig.FileDataFiles.FirstOrDefault(config =>
             config != null
             &&
-            string.Equals(
+            !string.IsNullOrWhiteSpace(config.JsonFilePath)
+            &&
+            _pathService.AreIndexPathsEqual(
                 config.JsonFilePath,
-                relativeJsonFilePath,
-                StringComparison.OrdinalIgnoreCase));
+                relativeJsonFilePath));
         if (fileDataConfig == null)
         {
             return FileTreeOperationResult.Failure(

@@ -60,9 +60,14 @@ public class FolderSelectDialogViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(localPath))
             return;
 
-        SelectedPath = localPath.TrimEnd(
-            Path.DirectorySeparatorChar,
-            Path.AltDirectorySeparatorChar);
+        var trimmedPath = Path.TrimEndingDirectorySeparator(localPath);
+        while (trimmedPath.Length < localPath.Length)
+        {
+            localPath = trimmedPath;
+            trimmedPath = Path.TrimEndingDirectorySeparator(localPath);
+        }
+
+        SelectedPath = trimmedPath;
     }
 
     private void Confirm()

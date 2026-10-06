@@ -21,8 +21,8 @@ public class ApplicationSessionManagerTests
         Assert.Equal(
             new[]
             {
-                @"C:\data\disk-b.json",
-                @"C:\data\repo.json",
+                Path.Combine(session.AppConfig.JsonFilePath, "disk-b.json"),
+                Path.Combine(session.AppConfig.JsonFilePath, "repo.json"),
             },
             manager.GetDirtyFilePaths());
     }
@@ -94,12 +94,13 @@ public class ApplicationSessionManagerTests
         var session = CreateSession(fileDatas: []);
         var store = new RecordingSessionStore();
         var manager = new ApplicationSessionManager(session, store);
-        session.FileDatas.Add(CreateFileData("DiskC", @"C:\data\disk-c.json"));
+        var indexPath = Path.Combine(session.AppConfig.JsonFilePath, "disk-c.json");
+        session.FileDatas.Add(CreateFileData("DiskC", indexPath));
 
         manager.MarkDirty(PersistenceTarget.ForFileData("DiskC"));
 
         Assert.Equal(
-            new[] { @"C:\data\disk-c.json" },
+            new[] { indexPath },
             manager.GetDirtyFilePaths());
     }
 
@@ -125,20 +126,21 @@ public class ApplicationSessionManagerTests
     private static ApplicationSession CreateSession(
         List<FileData>? fileDatas = null)
     {
+        var dataDirectory = Path.Combine(Path.GetTempPath(), "data");
         var appConfig = new AppConfig
         {
-            JsonFilePath = @"C:\data",
+            JsonFilePath = dataDirectory,
             RepoFileName = "repo.json",
         };
         return new ApplicationSession(
-            @"C:\data\config.json",
+            Path.Combine(dataDirectory, "config.json"),
             appConfig,
             TestTreeFactory.Repo("Repo"),
             fileDatas
             ??
             [
-                CreateFileData("DiskA", @"C:\data\disk-a.json"),
-                CreateFileData("DiskB", @"C:\data\disk-b.json"),
+                CreateFileData("DiskA", Path.Combine(dataDirectory, "disk-a.json")),
+                CreateFileData("DiskB", Path.Combine(dataDirectory, "disk-b.json")),
             ]);
     }
 

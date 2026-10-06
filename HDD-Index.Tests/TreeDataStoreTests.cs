@@ -62,6 +62,35 @@ public class TreeDataStoreTests
         Assert.Equal("Movies", loaded.FileNodeRoot.Children[0].Name);
     }
 
+    [Theory]
+    [InlineData(@"Nested\Indexes\DiskA.json")]
+    [InlineData("Nested/Indexes/DiskA.json")]
+    [InlineData(@"Nested\Indexes/DiskA.json")]
+    public void LoadFileDatas_LoadsConfiguredIndexWithEitherSeparator(string configuredPath)
+    {
+        using var tempDir = new TempDirectory();
+        var dataDirectory = System.IO.Path.Combine(
+            tempDir.Path,
+            OperatingSystem.IsWindows() ? "Data" : @"Data\Archive");
+        var indexDirectory = System.IO.Path.Combine(dataDirectory, "Nested", "Indexes");
+        Directory.CreateDirectory(indexDirectory);
+        var indexPath = System.IO.Path.Combine(indexDirectory, "DiskA.json");
+        var appConfig = new AppConfig
+        {
+            JsonFilePath = dataDirectory,
+            RepoFileName = "repo.json",
+            FileDataFiles = [new FileDataFileConfig { JsonFilePath = configuredPath }],
+        };
+        var store = new TreeDataStore();
+        store.SaveFileData(CreateFileData("DiskA", indexPath));
+
+        var loaded = Assert.Single(store.LoadFileDatas(appConfig));
+
+        Assert.Equal("DiskA", loaded.DiskLabel);
+        Assert.Equal(indexPath, loaded.JsonFilePath);
+        Assert.Equal("DiskA", loaded.FileNodeRoot.Name);
+    }
+
     [Fact]
     public void LoadFileDatas_WithoutConfiguredFilesUsesLegacyDirectoryDiscovery()
     {

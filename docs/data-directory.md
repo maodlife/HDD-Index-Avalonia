@@ -18,6 +18,8 @@ C:\Users\<用户名>\Documents\HDD-Index\config.json
 
 配置中的 `JsonFilePath` 指向 Repository 和各磁盘 File Tree JSON 所在目录。这个目录可以位于用户文档目录，也可以位于其他本地磁盘。
 
+新增的 `FileDataFiles[].JsonFilePath` 索引相对路径使用 `/` 保存，同时兼容旧配置中的 Windows 分隔符 `\`。迁移到 Windows、Linux 或 macOS 后，应用会按当前系统解析这些索引路径。`JsonFilePath` 和 `LocalFolderPath` 仍是本机目录，迁移后需要按实际位置修复；应用不会自动将 Windows 盘符映射到其他系统。
+
 ## 首次启动
 
 默认配置不存在时，应用会进入首次启动设置。选择一个数据文件夹后会创建：
