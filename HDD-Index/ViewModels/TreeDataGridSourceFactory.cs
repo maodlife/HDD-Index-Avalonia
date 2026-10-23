@@ -42,24 +42,29 @@ public static class TreeDataGridSourceFactory
                             CompareDescending = (x, y) => string.Compare(y?.Name, x?.Name, StringComparison.CurrentCulture),
                         }),
                     x => x.Children),
-                new TextColumn<RepoNodeVM, string>(
+                new TemplateColumn<RepoNodeVM>(
                     "存储数",
-                    x => x.SaveFileNodeCntString,
+                    new FuncDataTemplate<RepoNodeVM>((_, _) =>
+                        CreateMetadataCell(nameof(RepoNodeVM.SaveFileNodeCntString), TextAlignment.Center)),
                     width: new GridLength(80),
-                    options: new TextColumnOptions<RepoNodeVM>
+                    options: new TemplateColumnOptions<RepoNodeVM>
                     {
                         MinWidth = new GridLength(64),
                         CanUserResizeColumn = true,
-                        TextAlignment = TextAlignment.Center,
+                        CompareAscending = (x, y) => string.Compare(x?.SaveFileNodeCntString, y?.SaveFileNodeCntString, StringComparison.CurrentCulture),
+                        CompareDescending = (x, y) => string.Compare(y?.SaveFileNodeCntString, x?.SaveFileNodeCntString, StringComparison.CurrentCulture),
                     }),
-                new TextColumn<RepoNodeVM, string>(
+                new TemplateColumn<RepoNodeVM>(
                     "策略",
-                    x => x.DeclareHoldingStrategyName,
+                    new FuncDataTemplate<RepoNodeVM>((_, _) =>
+                        CreateMetadataCell(nameof(RepoNodeVM.DeclareHoldingStrategyName))),
                     width: new GridLength(104),
-                    options: new TextColumnOptions<RepoNodeVM>
+                    options: new TemplateColumnOptions<RepoNodeVM>
                     {
                         MinWidth = new GridLength(80),
                         CanUserResizeColumn = true,
+                        CompareAscending = (x, y) => string.Compare(x?.DeclareHoldingStrategyName, y?.DeclareHoldingStrategyName, StringComparison.CurrentCulture),
+                        CompareDescending = (x, y) => string.Compare(y?.DeclareHoldingStrategyName, x?.DeclareHoldingStrategyName, StringComparison.CurrentCulture),
                     })
             }
         };
@@ -98,6 +103,18 @@ public static class TreeDataGridSourceFactory
             source.RowSelection.SingleSelect = true;
 
         return source;
+    }
+
+    private static TextBlock CreateMetadataCell(string propertyName, TextAlignment alignment = TextAlignment.Left)
+    {
+        var text = new TextBlock
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            TextAlignment = alignment,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+        text.Bind(TextBlock.TextProperty, new Binding(propertyName));
+        return text;
     }
 
     private static Grid CreateNameCell(bool showDeclarations = false, bool isDisk = false)

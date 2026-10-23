@@ -151,13 +151,7 @@
                                 <Separator />
                                 <StackPanel Spacing="12" IsVisible="{Binding RepoBrowser.HasCurrentRepoNode}">
                                     <TextBlock Text="验证策略" FontWeight="SemiBold" />
-                                    <Button Command="{Binding RepositoryEditor.ChangeDeclareHoldingStrategyCommand}"
-                                            CommandParameter="{Binding RepoBrowser.CurrentRepoNode}" ToolTip.Tip="选择策略并验证已有的关联">
-                                        <StackPanel Orientation="Horizontal" Spacing="16">
-                                            <TextBlock Text="{Binding RepoBrowser.CurrentRepoNodeStrategyName}" />
-                                            <views:NodeIcon Kind="ChevronDown" Width="13" Height="13" />
-                                        </StackPanel>
-                                    </Button>
+                                    <views:StrategySelector />
                                 </StackPanel>
                                 <Separator />
                                 <StackPanel Orientation="Horizontal" Spacing="12">
@@ -287,13 +281,7 @@
                                     <TextBlock Text="{Binding RepoBrowser.CurrentRepoNodeName}" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding RepoBrowser.HasCurrentRepoNode}">
                                         <TextBlock Text="验证策略" VerticalAlignment="Center" Classes="secondary" />
-                                        <Button Command="{Binding RepositoryEditor.ChangeDeclareHoldingStrategyCommand}"
-                                                CommandParameter="{Binding RepoBrowser.CurrentRepoNode}" ToolTip.Tip="选择策略并验证已有的关联">
-                                            <StackPanel Orientation="Horizontal" Spacing="14">
-                                                <TextBlock Text="{Binding RepoBrowser.CurrentRepoNodeStrategyName}" />
-                                                <views:NodeIcon Kind="ChevronDown" Width="12" Height="12" />
-                                            </StackPanel>
-                                        </Button>
+                                        <views:StrategySelector />
                                     </StackPanel>
                                 </StackPanel>
                             </Grid>

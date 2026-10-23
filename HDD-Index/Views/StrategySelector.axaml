@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HDD_Index.ViewModels"
+             xmlns:models="using:HDD_Index.Models"
+             x:Class="HDD_Index.Views.StrategySelector"
+             x:DataType="vm:MainWindowViewModel">
+    <StackPanel Orientation="Horizontal" Spacing="8">
+        <ComboBox x:Name="StrategyPicker" MinWidth="112"
+                  ItemsSource="{Binding RepoBrowser.StrategyOptions}"
+                  SelectedItem="{Binding RepoBrowser.CurrentStrategyOption, Mode=TwoWay}"
+                  IsEnabled="{Binding !IsStrategyChangeRunning}"
+                  AutomationProperties.Name="验证策略"
+                  ToolTip.Tip="直接选择策略，验证已有的存储关联">
+            <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="models:DeclareHoldingStrategyOption">
+                    <TextBlock Text="{Binding Name}" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button Content="?" Width="28" Height="28" MinHeight="0" Padding="0"
+                CornerRadius="14" VerticalAlignment="Center"
+                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                AutomationProperties.Name="验证策略说明"
+                ToolTip.Tip="了解不同验证策略">
+            <Button.Flyout>
+                <Flyout Placement="Bottom" FlyoutPresenterClasses="strategy-help">
+                    <ScrollViewer MaxHeight="440" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Width="340" Spacing="10">
+                            <TextBlock Text="验证策略" FontWeight="SemiBold" FontSize="16" />
+                            <TextBlock Text="默认" FontWeight="SemiBold" />
+                            <TextBlock Text="逐层检查名称和文件 / 文件夹类型。磁盘索引须包含虚拟目录要求的所有节点，可以有额外内容。" TextWrapping="Wrap" />
+                            <TextBlock Text="BDRip" FontWeight="SemiBold" />
+                            <TextBlock Text="在默认规则上，允许缺少 .ass 字幕、.torrent 种子，以及仅包含这些可选内容的非空目录。已存在的节点仍须名称和类型匹配。" TextWrapping="Wrap" />
+                            <TextBlock Text="未设置" FontWeight="SemiBold" />
+                            <TextBlock Text="清除已选策略。已有的关联仍按默认规则检查；下次建立关联时需要选择策略。" TextWrapping="Wrap" />
+                            <Separator />
+                            <TextBlock Text="只比较已保存的索引结构，不检查文件内容或哈希。切换策略若使已有的关联失效，会先请你确认是否移除这些关联；不会删除磁盘文件。" TextWrapping="Wrap" Classes="secondary" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Flyout>
+            </Button.Flyout>
+        </Button>
+    </StackPanel>
+</UserControl>

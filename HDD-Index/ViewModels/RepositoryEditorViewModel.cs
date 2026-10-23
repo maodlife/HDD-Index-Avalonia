@@ -43,7 +43,13 @@ public class RepositoryEditorViewModel : ViewModelBase
     public ReactiveCommand<object, Unit> AbandonDeclareHoldingCommand { get; set; }
         = ReactiveCommand.Create<object>(_ => { });
 
-    public ReactiveCommand<object, Unit> ChangeDeclareHoldingStrategyCommand { get; set; }
+    public ReactiveCommand<object, Unit> UseDefaultStrategyCommand { get; set; }
+        = ReactiveCommand.Create<object>(_ => { });
+
+    public ReactiveCommand<object, Unit> UseBDRipStrategyCommand { get; set; }
+        = ReactiveCommand.Create<object>(_ => { });
+
+    public ReactiveCommand<object, Unit> ClearStrategyCommand { get; set; }
         = ReactiveCommand.Create<object>(_ => { });
 
     public ReactiveCommand<Unit, Unit> OpenCurrentFileDataFolderCommand { get; set; }

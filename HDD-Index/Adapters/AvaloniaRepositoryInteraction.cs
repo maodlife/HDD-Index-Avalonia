@@ -34,26 +34,6 @@ public sealed class AvaloniaRepositoryInteraction : IRepositoryInteraction
             : new DeclareHoldingStrategySelection(true, result.StrategyType);
     }
 
-    public async Task<DeclareHoldingStrategySelection>
-        SelectReplacementDeclareHoldingStrategyAsync(
-            IReadOnlyList<DeclareHoldingStrategyOption> options,
-            DeclareHoldingStrategyType? selectedStrategyType)
-    {
-        var dialog = new StrategySelectionDialog(
-            options,
-            includeClearOption: true,
-            selectedStrategyType)
-        {
-            Title = "修改声明持有的策略",
-            Width = 420,
-            Height = 260,
-        };
-        var result = await dialog.ShowDialog<StrategySelectionDialogResult?>(_owner);
-        return result == null
-            ? new DeclareHoldingStrategySelection(false, null)
-            : new DeclareHoldingStrategySelection(true, result.StrategyType);
-    }
-
     public async Task<IReadOnlyList<string>?> SelectDeclareHoldingsToAbandonAsync(
         IReadOnlyList<string> repoNodePaths)
     {

@@ -40,6 +40,12 @@
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Styles.Resources>
+    <Style Selector="FlyoutPresenter.strategy-help">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="18" />
+    </Style>
     <Style Selector="Window">
         <Setter Property="FontSize" Value="15" />
         <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />

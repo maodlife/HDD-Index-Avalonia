@@ -44,6 +44,8 @@ public class MainWindowViewModel : ViewModelBase
     public FileBrowserViewModel FileBrowser { get; }
     public RepositoryEditorViewModel RepositoryEditor { get; }
 
+    [Reactive] public bool IsStrategyChangeRunning { get; private set; }
+
     [Reactive] public int ViewModeTabIndex { get; set; }
     [Reactive] public bool HasDirtyFiles { get; set; }
     [Reactive] public bool IsFileTreeScanRunning { get; set; }
@@ -117,6 +119,17 @@ public class MainWindowViewModel : ViewModelBase
 
     private void InitCommand()
     {
+        var selectStrategyCommand = ReactiveCommand.CreateFromTask<DeclareHoldingStrategyOption>(
+            option => RepoBrowser.CurrentRepoNode is { } node
+                ? ChangeDeclareHoldingStrategyAsync(node, option.Type)
+                : Task.CompletedTask);
+        RepoBrowser.WhenAnyValue(x => x.CurrentStrategyOption)
+            .Where(option => option != null && !IsStrategyChangeRunning
+                && RepoBrowser.CurrentRepoNode is { } node
+                && option.Type != node.RepoNode.DeclareHoldingStrategyType)
+            .Select(option => option!)
+            .InvokeCommand(selectStrategyCommand);
+
         ShowBrowseCommand = ReactiveCommand.Create(() => { ViewModeTabIndex = 0; });
         ShowOrganizeCommand = ReactiveCommand.Create(() => { ViewModeTabIndex = 1; });
         SelectRepositoryCommand = ReactiveCommand.Create(() => { IsRepositorySelected = true; });
@@ -232,8 +245,12 @@ public class MainWindowViewModel : ViewModelBase
             ReactiveCommand.CreateFromTask<object>(DeclareSelectedRepoNodeAsync);
         RepositoryEditor.AbandonDeclareHoldingCommand =
             ReactiveCommand.CreateFromTask<object>(AbandonDeclareHoldingAsync);
-        RepositoryEditor.ChangeDeclareHoldingStrategyCommand =
-            ReactiveCommand.CreateFromTask<object>(ChangeDeclareHoldingStrategyAsync);
+        RepositoryEditor.UseDefaultStrategyCommand = ReactiveCommand.CreateFromTask<object>(
+            node => ChangeDeclareHoldingStrategyAsync(node, DeclareHoldingStrategyType.Default));
+        RepositoryEditor.UseBDRipStrategyCommand = ReactiveCommand.CreateFromTask<object>(
+            node => ChangeDeclareHoldingStrategyAsync(node, DeclareHoldingStrategyType.BDRip));
+        RepositoryEditor.ClearStrategyCommand = ReactiveCommand.CreateFromTask<object>(
+            node => ChangeDeclareHoldingStrategyAsync(node, null));
         RepositoryEditor.OpenCurrentFileDataFolderCommand =
             ReactiveCommand.Create(OpenCurrentFileDataFolder);
         RepositoryEditor.RepairCurrentFileDataPathCommand =
@@ -491,36 +508,40 @@ public class MainWindowViewModel : ViewModelBase
             RepoBrowser.UpdateCurrentRepoNode(currentRepoNode);
     }
 
-    private async Task ChangeDeclareHoldingStrategyAsync(object nodeVM)
+    public async Task ChangeDeclareHoldingStrategyAsync(object nodeVM, DeclareHoldingStrategyType? strategyType)
     {
-        if (nodeVM is not RepoNodeVM repoNodeVM)
+        if (IsStrategyChangeRunning || nodeVM is not RepoNodeVM repoNodeVM
+            || repoNodeVM.RepoNode.DeclareHoldingStrategyType == strategyType)
             return;
 
-        var repoNode = repoNodeVM.RepoNode;
-        var selectedStrategy = await _repositoryInteraction
-            .SelectReplacementDeclareHoldingStrategyAsync(
-                DeclareHoldingStrategyFactory.GetAllOptions(),
-                repoNode.DeclareHoldingStrategyType);
-        if (!selectedStrategy.IsAccepted)
-            return;
-
-        var plan = _declarationUseCases.PlanStrategyChange(
-            repoNode,
-            selectedStrategy.StrategyType);
-        var failures = plan.ValidationFailures;
-        if (failures.Count > 0)
+        IsStrategyChangeRunning = true;
+        try
         {
-            var confirmed = await ShowConfirmAsync(
-                BuildInvalidDeclareHoldingMessage(failures),
-                "确认修改声明持有策略");
-            if (!confirmed)
-                return;
-        }
+            var repoNode = repoNodeVM.RepoNode;
+            var plan = _declarationUseCases.PlanStrategyChange(repoNode, strategyType);
+            var failures = plan.ValidationFailures;
+            if (failures.Count > 0)
+            {
+                var confirmed = await ShowConfirmAsync(
+                    BuildInvalidDeclareHoldingMessage(failures),
+                    "确认修改声明持有策略");
+                if (!confirmed)
+                    return;
+            }
 
-        var changeResult = _declarationUseCases.ApplyStrategyChange(plan);
-        ApplyChanges(changeResult.Changes);
-        RepoBrowser.UpdateCurrentRepoNode(repoNode);
-        MarkDirty(changeResult.PersistenceTargets);
+            var changeResult = _declarationUseCases.ApplyStrategyChange(plan);
+            ApplyChanges(changeResult.Changes);
+            // A pending confirmation must not navigate back to a previously selected node.
+            if (RepoBrowser.CurrentRepoNode == repoNodeVM)
+                RepoBrowser.UpdateCurrentRepoNode(repoNode);
+            MarkDirty(changeResult.PersistenceTargets);
+        }
+        finally
+        {
+            // Restore both selectors after cancellation, including when the model did not change.
+            RepoBrowser.RefreshStrategySelection();
+            IsStrategyChangeRunning = false;
+        }
     }
 
     private void CreateChildFolder(object nodeVM)

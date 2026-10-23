@@ -42,10 +42,6 @@ public interface IRepositoryInteraction
     Task<DeclareHoldingStrategySelection> SelectInitialDeclareHoldingStrategyAsync(
         IReadOnlyList<DeclareHoldingStrategyOption> options);
 
-    Task<DeclareHoldingStrategySelection> SelectReplacementDeclareHoldingStrategyAsync(
-        IReadOnlyList<DeclareHoldingStrategyOption> options,
-        DeclareHoldingStrategyType? selectedStrategyType);
-
     Task<IReadOnlyList<string>?> SelectDeclareHoldingsToAbandonAsync(
         IReadOnlyList<string> repoNodePaths);
 
