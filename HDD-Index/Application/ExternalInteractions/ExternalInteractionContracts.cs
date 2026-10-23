@@ -10,6 +10,7 @@ namespace HDD_Index.Application.ExternalInteractions;
 public enum MessageDisplayKind
 {
     Standard,
+    Informational,
     Detailed
 }
 
@@ -19,7 +20,9 @@ public sealed record MessageRequest(
 
 public sealed record ConfirmationRequest(
     string Message,
-    string Title = "确认");
+    string Title = "确认",
+    string ConfirmLabel = "继续",
+    bool IsDestructive = false);
 
 public interface IUserInteraction
 {

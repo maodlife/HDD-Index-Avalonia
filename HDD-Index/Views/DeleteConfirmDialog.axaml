@@ -1,30 +1,31 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HDD_Index.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="150"
         x:Class="HDD_Index.Views.DeleteConfirmDialog"
         x:DataType="vm:DeleteConfirmDialogViewModel"
-        Title="删除确认"
-        Width="400" Height="150"
+        Classes="dialog" Title="删除确认"
+        Width="520" Height="300" MinWidth="460" MinHeight="260"
         WindowStartupLocation="CenterOwner">
-
-    <Design.DataContext>
-        <vm:DeleteConfirmDialogViewModel />
-    </Design.DataContext>
-
-    <StackPanel Margin="14" Spacing="20">
-        <TextBlock Text="{Binding MessageText}" TextWrapping="Wrap" />
-
-        <StackPanel Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    Spacing="10">
-            <Button Content="取消"
-                    Command="{Binding CancelCommand}" />
-            <Button Content="确认删除"
-                    Foreground="Red"
-                    Command="{Binding ConfirmCommand}" />
-        </StackPanel>
-    </StackPanel>
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Grid ColumnDefinitions="40,*" ColumnSpacing="16" Margin="24,24,24,18">
+            <Path Width="32" Height="32" Stretch="Uniform" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="1.6" VerticalAlignment="Top" Data="M 5,6 L 19,6 M 9,6 L 9,3 L 15,3 L 15,6 M 7,6 L 8,21 L 16,21 L 17,6 M 10,10 L 10,17 M 14,10 L 14,17" />
+            <StackPanel Grid.Column="1" Spacing="8">
+                <TextBlock Classes="dialog-title" Text="删除索引节点？" TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+        <Grid Grid.Row="1" Margin="24,0,24,20" RowDefinitions="*,Auto" RowSpacing="14">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <SelectableTextBlock Text="{Binding MessageText}" TextWrapping="Wrap" />
+            </ScrollViewer>
+            <Border Grid.Row="1" Classes="dialog-note">
+                <TextBlock Classes="secondary" Text="仅修改索引，不删除磁盘文件。" TextWrapping="Wrap" />
+            </Border>
+        </Grid>
+        <Border Grid.Row="2" Classes="dialog-footer">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="取消" IsCancel="True" Command="{Binding CancelCommand}" />
+                <Button Content="删除节点" Classes="danger" Command="{Binding ConfirmCommand}" />
+            </StackPanel>
+        </Border>
+    </Grid>
 </Window>

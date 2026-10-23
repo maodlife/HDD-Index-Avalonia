@@ -3,18 +3,39 @@ using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 using HDD_Index.ViewModels;
 
 namespace HDD_Index.Views;
 
 public partial class MainWindow : Window
 {
+    private readonly DispatcherTimer _informationTimer = new() { Interval = TimeSpan.FromSeconds(10) };
     private bool _isClosingConfirmed;
     private bool _isShowingUnsavedChangesDialog;
 
     public MainWindow()
     {
         InitializeComponent();
+        _informationTimer.Tick += (_, _) => DismissInformation();
+        Closed += (_, _) => _informationTimer.Stop();
+    }
+
+    public void ShowInformation(string message)
+    {
+        _informationTimer.Stop();
+        InformationToastText.Text = message;
+        InformationToast.IsVisible = true;
+        _informationTimer.Start();
+    }
+
+    private void OnDismissInformation(object? sender, RoutedEventArgs e) => DismissInformation();
+
+    private void DismissInformation()
+    {
+        _informationTimer.Stop();
+        InformationToast.IsVisible = false;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -82,8 +103,6 @@ public partial class MainWindow : Window
             var dialog = new UnsavedChangesDialog(vm.GetDirtyJsonFilePaths())
             {
                 Title = "未保存的修改",
-                Width = 560,
-                Height = 320,
             };
 
             var result = await dialog.ShowDialog<UnsavedChangesDialogResult>(this);

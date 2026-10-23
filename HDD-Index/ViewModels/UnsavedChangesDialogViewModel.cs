@@ -32,9 +32,9 @@ public class UnsavedChangesDialogViewModel : ViewModelBase
 
     public UnsavedChangesDialogViewModel(IEnumerable<string> dirtyFilePaths)
     {
-        MessageText = "以下 JSON 文件有未保存的修改。";
         foreach (var filePath in dirtyFilePaths)
             DirtyFilePaths.Add(filePath);
+        MessageText = $"有 {DirtyFilePaths.Count} 个索引文件尚未保存。";
 
         SaveAndExitCommand = new RelayCommand(() =>
             Window?.Close(UnsavedChangesDialogResult.SaveAndExit));

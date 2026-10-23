@@ -25,8 +25,6 @@ public sealed class AvaloniaRepositoryInteraction : IRepositoryInteraction
         var dialog = new StrategySelectionDialog(options)
         {
             Title = "选择声明持有策略",
-            Width = 420,
-            Height = 260,
         };
         var result = await dialog.ShowDialog<StrategySelectionDialogResult?>(_owner);
         return result == null
@@ -39,9 +37,7 @@ public sealed class AvaloniaRepositoryInteraction : IRepositoryInteraction
     {
         var dialog = new AbandonDeclareHoldingDialog(repoNodePaths)
         {
-            Title = "放弃声明持有",
-            Width = 520,
-            Height = 320,
+            Title = "解除关联",
         };
         return await dialog.ShowDialog<List<string>?>(_owner);
     }
@@ -51,8 +47,6 @@ public sealed class AvaloniaRepositoryInteraction : IRepositoryInteraction
         var dialog = new RenameRepoNodeDialog(initialName)
         {
             Title = "重命名",
-            Width = 420,
-            Height = 160,
         };
         return await dialog.ShowDialog<string?>(_owner);
     }
@@ -62,8 +56,6 @@ public sealed class AvaloniaRepositoryInteraction : IRepositoryInteraction
         var dialog = new DeleteConfirmDialog(targetName)
         {
             Title = "确认删除",
-            Width = 400,
-            Height = 150,
         };
         return await dialog.ShowDialog<bool>(_owner);
     }
@@ -73,8 +65,6 @@ public sealed class AvaloniaRepositoryInteraction : IRepositoryInteraction
         var dialog = new SearchDeleteNodeDialog
         {
             Title = "搜索并删除节点",
-            Width = 420,
-            Height = 160,
         };
         return await dialog.ShowDialog<string?>(_owner);
     }
@@ -88,8 +78,6 @@ public sealed class AvaloniaRepositoryInteraction : IRepositoryInteraction
             pathsText)
         {
             Title = "确认删除搜索结果",
-            Width = 620,
-            Height = 420,
         };
         return await dialog.ShowDialog<bool>(_owner);
     }

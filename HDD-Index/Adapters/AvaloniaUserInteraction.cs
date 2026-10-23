@@ -16,27 +16,29 @@ public sealed class AvaloniaUserInteraction : IUserInteraction
 
     public async Task ShowMessageAsync(MessageRequest request)
     {
-        var (width, height) = request.DisplayKind switch
+        if (request.DisplayKind == MessageDisplayKind.Informational && _owner is MainWindow mainWindow)
         {
-            MessageDisplayKind.Detailed => (720d, 480d),
-            _ => (400d, 150d),
-        };
-        var dialog = new MessageDialog(request.Message)
+            mainWindow.ShowInformation(request.Message);
+            return;
+        }
+
+        var dialog = new MessageDialog(request.Message, "请检查操作结果")
         {
-            Title = "提示",
-            Width = width,
-            Height = height,
+            Title = "操作提示",
         };
+        if (request.DisplayKind == MessageDisplayKind.Detailed)
+        {
+            dialog.Width = 720;
+            dialog.Height = 480;
+        }
         await dialog.ShowDialog(_owner);
     }
 
     public async Task<bool> ConfirmAsync(ConfirmationRequest request)
     {
-        var dialog = new ConfirmMessageDialog(request.Message)
+        var dialog = new ConfirmMessageDialog(request.Message, request.Title, request.ConfirmLabel, request.IsDestructive)
         {
             Title = request.Title,
-            Width = 520,
-            Height = 260,
         };
         return await dialog.ShowDialog<bool>(_owner);
     }

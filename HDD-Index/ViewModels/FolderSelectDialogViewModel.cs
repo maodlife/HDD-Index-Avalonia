@@ -34,6 +34,7 @@ public class FolderSelectDialogViewModel : ViewModelBase
 
     public ICommand SelectFolderCommand { get; set; }
     public ICommand ConfirmCommand { get; set; }
+    public ICommand CancelCommand { get; }
 
     public FolderSelectDialogViewModel()
         : this(
@@ -50,6 +51,7 @@ public class FolderSelectDialogViewModel : ViewModelBase
         _close = close;
         SelectFolderCommand = new AsyncRelayCommand(SelectFolderAsync);
         ConfirmCommand = new RelayCommand(Confirm);
+        CancelCommand = new RelayCommand(() => _close(null));
         this.WhenAnyValue(x => x.SelectedPath, x => x.TagText)
             .Subscribe(_ => this.RaisePropertyChanged(nameof(CanConfirm)));
     }

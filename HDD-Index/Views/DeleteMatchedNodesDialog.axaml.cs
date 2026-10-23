@@ -8,6 +8,7 @@ public partial class DeleteMatchedNodesDialog : Window
     public DeleteMatchedNodesDialog()
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         var vm = new DeleteMatchedNodesDialogViewModel();
         DataContext = vm;
         vm.Window = this;
@@ -16,6 +17,7 @@ public partial class DeleteMatchedNodesDialog : Window
     public DeleteMatchedNodesDialog(string messageText, string pathsText)
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         var vm = new DeleteMatchedNodesDialogViewModel(messageText, pathsText);
         DataContext = vm;
         vm.Window = this;

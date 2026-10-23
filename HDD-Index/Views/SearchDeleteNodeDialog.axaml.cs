@@ -8,6 +8,7 @@ public partial class SearchDeleteNodeDialog : Window
     public SearchDeleteNodeDialog()
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         var vm = new SearchDeleteNodeDialogViewModel();
         DataContext = vm;
         vm.Window = this;

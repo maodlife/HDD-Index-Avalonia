@@ -1,53 +1,34 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HDD_Index.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="320"
         x:Class="HDD_Index.Views.UnsavedChangesDialog"
         x:DataType="vm:UnsavedChangesDialogViewModel"
-        Title="未保存的修改"
-        Width="560" Height="320"
+        Classes="dialog" Title="未保存的修改"
+        Width="600" Height="370" MinWidth="540" MinHeight="330"
         WindowStartupLocation="CenterOwner">
-
-    <Design.DataContext>
-        <vm:UnsavedChangesDialogViewModel />
-    </Design.DataContext>
-
-    <Grid Margin="14" RowDefinitions="Auto,*,Auto">
-        <TextBlock Grid.Row="0"
-                   Text="{Binding MessageText}"
-                   TextWrapping="Wrap" />
-
-        <Border Grid.Row="1"
-                Margin="0,12,0,0"
-                Padding="8"
-                BorderThickness="1"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Grid ColumnDefinitions="40,*" ColumnSpacing="16" Margin="24,24,24,18">
+            <Path Width="32" Height="32" Stretch="Uniform" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="1.6" VerticalAlignment="Top" Data="M 6,2 L 14,2 L 20,8 L 20,22 L 6,22 Z M 14,2 L 14,8 L 20,8" />
+            <StackPanel Grid.Column="1" Spacing="8">
+                <TextBlock Classes="dialog-title" Text="退出前保存更改？" TextWrapping="Wrap" />
+                <TextBlock Classes="secondary" Text="{Binding MessageText}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+        <Grid Grid.Row="1" Margin="24,0,24,20"><Border Classes="dialog-note">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding DirtyFilePaths}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}"
-                                       TextWrapping="Wrap"
-                                       Margin="0,0,0,6" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
+                    <ItemsControl.ItemTemplate><DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,4" />
+                    </DataTemplate></ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
+        </Border></Grid>
+        <Border Grid.Row="2" Classes="dialog-footer">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="不保存并退出" Command="{Binding ExitWithoutSavingCommand}" />
+                <Button Content="取消" IsCancel="True" Command="{Binding CancelCommand}" />
+                <Button Content="保存并退出" Classes="primary" IsDefault="True" Command="{Binding SaveAndExitCommand}" />
+            </StackPanel>
         </Border>
-
-        <StackPanel Grid.Row="2"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    Spacing="10"
-                    Margin="0,16,0,0">
-            <Button Content="不保存"
-                    Command="{Binding ExitWithoutSavingCommand}" />
-            <Button Content="取消"
-                    Command="{Binding CancelCommand}" />
-            <Button Content="确认"
-                    Command="{Binding SaveAndExitCommand}" />
-        </StackPanel>
     </Grid>
 </Window>

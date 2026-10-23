@@ -16,14 +16,14 @@ public class DeleteConfirmDialogViewModel : ViewModelBase
 
     public DeleteConfirmDialogViewModel()
     {
-        MessageText = "确定要删除吗？";
+        MessageText = "将移除所选节点及其子节点。";
         CancelCommand = ReactiveCommand.Create(() => Window?.Close(false));
         ConfirmCommand = ReactiveCommand.Create(() => Window?.Close(true));
     }
 
     public DeleteConfirmDialogViewModel(string targetName)
     {
-        MessageText = $"确定要删除 \"{targetName}\" 吗？";
+        MessageText = $"将移除「{targetName}」及其子节点。";
         CancelCommand = ReactiveCommand.Create(() => Window?.Close(false));
         ConfirmCommand = ReactiveCommand.Create(() => Window?.Close(true));
     }

@@ -371,4 +371,61 @@
         <Setter Property="Background" Value="{DynamicResource WorkspacePressed}" />
         <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
     </Style>
+
+    <Style Selector="Window.dialog">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+    </Style>
+    <Style Selector="TextBlock.dialog-title">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Border.dialog-footer">
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
+        <Setter Property="Padding" Value="24,16,24,20" />
+    </Style>
+    <Style Selector="Border.dialog-note">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="PathIcon.dialog-icon">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}" />
+    </Style>
+    <Style Selector="Button.danger">
+        <Setter Property="Background" Value="#D93636" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="BorderBrush" Value="#D93636" />
+    </Style>
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#C52B2B" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#AE2525" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Window.dialog TextBox">
+        <Setter Property="MinHeight" Value="38" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="Window.dialog ListBox">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Border.strategy-guidance">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Padding" Value="10,7" />
+    </Style>
 </Styles>

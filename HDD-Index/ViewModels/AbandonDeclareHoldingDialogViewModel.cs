@@ -14,7 +14,7 @@ public class AbandonDeclareHoldingDialogViewModel : ViewModelBase
 
     public ObservableCollection<AbandonDeclareHoldingOption> Options { get; }
 
-    public ICommand ConfirmCommand { get; }
+    public RelayCommand ConfirmCommand { get; }
     public ICommand CancelCommand { get; }
 
     public AbandonDeclareHoldingDialogViewModel()
@@ -29,7 +29,9 @@ public class AbandonDeclareHoldingDialogViewModel : ViewModelBase
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct()
                 .Select(x => new AbandonDeclareHoldingOption(x, isSelected: true)));
-        ConfirmCommand = new RelayCommand(Confirm);
+        ConfirmCommand = new RelayCommand(Confirm, () => Options.Any(option => option.IsSelected));
+        foreach (var option in Options)
+            option.PropertyChanged += (_, _) => ConfirmCommand.NotifyCanExecuteChanged();
         CancelCommand = new RelayCommand(Cancel);
     }
 

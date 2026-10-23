@@ -8,6 +8,7 @@ public partial class RenameRepoNodeDialog : Window
     public RenameRepoNodeDialog()
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         var vm = new RenameRepoNodeDialogViewModel();
         DataContext = vm;
         vm.Window = this;
@@ -16,6 +17,7 @@ public partial class RenameRepoNodeDialog : Window
     public RenameRepoNodeDialog(string? initialName)
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         var vm = new RenameRepoNodeDialogViewModel(initialName);
         DataContext = vm;
         vm.Window = this;

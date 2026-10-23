@@ -56,7 +56,10 @@ public class MainWindowViewModel : ViewModelBase
     public bool IsRepositoryBrowseVisible => IsBrowseMode && IsRepositorySelected;
     public bool IsDiskBrowseVisible => IsBrowseMode && !IsRepositorySelected;
     public string SaveStatusText => HasDirtyFiles ? "未保存" : "已保存";
-    public bool CanLinkSelectedNodes => RepoBrowser.HasCurrentRepoNode && FileBrowser.HasSelectedFileNode;
+    public bool NeedsStrategySelection => RepoBrowser.HasCurrentRepoNode
+                                          && RepoBrowser.CurrentRepoNode?.RepoNode.DeclareHoldingStrategyType == null;
+    public bool CanLinkSelectedNodes => RepoBrowser.HasCurrentRepoNode && FileBrowser.HasSelectedFileNode
+                                        && !NeedsStrategySelection && !IsStrategyChangeRunning;
     public bool CanCopySelectedStructure => RepoBrowser.CurrentRepoNode?.IsDirectory == true
                                             && FileBrowser.HasSelectedFileNode;
 
@@ -153,9 +156,11 @@ public class MainWindowViewModel : ViewModelBase
             .Subscribe(_ => this.RaisePropertyChanged(nameof(SelectedSidebarDiskLabel)));
         this.WhenAnyValue(x => x.HasDirtyFiles)
             .Subscribe(_ => this.RaisePropertyChanged(nameof(SaveStatusText)));
-        this.WhenAnyValue(x => x.RepoBrowser.CurrentRepoNode, x => x.FileBrowser.HasSelectedFileNode)
+        this.WhenAnyValue(x => x.RepoBrowser.CurrentRepoNode, x => x.FileBrowser.HasSelectedFileNode,
+                x => x.RepoBrowser.CurrentStrategyOption, x => x.IsStrategyChangeRunning)
             .Subscribe(_ =>
             {
+                this.RaisePropertyChanged(nameof(NeedsStrategySelection));
                 this.RaisePropertyChanged(nameof(CanLinkSelectedNodes));
                 this.RaisePropertyChanged(nameof(CanCopySelectedStructure));
             });
@@ -444,13 +449,12 @@ public class MainWindowViewModel : ViewModelBase
         var strategyType = repoNode.DeclareHoldingStrategyType;
         if (strategyType == null)
         {
-            var selectedStrategy = await _repositoryInteraction
-                .SelectInitialDeclareHoldingStrategyAsync(
-                    DeclareHoldingStrategyFactory.GetAllOptions());
-            if (!selectedStrategy.IsAccepted || selectedStrategy.StrategyType == null)
-                return;
-
-            strategyType = selectedStrategy.StrategyType;
+            // Keep first-time strategy choice in the inspector, not a second modal.
+            ViewModeTabIndex = 1;
+            IsRepositorySelected = true;
+            await _userInteraction.ShowMessageAsync(new MessageRequest(
+                "请先在验证策略下拉框中选择策略，再建立关联。", MessageDisplayKind.Informational));
+            return;
         }
 
         var declareResult = _declarationUseCases.DeclareHolding(
@@ -524,7 +528,7 @@ public class MainWindowViewModel : ViewModelBase
             {
                 var confirmed = await ShowConfirmAsync(
                     BuildInvalidDeclareHoldingMessage(failures),
-                    "确认修改声明持有策略");
+                    "部分关联不符合新策略", "切换并移除关联", true);
                 if (!confirmed)
                     return;
             }
@@ -640,7 +644,8 @@ public class MainWindowViewModel : ViewModelBase
             searchText);
         if (!plan.HasMatches)
         {
-            await ShowMessageAsync("没有找到同名文件或目录节点。");
+            await _userInteraction.ShowMessageAsync(new MessageRequest(
+                "没有找到同名文件或目录节点。", MessageDisplayKind.Informational));
             return;
         }
 
@@ -1021,7 +1026,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             var confirmed = await ShowConfirmAsync(
                 BuildRefreshInvalidDeclareHoldingMessage(failures),
-                "确认刷新文件树");
+                "刷新将影响已有的关联", "刷新并移除关联", true);
             if (!confirmed)
                 return;
         }
@@ -1173,18 +1178,20 @@ public class MainWindowViewModel : ViewModelBase
 
     private Task<bool> ShowConfirmAsync(
         string message,
-        string title = "确认")
+        string title = "确认",
+        string confirmLabel = "继续",
+        bool isDestructive = false)
     {
         return _userInteraction.ConfirmAsync(
-            new ConfirmationRequest(message, title));
+            new ConfirmationRequest(message, title, confirmLabel, isDestructive));
     }
 
     private static string BuildInvalidDeclareHoldingMessage(
         IReadOnlyList<DeclareHoldingValidationFailure> failures)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("以下 FileNode 不满足新的声明持有策略。");
-        builder.AppendLine("点击确定会删除这些不通过的声明持有关系，点击取消则不做修改。");
+        builder.AppendLine("以下磁盘索引节点不符合新的验证策略。");
+        builder.AppendLine("继续将移除以下关联，取消则不做修改。不会删除磁盘文件。");
         builder.AppendLine();
 
         foreach (var failure in failures)

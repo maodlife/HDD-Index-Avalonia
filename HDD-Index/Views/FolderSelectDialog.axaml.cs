@@ -11,12 +11,14 @@ public partial class FolderSelectDialog : Window
     public FolderSelectDialog()
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         DataContext = new FolderSelectDialogViewModel();
     }
 
     public FolderSelectDialog(Window owner)
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         DataContext = new FolderSelectDialogViewModel(
             () => SelectFolderAsync(owner),
             result => Close(result));

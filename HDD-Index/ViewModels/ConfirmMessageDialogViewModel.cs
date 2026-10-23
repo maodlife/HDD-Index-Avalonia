@@ -11,6 +11,10 @@ public class ConfirmMessageDialogViewModel : ViewModelBase
 
     [Reactive] public string MessageText { get; set; }
 
+    public string Heading { get; }
+    public string ConfirmLabel { get; }
+    public bool IsDestructive { get; }
+
     public ReactiveCommand<Unit, Unit> CancelCommand { get; }
     public ReactiveCommand<Unit, Unit> ConfirmCommand { get; }
 
@@ -19,9 +23,16 @@ public class ConfirmMessageDialogViewModel : ViewModelBase
     {
     }
 
-    public ConfirmMessageDialogViewModel(string messageText)
+    public ConfirmMessageDialogViewModel(
+        string messageText,
+        string heading = "请确认操作",
+        string confirmLabel = "继续",
+        bool isDestructive = false)
     {
         MessageText = messageText;
+        Heading = heading;
+        ConfirmLabel = confirmLabel;
+        IsDestructive = isDestructive;
         CancelCommand = ReactiveCommand.Create(() => Window?.Close(false));
         ConfirmCommand = ReactiveCommand.Create(() => Window?.Close(true));
     }

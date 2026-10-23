@@ -2,48 +2,42 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HDD_Index.ViewModels"
         x:Class="HDD_Index.Views.StartupWindow"
-        x:DataType="vm:StartupViewModel"
-        Width="680"
-        Height="440"
-        MinWidth="560"
-        MinHeight="360"
-        WindowStartupLocation="CenterScreen"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="HDD Index 启动设置">
-    <Grid Margin="28" RowDefinitions="Auto,Auto,*,Auto">
-        <TextBlock Grid.Row="0"
-                   FontSize="24"
-                   FontWeight="SemiBold"
-                   Text="{Binding Heading}" />
-        <TextBlock Grid.Row="1"
-                   Margin="0,14,0,18"
-                   TextWrapping="Wrap"
-                   Text="{Binding Summary}" />
-        <Border Grid.Row="2"
-                Padding="14"
-                BorderBrush="Gray"
-                BorderThickness="1"
-                CornerRadius="4">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <TextBlock TextWrapping="Wrap"
-                           Text="{Binding Details}" />
-            </ScrollViewer>
+        x:DataType="vm:StartupViewModel" Classes="dialog"
+        Title="HDD Index 启动设置" Width="620" Height="470"
+        MinWidth="620" MinHeight="470" WindowStartupLocation="CenterScreen">
+    <Grid RowDefinitions="*,Auto" MaxWidth="620" MaxHeight="470" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid Margin="24" RowDefinitions="Auto,Auto,*" RowSpacing="18">
+            <Grid ColumnDefinitions="40,*" ColumnSpacing="16" Margin="0,0,0,24">
+                <Path Data="M2,5 L9,5 L12,8 L22,8 L22,21 L2,21 Z" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="1.5"
+                      Width="36" Height="36" Stretch="Uniform" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Spacing="6">
+                    <TextBlock Text="{Binding Heading}" Classes="dialog-title" />
+                    <TextBlock Text="{Binding Summary}" Classes="secondary" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+            <StackPanel Grid.Row="1" IsVisible="{Binding CanSelectDataDirectory}" Spacing="8">
+                <TextBlock Text="数据目录" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <TextBox Text="{Binding SelectedDataDirectory}" IsReadOnly="True"
+                             Watermark="选择保存索引数据的位置" AutomationProperties.Name="数据目录" />
+                    <Button Grid.Column="1" Content="选择目录" Command="{Binding SelectDataDirectoryCommand}"
+                            IsEnabled="{Binding !IsBusy}" />
+                </Grid>
+                <TextBlock Text="索引数据与实际磁盘文件相互独立。" Classes="secondary" TextWrapping="Wrap" />
+            </StackPanel>
+            <Border Grid.Row="2" Classes="dialog-note">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock Text="{Binding Details}" Classes="secondary" TextWrapping="Wrap" />
+                </ScrollViewer>
+            </Border>
+        </Grid>
+        <Border Grid.Row="1" Classes="dialog-footer">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="退出" Command="{Binding ExitCommand}" IsCancel="True" IsEnabled="{Binding !IsBusy}" />
+                <Button Content="重试" Command="{Binding RetryCommand}" IsVisible="{Binding !IsFirstRun}" IsEnabled="{Binding !IsBusy}" />
+                <Button Content="继续" Command="{Binding ContinueCommand}" Classes="primary" IsDefault="True"
+                        IsVisible="{Binding CanSelectDataDirectory}" IsEnabled="{Binding CanContinue}" />
+            </StackPanel>
         </Border>
-        <StackPanel Grid.Row="3"
-                    Margin="0,20,0,0"
-                    HorizontalAlignment="Right"
-                    Orientation="Horizontal"
-                    Spacing="10">
-            <Button Content="选择数据目录并创建"
-                    Command="{Binding CreateCommand}"
-                    IsVisible="{Binding CanCreate}" />
-            <Button Content="选择新的数据目录"
-                    Command="{Binding RepairDataDirectoryCommand}"
-                    IsVisible="{Binding CanRepairDataDirectory}" />
-            <Button Content="重试"
-                    Command="{Binding RetryCommand}" />
-            <Button Content="退出"
-                    Command="{Binding ExitCommand}" />
-        </StackPanel>
     </Grid>
 </Window>

@@ -9,6 +9,7 @@ public partial class AbandonDeclareHoldingDialog : Window
     public AbandonDeclareHoldingDialog()
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         var vm = new AbandonDeclareHoldingDialogViewModel();
         DataContext = vm;
         vm.Window = this;
@@ -17,6 +18,7 @@ public partial class AbandonDeclareHoldingDialog : Window
     public AbandonDeclareHoldingDialog(IEnumerable<string> repoNodePaths)
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         var vm = new AbandonDeclareHoldingDialogViewModel(repoNodePaths);
         DataContext = vm;
         vm.Window = this;

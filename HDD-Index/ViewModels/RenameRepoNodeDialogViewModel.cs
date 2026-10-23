@@ -1,3 +1,5 @@
+using System;
+using System.Reactive.Linq;
 using System.Reactive;
 using System.Windows.Input;
 using Avalonia.Controls;
@@ -25,6 +27,8 @@ public class RenameRepoNodeDialogViewModel : ViewModelBase
 
         ConfirmCommand = new RelayCommand(Confirm);
         CancelCommand = new RelayCommand(Cancel);
+        this.WhenAnyValue(x => x.NameText)
+            .Subscribe(_ => this.RaisePropertyChanged(nameof(CanConfirm)));
     }
 
     private void Confirm()

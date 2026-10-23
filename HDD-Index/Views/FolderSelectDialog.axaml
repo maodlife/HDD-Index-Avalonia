@@ -1,43 +1,34 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HDD_Index.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="HDD_Index.Views.FolderSelectDialog"
-        x:DataType="vm:FolderSelectDialogViewModel"
-        Title="选择文件夹"
-        Width="450" Height="150"
-        WindowStartupLocation="CenterOwner">
-    
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:FolderSelectDialogViewModel />
-    </Design.DataContext>
-
-    <StackPanel Margin="10" Spacing="10">
-
-        <!-- 第一行：路径文本 + 按钮 -->
-        <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBox Width="300"
-                     Text="{Binding SelectedPath}"
-                     IsReadOnly="False"
-                     Watermark="请选择一个文件夹"/>
-            <Button Content="选择文件夹"
-                    Command="{Binding SelectFolderCommand}"
-                    IsEnabled="True"/>
+        x:DataType="vm:FolderSelectDialogViewModel" Classes="dialog"
+        Title="添加磁盘索引" Width="600" Height="390"
+        MinWidth="600" MinHeight="390" WindowStartupLocation="CenterOwner">
+    <Grid RowDefinitions="*,Auto">
+        <StackPanel Margin="24" Spacing="0">
+            <Grid ColumnDefinitions="40,*" ColumnSpacing="16" Margin="0,0,0,24">
+                <Path Data="M4,2 L20,2 L22,22 L2,22 Z M12,6 A5,5 0 1 1 12,16 A5,5 0 1 1 12,6 M5,19 L8,19 M17,19 L19,19" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="1.5"
+                      Width="36" Height="36" Stretch="Uniform" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Spacing="6">
+                    <TextBlock Text="添加磁盘索引" Classes="dialog-title" />
+                    <TextBlock Text="记录目录结构，不复制或移动磁盘文件。" Classes="secondary" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+            <TextBlock Text="索引文件夹" Margin="0,0,0,8" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBox Text="{Binding SelectedPath}" Watermark="选择要建立索引的文件夹" AutomationProperties.Name="索引文件夹" />
+                <Button Grid.Column="1" Content="选择文件夹" Command="{Binding SelectFolderCommand}" />
+            </Grid>
+            <TextBlock Text="显示名称" Margin="0,20,0,8" />
+            <TextBox Text="{Binding TagText}" Watermark="例如 Archive 01" AutomationProperties.Name="显示名称" />
+            <TextBlock Text="用于在侧边栏识别此磁盘索引" Classes="secondary" Margin="0,8,0,0" />
         </StackPanel>
-
-        <!-- 第二行：标签输入 + 确认按钮 -->
-        <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBox Width="300"
-                     Watermark="请输入标签"
-                     Text="{Binding TagText}"/>
-            <Button Content="确认"
-                    Command="{Binding ConfirmCommand}"
-                    IsEnabled="{Binding CanConfirm}"/>
-        </StackPanel>
-
-    </StackPanel>
+        <Border Grid.Row="1" Classes="dialog-footer">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="取消" Command="{Binding CancelCommand}" IsCancel="True" />
+                <Button Content="开始扫描" Command="{Binding ConfirmCommand}" IsEnabled="{Binding CanConfirm}" Classes="primary" IsDefault="True" />
+            </StackPanel>
+        </Border>
+    </Grid>
 </Window>

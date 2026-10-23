@@ -11,6 +11,8 @@ public class MessageDialogViewModel : ViewModelBase
 
     [Reactive] public string MessageText { get; set; }
 
+    public string Heading { get; }
+
     public ReactiveCommand<Unit, Unit> ConfirmCommand { get; }
 
     public MessageDialogViewModel()
@@ -18,9 +20,10 @@ public class MessageDialogViewModel : ViewModelBase
     {
     }
 
-    public MessageDialogViewModel(string messageText)
+    public MessageDialogViewModel(string messageText, string heading = "操作未完成")
     {
         MessageText = messageText;
+        Heading = heading;
         ConfirmCommand = ReactiveCommand.Create(() => Window?.Close());
     }
 }

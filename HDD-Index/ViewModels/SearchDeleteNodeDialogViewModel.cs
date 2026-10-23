@@ -1,6 +1,9 @@
+using System;
+using System.Reactive.Linq;
 using System.Windows.Input;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.Input;
+using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 
 namespace HDD_Index.ViewModels;
@@ -12,6 +15,8 @@ public class SearchDeleteNodeDialogViewModel : ViewModelBase
     [Reactive]
     public string SearchText { get; set; } = string.Empty;
 
+    public bool CanConfirm => !string.IsNullOrWhiteSpace(SearchText);
+
     public ICommand ConfirmCommand { get; }
     public ICommand CancelCommand { get; }
 
@@ -19,6 +24,8 @@ public class SearchDeleteNodeDialogViewModel : ViewModelBase
     {
         ConfirmCommand = new RelayCommand(Confirm);
         CancelCommand = new RelayCommand(Cancel);
+        this.WhenAnyValue(x => x.SearchText)
+            .Subscribe(_ => this.RaisePropertyChanged(nameof(CanConfirm)));
     }
 
     private void Confirm()

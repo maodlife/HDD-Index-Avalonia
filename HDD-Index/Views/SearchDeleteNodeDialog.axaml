@@ -1,32 +1,29 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HDD_Index.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="160"
         x:Class="HDD_Index.Views.SearchDeleteNodeDialog"
-        x:DataType="vm:SearchDeleteNodeDialogViewModel"
-        Title="搜索并删除节点"
-        Width="420" Height="160"
-        WindowStartupLocation="CenterOwner">
-
-    <Design.DataContext>
-        <vm:SearchDeleteNodeDialogViewModel />
-    </Design.DataContext>
-
-    <StackPanel Margin="14" Spacing="12">
-        <TextBlock Text="请输入要搜索并删除的文件或目录名：" />
-        <TextBox Text="{Binding SearchText}"
-                 Watermark="文件或目录名"
-                 HorizontalAlignment="Stretch" />
-
-        <StackPanel Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    Spacing="10">
-            <Button Content="取消"
-                    Command="{Binding CancelCommand}" />
-            <Button Content="确认"
-                    Command="{Binding ConfirmCommand}" />
+        x:DataType="vm:SearchDeleteNodeDialogViewModel" Classes="dialog"
+        Title="搜索并删除" Width="560" Height="290"
+        MinWidth="560" MinHeight="290" WindowStartupLocation="CenterOwner">
+    <Grid RowDefinitions="*,Auto">
+        <StackPanel Margin="24">
+            <Grid ColumnDefinitions="40,*" ColumnSpacing="16" Margin="0,0,0,24">
+                <Path Data="M2,5 L9,5 L12,8 L22,8 L22,21 L2,21 Z" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="1.5"
+                      Width="36" Height="36" Stretch="Uniform" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Spacing="6">
+                    <TextBlock Text="搜索要删除的节点" Classes="dialog-title" />
+                    <TextBlock Text="先查看匹配结果，确认后才会从索引中移除。" Classes="secondary" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+            <TextBlock Text="文件或目录名" Margin="0,0,0,8" />
+            <TextBox Text="{Binding SearchText}" Watermark="输入要查找的名称" AutomationProperties.Name="文件或目录名" />
+            <TextBlock Text="不会删除真实磁盘文件" Classes="secondary" Margin="0,8,0,0" />
         </StackPanel>
-    </StackPanel>
+        <Border Grid.Row="1" Classes="dialog-footer">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="取消" Command="{Binding CancelCommand}" IsCancel="True" />
+                <Button Content="查看匹配结果" Command="{Binding ConfirmCommand}" IsEnabled="{Binding CanConfirm}" Classes="primary" IsDefault="True" />
+            </StackPanel>
+        </Border>
+    </Grid>
 </Window>
