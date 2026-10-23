@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reactive;
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
@@ -35,6 +37,15 @@ public class RepoBrowserViewModel : ViewModelBase
             ? "未设置"
             : CurrentRepoNode.DeclareHoldingStrategyName;
 
+    public IReadOnlyList<DeclareHoldingStrategyOption> StrategyOptions { get; } =
+        new[] { new DeclareHoldingStrategyOption(null, "未设置") }
+            .Concat(DeclareHoldingStrategyFactory.GetAllOptions()).ToArray();
+
+    [Reactive] public DeclareHoldingStrategyOption? CurrentStrategyOption { get; set; }
+
+    public void RefreshStrategySelection() => CurrentStrategyOption = StrategyOptions.First(
+        option => option.Type == CurrentRepoNode?.RepoNode.DeclareHoldingStrategyType);
+
     public ObservableCollection<StorageLocationViewModel> CurrentStorageLocations { get; } = new();
     public int StorageLocationCount => CurrentStorageLocations.Count;
 
@@ -54,6 +65,7 @@ public class RepoBrowserViewModel : ViewModelBase
         RepoNodeRoot = repoNodeRoot;
         RepoNodeVm = projection.CreateRepoTree(repoNodeRoot);
         RepoNodeSource = TreeDataGridSourceFactory.CreateRepoSource(RepoNodeVm);
+        RefreshStrategySelection();
     }
 
     public void UpdateCurrentRepoNode(RepoNode repoNode)
@@ -96,6 +108,7 @@ public class RepoBrowserViewModel : ViewModelBase
         this.RaisePropertyChanged(nameof(CurrentRepoNodeKind));
         this.RaisePropertyChanged(nameof(CurrentRepoNodeIsDirectory));
         this.RaisePropertyChanged(nameof(CurrentRepoNodeStrategyName));
+        RefreshStrategySelection();
         this.RaisePropertyChanged(nameof(StorageLocationCount));
     }
 }

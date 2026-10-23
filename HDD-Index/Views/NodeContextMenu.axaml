@@ -66,11 +66,17 @@
             </MultiBinding>
         </MenuItem.IsVisible>
     </MenuItem>
-    <MenuItem Header="修改声明持有的策略"
-              Command="{Binding RepositoryEditor.ChangeDeclareHoldingStrategyCommand}"
-              CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"
+    <MenuItem Header="验证策略"
+              IsEnabled="{Binding !IsStrategyChangeRunning}"
               IsVisible="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem,
-                          Converter={StaticResource RepoNodeOnlyConverter}}" />
+                          Converter={StaticResource RepoNodeOnlyConverter}}">
+        <MenuItem Header="未设置" Command="{Binding RepositoryEditor.ClearStrategyCommand}"
+                  CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}" />
+        <MenuItem Header="默认" Command="{Binding RepositoryEditor.UseDefaultStrategyCommand}"
+                  CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}" />
+        <MenuItem Header="BDRip" Command="{Binding RepositoryEditor.UseBDRipStrategyCommand}"
+                  CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}" />
+    </MenuItem>
     <MenuItem Header="搜索并删除节点"
               Command="{Binding RepositoryEditor.SearchAndDeleteRepoNodesCommand}"
               CommandParameter="{Binding $parent[TreeDataGrid].RowSelection.SelectedItem}"

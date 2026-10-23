@@ -300,17 +300,106 @@ public class WorkspaceViewModelTests
     }
 
     [Fact]
-    public async Task StrategyCancellation_LeavesInspectorAndMetadataUnchanged()
+    public async Task StrategyDropdown_ChangesImmediatelyAndSavesWithoutSelectionDialog()
     {
         var fixture = new Fixture();
         var vm = fixture.ViewModel;
         vm.RepoBrowser.RepoNodeSource.RowSelection!.Select(new IndexPath(0, 0));
+        var selected = vm.RepoBrowser.CurrentRepoNode!;
 
-        await vm.RepositoryEditor.ChangeDeclareHoldingStrategyCommand.Execute(vm.RepoBrowser.CurrentRepoNode!);
-        await vm.RepositoryEditor.ChangeDeclareHoldingStrategyCommand.Execute(vm.RepoBrowser.CurrentRepoNode!);
+        await vm.ChangeDeclareHoldingStrategyAsync(selected, DeclareHoldingStrategyType.BDRip);
 
+        Assert.Equal(DeclareHoldingStrategyType.BDRip, fixture.RepoChild.DeclareHoldingStrategyType);
+        Assert.Equal("BDRip", vm.RepoBrowser.CurrentStrategyOption!.Name);
+        Assert.Equal("BDRip", selected.DeclareHoldingStrategyName);
+        Assert.True(vm.HasDirtyFiles);
+        Assert.Empty(fixture.Interaction.Confirmations);
+        Assert.True(await vm.SaveDirtyFilesAsync());
+        Assert.False(vm.HasDirtyFiles);
+
+        await vm.ChangeDeclareHoldingStrategyAsync(selected, DeclareHoldingStrategyType.BDRip);
+        Assert.False(vm.HasDirtyFiles);
+        await vm.ChangeDeclareHoldingStrategyAsync(selected, null);
         Assert.Null(fixture.RepoChild.DeclareHoldingStrategyType);
-        Assert.Equal("未设置", vm.RepoBrowser.CurrentRepoNodeStrategyName);
+        Assert.Equal("未设置", vm.RepoBrowser.CurrentStrategyOption!.Name);
+        Assert.True(vm.HasDirtyFiles);
+    }
+
+    [Theory]
+    [InlineData(false, DeclareHoldingStrategyType.Default)]
+    [InlineData(true, DeclareHoldingStrategyType.Default)]
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    public async Task StrategyDropdown_InvalidAssociationsRequireConfirmation(bool accept, DeclareHoldingStrategyType? replacement)
+    {
+        var fixture = new Fixture();
+        var vm = fixture.ViewModel;
+        fixture.RepoChild.Children.Add(TestTreeFactory.RepoFile("subtitle.ass"));
+        fixture.RepoChild.DeclareHoldingStrategyType = DeclareHoldingStrategyType.BDRip;
+        vm.RepoBrowser.RepoNodeSource.RowSelection!.Select(new IndexPath(0, 0));
+        vm.FileBrowser.CurrFileNodeSource.RowSelection!.Select(new IndexPath(0, 0));
+        var fileVm = vm.FileBrowser.CurrFileNodeSource.RowSelection.SelectedItem!;
+        await vm.RepositoryEditor.DeclareSelectedRepoNodeCommand.Execute(fileVm);
+        await vm.SaveDirtyFilesAsync();
+        fixture.Interaction.ConfirmResult = accept;
+        var changes = new List<string?>();
+        vm.RepoBrowser.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+
+        vm.RepoBrowser.CurrentStrategyOption = vm.RepoBrowser.StrategyOptions.First(option => option.Type == replacement);
+
+        Assert.Single(fixture.Interaction.Confirmations);
+        Assert.Equal(accept ? replacement : DeclareHoldingStrategyType.BDRip,
+            fixture.RepoChild.DeclareHoldingStrategyType);
+        Assert.Equal(accept ? 0 : 1, fixture.RepoChild.SaveFileNodeDatas.Count);
+        Assert.Equal(accept ? 0 : 1, fileVm.FileNode.DeclareRepoNodeDatas.Count);
+        Assert.Equal(accept, vm.HasDirtyFiles);
+        Assert.Equal(fixture.RepoChild.DeclareHoldingStrategyType, vm.RepoBrowser.CurrentStrategyOption!.Type);
+        Assert.Contains(nameof(RepoBrowserViewModel.CurrentStrategyOption), changes);
+        Assert.False(vm.IsStrategyChangeRunning);
+    }
+
+    [Fact]
+    public async Task StrategyDropdown_PendingConfirmationDoesNotRetargetOrReenter()
+    {
+        var fixture = new Fixture();
+        var vm = fixture.ViewModel;
+        fixture.RepoChild.DeclareHoldingStrategyType = DeclareHoldingStrategyType.BDRip;
+        fixture.RepoChild.SaveFileNodeDatas.Add(new SaveFileNodeData { DiskLabel = "Missing", FileNodePath = "Missing" });
+        vm.RepoBrowser.RepoNodeSource.RowSelection!.Select(new IndexPath(0, 0));
+        var original = vm.RepoBrowser.CurrentRepoNode!;
+        var pending = new TaskCompletionSource<bool>();
+        fixture.Interaction.PendingConfirmation = pending.Task;
+        var change = vm.ChangeDeclareHoldingStrategyAsync(original, DeclareHoldingStrategyType.Default);
+        Assert.True(vm.IsStrategyChangeRunning);
+
+        vm.RepoBrowser.RepoNodeSource.RowSelection.Select(new IndexPath(0, 1));
+        var next = vm.RepoBrowser.CurrentRepoNode!;
+        await vm.ChangeDeclareHoldingStrategyAsync(next, DeclareHoldingStrategyType.BDRip);
+        Assert.Null(next.RepoNode.DeclareHoldingStrategyType);
+        pending.SetResult(true);
+        await change;
+
+        Assert.Same(next, vm.RepoBrowser.CurrentRepoNode);
+        Assert.Null(vm.RepoBrowser.CurrentStrategyOption!.Type);
+        Assert.Equal(DeclareHoldingStrategyType.Default, original.RepoNode.DeclareHoldingStrategyType);
+        Assert.Single(fixture.Interaction.Confirmations);
+        Assert.False(vm.IsStrategyChangeRunning);
+    }
+
+    [Fact]
+    public void StrategyDropdown_SelectionAndModeChangesNeverMutateMetadata()
+    {
+        var fixture = new Fixture();
+        var vm = fixture.ViewModel;
+        fixture.RepoChild.DeclareHoldingStrategyType = DeclareHoldingStrategyType.BDRip;
+        vm.RepoBrowser.RepoNodeSource.RowSelection!.Select(new IndexPath(0, 0));
+        Assert.Equal(DeclareHoldingStrategyType.BDRip, vm.RepoBrowser.CurrentStrategyOption!.Type);
+        vm.ShowOrganizeCommand.Execute().Subscribe();
+        Assert.Equal(DeclareHoldingStrategyType.BDRip, vm.RepoBrowser.CurrentStrategyOption!.Type);
+        vm.RepoBrowser.RepoNodeSource.RowSelection.Select(new IndexPath(0, 1));
+        Assert.Null(vm.RepoBrowser.CurrentStrategyOption!.Type);
+        vm.RepoBrowser.RepoNodeSource.RowSelection.Clear();
+        Assert.Null(vm.RepoBrowser.CurrentStrategyOption!.Type);
         Assert.False(vm.HasDirtyFiles);
     }
 
@@ -368,12 +457,16 @@ public class WorkspaceViewModelTests
             return Task.CompletedTask;
         }
 
-        public Task<bool> ConfirmAsync(ConfirmationRequest request) => Task.FromResult(true);
+        public bool ConfirmResult { get; set; } = true;
+        public Task<bool>? PendingConfirmation { get; set; }
+        public List<ConfirmationRequest> Confirmations { get; } = new();
+        public Task<bool> ConfirmAsync(ConfirmationRequest request)
+        {
+            Confirmations.Add(request);
+            return PendingConfirmation ?? Task.FromResult(ConfirmResult);
+        }
         public Task<DeclareHoldingStrategySelection> SelectInitialDeclareHoldingStrategyAsync(
             IReadOnlyList<DeclareHoldingStrategyOption> options) => Task.FromResult(new DeclareHoldingStrategySelection(false, null));
-        public Task<DeclareHoldingStrategySelection> SelectReplacementDeclareHoldingStrategyAsync(
-            IReadOnlyList<DeclareHoldingStrategyOption> options, DeclareHoldingStrategyType? selectedStrategyType)
-            => Task.FromResult(new DeclareHoldingStrategySelection(false, null));
         public Task<IReadOnlyList<string>?> SelectDeclareHoldingsToAbandonAsync(IReadOnlyList<string> repoNodePaths)
             => Task.FromResult<IReadOnlyList<string>?>(null);
         public Task<string?> RequestRenameAsync(string initialName) => Task.FromResult(Rename);
