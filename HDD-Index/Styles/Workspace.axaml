@@ -6,14 +6,19 @@
                 <ResourceDictionary x:Key="Default">
                     <SolidColorBrush x:Key="WorkspaceBackground">#FCFCFB</SolidColorBrush>
                     <SolidColorBrush x:Key="WorkspaceSurface">#F7F7F5</SolidColorBrush>
-                    <SolidColorBrush x:Key="WorkspaceSidebar">#EEEDEB</SolidColorBrush>
-                    <SolidColorBrush x:Key="WorkspaceBorder">#DDDDDA</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSidebar">#F0EFED</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceBorder">#E1E0DD</SolidColorBrush>
                     <SolidColorBrush x:Key="WorkspaceText">#202329</SolidColorBrush>
-                    <SolidColorBrush x:Key="WorkspaceMuted">#747774</SolidColorBrush>
-                    <SolidColorBrush x:Key="WorkspaceSelection">#E1E1DE</SolidColorBrush>
-                    <SolidColorBrush x:Key="TreeDataGridSelectedCellBackgroundBrush">#E1E1DE</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceMuted">#686B69</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSelection">#E5E4E1</SolidColorBrush>
+                    <SolidColorBrush x:Key="TreeDataGridSelectedCellBackgroundBrush">#E5E4E1</SolidColorBrush>
                     <SolidColorBrush x:Key="WorkspaceAccent">#1673E6</SolidColorBrush>
-                    <SolidColorBrush x:Key="WorkspaceAlternate">#F7F7F5</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceAlternate">#F8F8F7</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceHover">#EDEDEB</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspacePressed">#DADBD8</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceDisabled">#F1F1EF</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceDisabledText">#92948F</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceScrollThumb">#B4B5B1</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="WorkspaceBackground">#232426</SolidColorBrush>
@@ -26,19 +31,24 @@
                     <SolidColorBrush x:Key="TreeDataGridSelectedCellBackgroundBrush">#45474B</SolidColorBrush>
                     <SolidColorBrush x:Key="WorkspaceAccent">#68ABFF</SolidColorBrush>
                     <SolidColorBrush x:Key="WorkspaceAlternate">#28292B</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceHover">#37393C</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspacePressed">#4B4D50</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceDisabled">#2C2D30</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceDisabledText">#85878A</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceScrollThumb">#74777C</SolidColorBrush>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Styles.Resources>
     <Style Selector="Window">
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="15" />
         <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
     </Style>
     <Style Selector="TextBlock.secondary, TextBlock.section-label">
         <Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}" />
     </Style>
     <Style Selector="TextBlock.section-label">
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="TextBlock.heading">
@@ -116,7 +126,12 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
     </Style>
-    <Style Selector="Button.search-step"><Setter Property="Padding" Value="12,9" /></Style>
+    <Style Selector="Button.search-step">
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="CornerRadius" Value="7" />
+    </Style>
     <Style Selector="Button.location">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
@@ -131,10 +146,6 @@
         <Setter Property="Padding" Value="24,9" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
-    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="#0F64CD" />
-        <Setter Property="Foreground" Value="White" />
-    </Style>
     <Style Selector="TreeDataGrid">
         <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
     </Style>
@@ -145,6 +156,7 @@
         <Setter Property="Background" Value="{DynamicResource WorkspaceAlternate}" />
     </Style>
     <Style Selector="TreeDataGridRow:selected">
+        <Setter Property="CornerRadius" Value="0,6,6,0" />
         <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceAccent}" />
         <Setter Property="BorderThickness" Value="3,0,0,0" />
         <Setter Property="Background" Value="{DynamicResource WorkspaceSelection}" />
@@ -154,9 +166,203 @@
         <Setter Property="Background" Value="{DynamicResource WorkspaceSurface}" />
         <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="MinHeight" Value="38" />
+        <Setter Property="MinHeight" Value="42" />
     </Style>
     <Style Selector="TreeDataGridCell">
         <Setter Property="Padding" Value="10,8" />
+    </Style>
+
+    <!-- Keep Fluent's native input, automation and popup contracts; explicitly style
+         its template parts so interaction states cannot fall back to stock chrome. -->
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceHover}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+    </Style>
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspacePressed}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+    </Style>
+    <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDisabled}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceDisabledText}" />
+    </Style>
+    <Style Selector="Button:disabled">
+        <Setter Property="Opacity" Value="0.7" />
+    </Style>
+    <Style Selector="Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceAccent}" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#0F64CD" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#0B54AF" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDisabled}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceDisabledText}" />
+    </Style>
+    <Style Selector="Button.navigation:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.location:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceHover}" />
+    </Style>
+    <Style Selector="Button.navigation.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSelection}" />
+    </Style>
+    <Style Selector="RadioButton.mode:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceAccent}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ListBox.disks ListBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+    </Style>
+    <Style Selector="ListBox.disks ListBoxItem:selected:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSelection}" />
+    </Style>
+    <Style Selector="Separator">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Height" Value="1" />
+    </Style>
+    <Style Selector="ComboBox">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="MinHeight" Value="36" />
+    </Style>
+    <Style Selector="ComboBox:pointerover /template/ Border#Background">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceHover}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="ComboBox:pressed /template/ Border#Background">
+        <Setter Property="Background" Value="{DynamicResource WorkspacePressed}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="ComboBox:focus-visible /template/ Border#HighlightBackground">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceAccent}" />
+    </Style>
+    <Style Selector="ComboBox:disabled /template/ Border#Background">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDisabled}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="ComboBox /template/ Border#PopupBorder">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="CornerRadius" Value="9" />
+        <Setter Property="Padding" Value="4" />
+    </Style>
+    <Style Selector="ComboBoxItem">
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="TextBox.search:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceScrollThumb}" />
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSurface}" />
+    </Style>
+    <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceAccent}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+    </Style>
+    <Style Selector="TreeDataGridColumnHeader">
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="12,9" />
+    </Style>
+    <Style Selector="ScrollBar">
+        <Setter Property="AllowAutoHide" Value="True" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="MinWidth" Value="10" />
+        <Setter Property="MinHeight" Value="10" />
+    </Style>
+    <Style Selector="ScrollBar /template/ RepeatButton#PART_LineUpButton, ScrollBar /template/ RepeatButton#PART_LineDownButton, ScrollBar /template/ RepeatButton#PART_LineLeftButton, ScrollBar /template/ RepeatButton#PART_LineRightButton">
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="ScrollBar /template/ Thumb">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceScrollThumb}" />
+        <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="ScrollBar[IsExpanded=true] /template/ Grid#Root">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ScrollBar[IsExpanded=true] /template/ Thumb">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceMuted}" />
+    </Style>
+    <Style Selector="ScrollBar:vertical /template/ Thumb">
+        <Setter Property="Width" Value="8" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal /template/ Thumb">
+        <Setter Property="Height" Value="8" />
+    </Style>
+    <Style Selector="ScrollBar[IsExpanded=true] /template/ Rectangle#TrackRect">
+        <Setter Property="Fill" Value="Transparent" />
+        <Setter Property="Stroke" Value="Transparent" />
+    </Style>
+    <Style Selector="TreeDataGridColumnHeader /template/ Rectangle">
+        <Setter Property="Fill" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="Margin" Value="0,11" />
+    </Style>
+    <Style Selector="TreeDataGridColumnHeader:pointerover /template/ Border#DataGridBorder">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceHover}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="TreeDataGridColumnHeader:pressed /template/ Border#DataGridBorder">
+        <Setter Property="Background" Value="{DynamicResource WorkspacePressed}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="RadioButton.mode:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="RadioButton.mode:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspacePressed}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="RadioButton.mode:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="RadioButton.mode:checked:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <!-- Fade only the chrome, not layout or hit testing. Pointer interaction
+         anywhere in the viewer and keyboard focus both reveal the native bars. -->
+    <Style Selector="ScrollViewer /template/ ScrollBar">
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="Transitions">
+            <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.12" /></Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ScrollViewer:pointerover /template/ ScrollBar, ScrollViewer:focus-within /template/ ScrollBar">
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="TreeDataGridRow:selected /template/ TreeDataGridCellsPresenter#PART_CellsPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+    </Style>
+    <Style Selector="ComboBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ComboBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSelection}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+    </Style>
+    <Style Selector="ComboBoxItem:pressed /template/ ContentPresenter#PART_ContentPresenter, ComboBoxItem:selected:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspacePressed}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
     </Style>
 </Styles>
