@@ -13,5 +13,6 @@
         <FluentTheme />
         <StyleInclude 
             Source="avares://Avalonia.Controls.TreeDataGrid/Themes/Fluent.axaml"/>
+        <StyleInclude Source="/Styles/Workspace.axaml" />
     </Application.Styles>
 </Application>

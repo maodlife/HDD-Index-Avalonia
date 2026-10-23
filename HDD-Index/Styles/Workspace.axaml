@@ -1,0 +1,162 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="WorkspaceBackground">#FCFCFB</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSurface">#F7F7F5</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSidebar">#EEEDEB</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceBorder">#DDDDDA</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceText">#202329</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceMuted">#747774</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSelection">#E1E1DE</SolidColorBrush>
+                    <SolidColorBrush x:Key="TreeDataGridSelectedCellBackgroundBrush">#E1E1DE</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceAccent">#1673E6</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceAlternate">#F7F7F5</SolidColorBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="WorkspaceBackground">#232426</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSurface">#28292B</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSidebar">#2D2E30</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceBorder">#414244</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceText">#F0F0EE</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceMuted">#B5B6B2</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSelection">#45474B</SolidColorBrush>
+                    <SolidColorBrush x:Key="TreeDataGridSelectedCellBackgroundBrush">#45474B</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceAccent">#68ABFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceAlternate">#28292B</SolidColorBrush>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Styles.Resources>
+    <Style Selector="Window">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+    </Style>
+    <Style Selector="TextBlock.secondary, TextBlock.section-label">
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}" />
+    </Style>
+    <Style Selector="TextBlock.section-label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="TextBlock.heading">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.link"><Setter Property="Foreground" Value="{DynamicResource WorkspaceAccent}" /></Style>
+    <Style Selector="Border.toolbar, Border.inspector">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="Border.sidebar">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSidebar}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="Border.segment">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSelection}" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="3" />
+    </Style>
+    <Style Selector="Button">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Padding" Value="14,8" />
+    </Style>
+    <Style Selector="RadioButton.mode">
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="Width" Value="88" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="RadioButton.mode:checked">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="RadioButton.mode:checked /template/ ContentPresenter#PART_ContentPresenter, RadioButton.mode:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="Button.navigation">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,10" />
+    </Style>
+    <Style Selector="Button.navigation.active"><Setter Property="Background" Value="{DynamicResource WorkspaceSelection}" /></Style>
+    <Style Selector="ListBox.disks">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ListBox.disks ListBoxItem">
+        <Setter Property="Padding" Value="12,9" />
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="CornerRadius" Value="7" />
+    </Style>
+    <Style Selector="ListBox.disks ListBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSelection}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+    </Style>
+    <Style Selector="TextBox.search">
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="43,9,12,9" />
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+    </Style>
+    <Style Selector="TextBox.address">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="Margin" Value="0,0,12,0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.search-step"><Setter Property="Padding" Value="12,9" /></Style>
+    <Style Selector="Button.location">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Padding" Value="0,12" />
+    </Style>
+    <Style Selector="Button.location.compact"><Setter Property="Padding" Value="0,7" /></Style>
+    <Style Selector="Button.primary">
+        <Setter Property="Background" Value="#1673E6" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Padding" Value="24,9" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#0F64CD" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="TreeDataGrid">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceBackground}" />
+    </Style>
+    <Style Selector="TreeDataGridRow">
+        <Setter Property="MinHeight" Value="38" />
+    </Style>
+    <Style Selector="TreeDataGridRow:nth-child(2n)">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceAlternate}" />
+    </Style>
+    <Style Selector="TreeDataGridRow:selected">
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceAccent}" />
+        <Setter Property="BorderThickness" Value="3,0,0,0" />
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSelection}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+    </Style>
+    <Style Selector="TreeDataGridColumnHeader">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSurface}" />
+        <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="MinHeight" Value="38" />
+    </Style>
+    <Style Selector="TreeDataGridCell">
+        <Setter Property="Padding" Value="10,8" />
+    </Style>
+</Styles>

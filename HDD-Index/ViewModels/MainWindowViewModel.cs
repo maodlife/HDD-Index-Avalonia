@@ -38,6 +38,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly IPathOpener _pathOpener;
     private readonly IReadOnlyList<SessionLoadIssue> _startupWarnings;
     private bool _isSelectingRepoRowProgrammatically;
+    private bool _isApplyingTreeChanges;
 
     public RepoBrowserViewModel RepoBrowser { get; }
     public FileBrowserViewModel FileBrowser { get; }
@@ -46,6 +47,35 @@ public class MainWindowViewModel : ViewModelBase
     [Reactive] public int ViewModeTabIndex { get; set; }
     [Reactive] public bool HasDirtyFiles { get; set; }
     [Reactive] public bool IsFileTreeScanRunning { get; set; }
+    [Reactive] public bool IsRepositorySelected { get; set; } = true;
+
+    public bool IsBrowseMode => IsViewMode;
+    public bool IsOrganizeMode => IsEditMode;
+    public bool IsRepositoryBrowseVisible => IsBrowseMode && IsRepositorySelected;
+    public bool IsDiskBrowseVisible => IsBrowseMode && !IsRepositorySelected;
+    public string SaveStatusText => HasDirtyFiles ? "未保存" : "已保存";
+    public bool CanLinkSelectedNodes => RepoBrowser.HasCurrentRepoNode && FileBrowser.HasSelectedFileNode;
+    public bool CanCopySelectedStructure => RepoBrowser.CurrentRepoNode?.IsDirectory == true
+                                            && FileBrowser.HasSelectedFileNode;
+
+    public string? SelectedSidebarDiskLabel
+    {
+        get => IsRepositorySelected ? null : FileBrowser.SelectedDiskLabel;
+        set
+        {
+            if (value == null || !FileBrowser.DiskLabels.Contains(value))
+                return;
+
+            FileBrowser.SelectedDiskLabel = value;
+            IsRepositorySelected = false;
+        }
+    }
+
+    public ReactiveCommand<Unit, Unit> ShowBrowseCommand { get; private set; } = null!;
+    public ReactiveCommand<Unit, Unit> ShowOrganizeCommand { get; private set; } = null!;
+    public ReactiveCommand<Unit, Unit> SelectRepositoryCommand { get; private set; } = null!;
+    public ReactiveCommand<string, Unit> SelectDiskCommand { get; private set; } = null!;
+    public ReactiveCommand<StorageLocationViewModel, Unit> ShowStorageLocationCommand { get; private set; } = null!;
 
     public bool IsViewMode => ViewModeTabIndex == 0;
     public bool IsEditMode => ViewModeTabIndex == 1;
@@ -87,6 +117,36 @@ public class MainWindowViewModel : ViewModelBase
 
     private void InitCommand()
     {
+        ShowBrowseCommand = ReactiveCommand.Create(() => { ViewModeTabIndex = 0; });
+        ShowOrganizeCommand = ReactiveCommand.Create(() => { ViewModeTabIndex = 1; });
+        SelectRepositoryCommand = ReactiveCommand.Create(() => { IsRepositorySelected = true; });
+        SelectDiskCommand = ReactiveCommand.Create<string>(diskLabel =>
+        {
+            SelectedSidebarDiskLabel = diskLabel;
+        });
+        ShowStorageLocationCommand = ReactiveCommand.Create<StorageLocationViewModel>(ShowStorageLocation);
+        this.WhenAnyValue(x => x.ViewModeTabIndex, x => x.IsRepositorySelected)
+            .Subscribe(_ =>
+            {
+                this.RaisePropertyChanged(nameof(IsViewMode));
+                this.RaisePropertyChanged(nameof(IsEditMode));
+                this.RaisePropertyChanged(nameof(IsBrowseMode));
+                this.RaisePropertyChanged(nameof(IsOrganizeMode));
+                this.RaisePropertyChanged(nameof(IsRepositoryBrowseVisible));
+                this.RaisePropertyChanged(nameof(IsDiskBrowseVisible));
+                this.RaisePropertyChanged(nameof(SelectedSidebarDiskLabel));
+            });
+        FileBrowser.WhenAnyValue(x => x.SelectedDiskLabel)
+            .Subscribe(_ => this.RaisePropertyChanged(nameof(SelectedSidebarDiskLabel)));
+        this.WhenAnyValue(x => x.HasDirtyFiles)
+            .Subscribe(_ => this.RaisePropertyChanged(nameof(SaveStatusText)));
+        this.WhenAnyValue(x => x.RepoBrowser.CurrentRepoNode, x => x.FileBrowser.HasSelectedFileNode)
+            .Subscribe(_ =>
+            {
+                this.RaisePropertyChanged(nameof(CanLinkSelectedNodes));
+                this.RaisePropertyChanged(nameof(CanCopySelectedStructure));
+            });
+
         SaveCommand = ReactiveCommand.CreateFromTask(
             async () => { await SaveDirtyFilesAsync(); },
             this.WhenAnyValue(x => x.HasDirtyFiles));
@@ -115,6 +175,9 @@ public class MainWindowViewModel : ViewModelBase
         var repoRowSelection = RepoBrowser.RepoNodeSource.RowSelection;
         if (repoRowSelection != null)
         {
+            repoRowSelection.WhenAnyValue(x => x.SelectedItem)
+                .Where(x => x == null && !_isSelectingRepoRowProgrammatically && !_isApplyingTreeChanges)
+                .Subscribe(_ => RepoBrowser.ClearCurrentRepoNode());
             repoRowSelection.WhenAnyValue(x => x.SelectedItem)
                 .Where(x => x != null)
                 .Select(x => x!)
@@ -222,6 +285,7 @@ public class MainWindowViewModel : ViewModelBase
 
     private void NavigateToRepoSearchMatch(RepoNodeSearchMatch match)
     {
+        IsRepositorySelected = true;
         var parent = match.IndexPath.Slice(0, match.IndexPath.Count - 1);
         RepoBrowser.RepoNodeSource.Expand(parent);
         SelectSingleRepoRow(match.IndexPath);
@@ -273,10 +337,11 @@ public class MainWindowViewModel : ViewModelBase
         if (nodeVM is not FileNodeVM fileNodeVM)
             return;
 
-        JumpToDeclareRepoNode(fileNodeVM.FileNode);
+        if (JumpToDeclareRepoNode(fileNodeVM.FileNode) && IsBrowseMode)
+            IsRepositorySelected = true;
     }
 
-    private void JumpToDeclareRepoNode(FileNode fileNode)
+    private bool JumpToDeclareRepoNode(FileNode fileNode)
     {
         var repoNodePath = fileNode.DeclareRepoNodeDatas
             .FirstOrDefault()
@@ -286,12 +351,13 @@ public class MainWindowViewModel : ViewModelBase
             repoNodePath,
             out var indexPath);
         if (target == null || indexPath == null)
-            return;
+            return false;
 
         var parent = indexPath.Value.Slice(0, indexPath.Value.Count - 1);
         RepoBrowser.RepoNodeSource.Expand(parent);
         SelectSingleRepoRow(indexPath.Value);
         ScrollToRepoRows();
+        return true;
     }
 
     public void JumpToCurrSelectSaveFileNode()
@@ -306,13 +372,32 @@ public class MainWindowViewModel : ViewModelBase
 
         var foundSaveData = selectRepoNode.SaveFileNodeDatas
             .Find(x => x.DiskLabel == selectDiskLabel);
-        if (foundSaveData == null || !FileBrowser.ChangeDiskLabel(selectDiskLabel))
+        if (foundSaveData != null)
+            NavigateToStorageLocation(foundSaveData);
+    }
+
+    private void ShowStorageLocation(StorageLocationViewModel location)
+    {
+        var savedLocation = RepoBrowser.CurrentRepoNode?.SaveFileNodeDatas
+            .FirstOrDefault(x => x.DiskLabel == location.DiskLabel
+                                 && x.FileNodePath == location.FileNodePath);
+        if (savedLocation == null)
+            return;
+
+        ViewModeTabIndex = 1;
+        RepoBrowser.SelectedSaveFileNodeLabel = location.DiskLabel;
+        NavigateToStorageLocation(savedLocation);
+    }
+
+    private void NavigateToStorageLocation(SaveFileNodeData location)
+    {
+        if (!FileBrowser.ChangeDiskLabel(location.DiskLabel))
             return;
 
         var target = TreeNavigationService.FindFileNodeVmByPath(
             _treeProjection.GetFileNodeVm(
                 FileBrowser.FileDatas[FileBrowser.CurrShowFileNodeIndex].FileNodeRoot),
-            foundSaveData.FileNodePath,
+            location.FileNodePath,
             out var indexPath);
         if (target == null || indexPath == null)
             return;
@@ -625,7 +710,17 @@ public class MainWindowViewModel : ViewModelBase
                                              selectedRepoNode,
                                              x.Node));
 
-        _treeProjection.Apply(changes);
+        // A removed selected row can synchronously clear selection during collection
+        // notification. Defer inspector/path navigation until TreeDataGrid has finished.
+        _isApplyingTreeChanges = true;
+        try
+        {
+            _treeProjection.Apply(changes);
+        }
+        finally
+        {
+            _isApplyingTreeChanges = false;
+        }
 
         if (selectedNodeWasRemoved)
         {

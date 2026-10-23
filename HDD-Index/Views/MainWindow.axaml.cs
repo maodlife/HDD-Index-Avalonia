@@ -1,6 +1,8 @@
 using System;
+using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using HDD_Index.ViewModels;
 
 namespace HDD_Index.Views;
@@ -13,6 +15,42 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if ((e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
+        {
+            var field = e.Key == Key.L ? RepositoryAddress
+                : e.Key == Key.F ? RepositorySearch : null;
+            if (field != null)
+            {
+                field.Focus();
+                field.SelectAll();
+                e.Handled = true;
+            }
+        }
+
+        base.OnKeyDown(e);
+    }
+
+    private void OnAddressKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        if (e.Key == Key.Enter)
+        {
+            vm.SelectRepositoryCommand.Execute().Subscribe();
+            vm.RepoBrowser.RepoNodePathString = RepositoryAddress.Text ?? string.Empty;
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            RepositoryAddress.Text = vm.RepoBrowser.RepoNodePathString;
+            RepositoryAddress.SelectAll();
+            e.Handled = true;
+        }
     }
 
     protected override async void OnOpened(EventArgs e)
