@@ -19,13 +19,13 @@
 
     </Window.Resources>
 
-    <Grid RowDefinitions="64,*">
+    <Grid RowDefinitions="60,*">
         <!-- Keep the operating system's real title bar and window controls. -->
         <Border Classes="toolbar" Grid.Row="0" BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="224,*,Auto" Margin="20,0">
+            <Grid ColumnDefinitions="224,*,224" Margin="20,0">
                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <views:NodeIcon Kind="Disk" Width="24" Height="26" />
-                    <TextBlock Text="HDD Index" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <views:NodeIcon Kind="Disk" Width="20" Height="23" />
+                    <TextBlock Text="HDD Index" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </StackPanel>
                 <Border Grid.Column="1" Classes="segment" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="3">
@@ -37,7 +37,7 @@
                                 Command="{Binding ShowOrganizeCommand}" AutomationProperties.Name="整理模式" />
                     </StackPanel>
                 </Border>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Right">
                     <TextBlock Text="{Binding SaveStatusText}" Classes="secondary" VerticalAlignment="Center"
                                AutomationProperties.LiveSetting="Polite" />
                     <Button Command="{Binding SaveCommand}" ToolTip.Tip="保存修改 (Ctrl / ⌘ + S)">
@@ -85,32 +85,39 @@
                     </Border>
                 </Grid>
             </Border>
-            <Grid Grid.Column="1" RowDefinitions="72,*,40">
-                <Border Grid.Row="0" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="0,0,0,1" Padding="20,14">
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+            <Grid Grid.Column="1" RowDefinitions="68,*,36">
+                <Border Grid.Row="0" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="0,0,0,1" Padding="20,12">
+                    <Grid ColumnDefinitions="*,Auto">
                         <Grid>
                             <TextBox Name="RepositorySearch" Classes="search" Watermark="搜索 Repository"
+                                     Padding="43,9,66,9"
                                      Text="{Binding RepoBrowser.RepoSearch.SearchText, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.Name="搜索 Repository 中的文件或目录" />
-                            <views:NodeIcon Kind="Search" Width="20" Height="20" Margin="14,0,0,0"
+                            <views:NodeIcon Kind="Search" Width="19" Height="19" Margin="14,0,0,0"
                                             HorizontalAlignment="Left" IsHitTestVisible="False" />
+                            <TextBlock Margin="0,0,14,0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       Classes="secondary" IsHitTestVisible="False"
+                                       Text="{Binding RepoBrowser.RepoSearch.MatchCounterText}" />
                         </Grid>
-                        <TextBlock Grid.Column="1" Margin="14,0" VerticalAlignment="Center" Classes="secondary"
-                                   Text="{Binding RepoBrowser.RepoSearch.MatchCounterText}" />
-                        <Button Grid.Column="2" Classes="search-step" Command="{Binding RepoBrowser.RepoSearch.SearchPreviousCommand}"
-                                IsEnabled="{Binding RepoBrowser.RepoSearch.HasMatches}" ToolTip.Tip="上一个搜索结果" AutomationProperties.Name="上一个搜索结果">
-                            <views:NodeIcon Kind="ChevronUp" Width="16" Height="16" />
-                        </Button>
-                        <Button Grid.Column="3" Classes="search-step" Margin="5,0,0,0"
-                                Command="{Binding RepoBrowser.RepoSearch.SearchNextCommand}"
-                                IsEnabled="{Binding RepoBrowser.RepoSearch.HasMatches}" ToolTip.Tip="下一个搜索结果" AutomationProperties.Name="下一个搜索结果">
-                            <views:NodeIcon Kind="ChevronDown" Width="16" Height="16" />
-                        </Button>
+                        <Border Grid.Column="1" Margin="8,0,0,0" BorderBrush="{DynamicResource WorkspaceBorder}"
+                                BorderThickness="1" CornerRadius="8" Background="{DynamicResource WorkspaceSurface}">
+                            <Grid ColumnDefinitions="Auto,1,Auto">
+                                <Button Classes="search-step" Command="{Binding RepoBrowser.RepoSearch.SearchPreviousCommand}"
+                                        IsEnabled="{Binding RepoBrowser.RepoSearch.HasMatches}" ToolTip.Tip="上一个搜索结果" AutomationProperties.Name="上一个搜索结果">
+                                    <views:NodeIcon Kind="ChevronUp" Width="14" Height="14" />
+                                </Button>
+                                <Border Grid.Column="1" Background="{DynamicResource WorkspaceBorder}" Margin="0,8" />
+                                <Button Grid.Column="2" Classes="search-step" Command="{Binding RepoBrowser.RepoSearch.SearchNextCommand}"
+                                        IsEnabled="{Binding RepoBrowser.RepoSearch.HasMatches}" ToolTip.Tip="下一个搜索结果" AutomationProperties.Name="下一个搜索结果">
+                                    <views:NodeIcon Kind="ChevronDown" Width="14" Height="14" />
+                                </Button>
+                            </Grid>
+                        </Border>
                     </Grid>
                 </Border>
                 <Grid Grid.Row="1" ColumnDefinitions="*,320" IsVisible="{Binding IsRepositoryBrowseVisible}">
-                    <Grid RowDefinitions="74,*">
-                        <StackPanel Margin="24,13" Spacing="5">
+                    <Grid RowDefinitions="78,*">
+                        <StackPanel Margin="24,11" Spacing="5">
                             <TextBlock Text="虚拟目录" Classes="heading" />
                             <TextBlock Text="{Binding RepoBrowser.RepoNodePathString}" Classes="secondary" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
@@ -125,19 +132,20 @@
             </TreeDataGrid.Source>
             <Interaction.Behaviors>
                 <behaviors:ScrollToSelectedItemBehavior />
+                <behaviors:TreeViewportBehavior />
             </Interaction.Behaviors>
             <TreeDataGrid.ContextMenu><views:NodeContextMenu /></TreeDataGrid.ContextMenu>
         </TreeDataGrid></Border>
                     </Grid>
                     <Border Grid.Column="1" Classes="inspector" BorderThickness="1,0,0,0">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24" Spacing="20">
-                                <Grid Width="68" Height="68" HorizontalAlignment="Left">
-                                    <views:NodeIcon Kind="Folder" Stroke="{DynamicResource WorkspaceMuted}" IsVisible="{Binding RepoBrowser.CurrentRepoNodeIsDirectory}" />
-                                    <views:NodeIcon Kind="File" Stroke="{DynamicResource WorkspaceMuted}" IsVisible="{Binding !RepoBrowser.CurrentRepoNodeIsDirectory}" />
+                            <StackPanel Margin="28,28,24,24" Spacing="22">
+                                <Grid Width="76" Height="76" HorizontalAlignment="Left">
+                                    <views:NodeIcon Kind="Folder" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="3" IsVisible="{Binding RepoBrowser.CurrentRepoNodeIsDirectory}" />
+                                    <views:NodeIcon Kind="File" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="3" IsVisible="{Binding !RepoBrowser.CurrentRepoNodeIsDirectory}" />
                                 </Grid>
                                 <StackPanel Spacing="6">
-                                    <TextBlock Text="{Binding RepoBrowser.CurrentRepoNodeName}" FontSize="23" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding RepoBrowser.CurrentRepoNodeName}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
                                     <TextBlock Text="{Binding RepoBrowser.CurrentRepoNodeKind}" Classes="secondary" />
                                 </StackPanel>
                                 <Separator />
@@ -162,12 +170,13 @@
             HorizontalContentAlignment="Stretch"
             Command="{Binding $parent[Window].DataContext.ShowStorageLocationCommand}"
             CommandParameter="{Binding}" ToolTip.Tip="在磁盘索引中显示">
-        <Grid ColumnDefinitions="24,*,16">
-            <views:NodeIcon Kind="Disk" Width="21" Height="25" VerticalAlignment="Top" Margin="0,2,0,0" />
-            <StackPanel Grid.Column="1" Margin="12,0,8,0" Spacing="4">
+        <Grid ColumnDefinitions="30,*,16">
+            <views:NodeIcon Kind="Disk" Width="27" Height="32" VerticalAlignment="Top" Margin="0,2,0,0" />
+            <StackPanel Grid.Column="1" Margin="12,0,12,0" Spacing="4">
                 <TextBlock Text="{Binding DiskLabel}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                <TextBlock Text="{Binding DisplayPath}" Classes="secondary" TextWrapping="Wrap" />
-                <TextBlock Text="在磁盘索引中显示" Classes="link" FontSize="12" />
+                <TextBlock Text="{Binding DisplayPath}" Classes="secondary" TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding DisplayPath}" />
+                <TextBlock Text="在磁盘索引中显示 →" Classes="link" FontSize="13" />
             </StackPanel>
             <views:NodeIcon Grid.Column="2" Kind="ChevronRight" Width="14" Height="14" />
         </Grid>
@@ -180,8 +189,8 @@
                         </ScrollViewer>
                     </Border>
                 </Grid>
-                <Grid Grid.Row="1" IsVisible="{Binding IsDiskBrowseVisible}" RowDefinitions="74,*" ColumnDefinitions="*,280">
-                    <StackPanel Margin="24,13" Spacing="5">
+                <Grid Grid.Row="1" IsVisible="{Binding IsDiskBrowseVisible}" RowDefinitions="78,*" ColumnDefinitions="*,280">
+                    <StackPanel Margin="24,11" Spacing="5">
                         <TextBlock Text="{Binding FileBrowser.SelectedDiskLabel}" Classes="heading" />
                         <TextBlock Text="磁盘文件索引" Classes="secondary" />
                     </StackPanel>
@@ -196,6 +205,7 @@
             </TreeDataGrid.Source>
             <Interaction.Behaviors>
                 <behaviors:ScrollToSelectedItemBehavior />
+                <behaviors:TreeViewportBehavior />
             </Interaction.Behaviors>
             <TreeDataGrid.ContextMenu><views:NodeContextMenu /></TreeDataGrid.ContextMenu>
         </TreeDataGrid></Border>
@@ -213,10 +223,10 @@
                         </StackPanel>
                     </Border>
                 </Grid>
-                <Grid Grid.Row="1" IsVisible="{Binding IsOrganizeMode}" RowDefinitions="*,180,76">
-                    <Grid ColumnDefinitions="*,6,*">
-                        <Grid RowDefinitions="74,*" MinWidth="330">
-                            <StackPanel Margin="24,13" Spacing="5">
+                <Grid Grid.Row="1" IsVisible="{Binding IsOrganizeMode}" RowDefinitions="*,140,70">
+                    <Grid ColumnDefinitions="*,5,*">
+                        <Grid RowDefinitions="78,*" MinWidth="330">
+                            <StackPanel Margin="24,11" Spacing="5">
                                 <TextBlock Text="虚拟目录" Classes="heading" />
                                 <TextBlock Text="{Binding RepoBrowser.RepoNodePathString}" Classes="secondary" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
@@ -231,12 +241,15 @@
             </TreeDataGrid.Source>
             <Interaction.Behaviors>
                 <behaviors:ScrollToSelectedItemBehavior />
+                <behaviors:TreeViewportBehavior />
             </Interaction.Behaviors>
             <TreeDataGrid.ContextMenu><views:NodeContextMenu /></TreeDataGrid.ContextMenu>
         </TreeDataGrid></Border>
                         </Grid>
-                        <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="{DynamicResource WorkspaceBorder}" />
-                        <Grid Grid.Column="2" RowDefinitions="74,*" MinWidth="330">
+                        <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent">
+                            <GridSplitter.Template><ControlTemplate><Border Background="Transparent"><Border Width="1" Background="{DynamicResource WorkspaceBorder}" /></Border></ControlTemplate></GridSplitter.Template>
+                        </GridSplitter>
+                        <Grid Grid.Column="2" RowDefinitions="78,*" MinWidth="330">
                             <Grid Margin="20,12" ColumnDefinitions="*,Auto">
                                 <StackPanel Spacing="4" VerticalAlignment="Center">
                                     <TextBlock Text="磁盘文件索引" Classes="heading" />
@@ -257,17 +270,18 @@
             </TreeDataGrid.Source>
             <Interaction.Behaviors>
                 <behaviors:ScrollToSelectedItemBehavior />
+                <behaviors:TreeViewportBehavior />
             </Interaction.Behaviors>
             <TreeDataGrid.ContextMenu><views:NodeContextMenu /></TreeDataGrid.ContextMenu>
         </TreeDataGrid></Border>
                         </Grid>
                     </Grid>
-                    <Border Grid.Row="1" Classes="inspector" BorderThickness="0,1,0,1" Padding="24,18">
+                    <Border Grid.Row="1" Classes="inspector" BorderThickness="0,1,0,1" Padding="24,12">
                         <Grid ColumnDefinitions="*,1,*">
-                            <Grid ColumnDefinitions="70,*" Margin="0,0,20,0">
-                                <Grid Width="58" Height="58" HorizontalAlignment="Left">
-                                    <views:NodeIcon Kind="Folder" Stroke="{DynamicResource WorkspaceMuted}" IsVisible="{Binding RepoBrowser.CurrentRepoNodeIsDirectory}" />
-                                    <views:NodeIcon Kind="File" Stroke="{DynamicResource WorkspaceMuted}" IsVisible="{Binding !RepoBrowser.CurrentRepoNodeIsDirectory}" />
+                            <Grid ColumnDefinitions="84,*" Margin="0,0,20,0">
+                                <Grid Width="64" Height="64" HorizontalAlignment="Left">
+                                    <views:NodeIcon Kind="Folder" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="3" IsVisible="{Binding RepoBrowser.CurrentRepoNodeIsDirectory}" />
+                                    <views:NodeIcon Kind="File" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="3" IsVisible="{Binding !RepoBrowser.CurrentRepoNodeIsDirectory}" />
                                 </Grid>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="12">
                                     <TextBlock Text="{Binding RepoBrowser.CurrentRepoNodeName}" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
@@ -313,7 +327,7 @@
                             </Grid>
                         </Grid>
                     </Border>
-                    <Grid Grid.Row="2" Margin="20,10" ColumnDefinitions="*,Auto,Auto">
+                    <Grid Grid.Row="2" Margin="20,8" ColumnDefinitions="*,Auto,Auto">
                         <StackPanel VerticalAlignment="Center" Spacing="0">
                             <CheckBox Content="自动定位存储位置" IsChecked="{Binding RepositoryEditor.AutoJumpToSaveFileNode}" MinHeight="26" FontSize="12" />
                             <CheckBox Content="自动定位关联目录" IsChecked="{Binding RepositoryEditor.AutoJumpToDeclareRepoNode}" MinHeight="26" FontSize="12" />
