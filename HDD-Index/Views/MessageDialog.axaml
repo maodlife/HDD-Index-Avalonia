@@ -1,31 +1,28 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HDD_Index.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="150"
         x:Class="HDD_Index.Views.MessageDialog"
         x:DataType="vm:MessageDialogViewModel"
-        Title="提示"
-        Width="400" Height="150"
+        Classes="dialog" Title="提示"
+        Width="540" Height="310" MinWidth="480" MinHeight="270"
         WindowStartupLocation="CenterOwner">
-
-    <Design.DataContext>
-        <vm:MessageDialogViewModel />
-    </Design.DataContext>
-
-    <Grid Margin="14" RowDefinitions="*,Auto">
-        <ScrollViewer Grid.Row="0"
-                      HorizontalScrollBarVisibility="Disabled"
-                      VerticalScrollBarVisibility="Auto">
-            <TextBlock Text="{Binding MessageText}" TextWrapping="Wrap" />
-        </ScrollViewer>
-        <StackPanel Orientation="Horizontal"
-                    Grid.Row="1"
-                    Margin="0,20,0,0"
-                    HorizontalAlignment="Right">
-            <Button Content="确定"
-                    Command="{Binding ConfirmCommand}" />
-        </StackPanel>
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Grid ColumnDefinitions="40,*" ColumnSpacing="16" Margin="24,24,24,18">
+            <Path Width="32" Height="32" Stretch="Uniform" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="1.6" VerticalAlignment="Top" Data="M 12,2 A 10,10 0 1 1 11.99,2 M 12,10 L 12,18 M 12,6 L 12,7" />
+            <StackPanel Grid.Column="1" Spacing="8">
+                <TextBlock Classes="dialog-title" Text="{Binding Heading}" TextWrapping="Wrap" />
+                <TextBlock Classes="secondary" Text="请查看以下详细信息。" TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+        <Grid Grid.Row="1" Margin="24,0,24,20"><Border Classes="dialog-note">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <SelectableTextBlock Text="{Binding MessageText}" TextWrapping="Wrap" />
+            </ScrollViewer>
+        </Border></Grid>
+        <Border Grid.Row="2" Classes="dialog-footer">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="知道了" Classes="primary" IsDefault="True" IsCancel="True" Command="{Binding ConfirmCommand}" />
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

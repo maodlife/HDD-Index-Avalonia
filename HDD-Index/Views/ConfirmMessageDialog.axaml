@@ -1,34 +1,32 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HDD_Index.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="260"
         x:Class="HDD_Index.Views.ConfirmMessageDialog"
         x:DataType="vm:ConfirmMessageDialogViewModel"
-        Title="确认"
-        Width="520" Height="260"
+        Classes="dialog" Title="确认操作"
+        Width="620" Height="440" MinWidth="560" MinHeight="400"
         WindowStartupLocation="CenterOwner">
-
-    <Design.DataContext>
-        <vm:ConfirmMessageDialogViewModel />
-    </Design.DataContext>
-
-    <Grid Margin="14" RowDefinitions="*,Auto">
-        <ScrollViewer Grid.Row="0"
-                      VerticalScrollBarVisibility="Auto">
-            <TextBlock Text="{Binding MessageText}" TextWrapping="Wrap" />
-        </ScrollViewer>
-
-        <StackPanel Grid.Row="1"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    Spacing="10"
-                    Margin="0,16,0,0">
-            <Button Content="取消"
-                    Command="{Binding CancelCommand}" />
-            <Button Content="确定"
-                    Command="{Binding ConfirmCommand}" />
-        </StackPanel>
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Grid ColumnDefinitions="40,*" ColumnSpacing="16" Margin="24,24,24,18">
+            <Path Width="32" Height="32" Stretch="Uniform" Stroke="{DynamicResource WorkspaceMuted}" StrokeThickness="1.6" VerticalAlignment="Top" Data="M 12,2 L 23,22 L 1,22 Z M 12,8 L 12,14 M 12,17 L 12,19" />
+            <StackPanel Grid.Column="1" Spacing="8">
+                <TextBlock Classes="dialog-title" Text="{Binding Heading}" TextWrapping="Wrap" />
+                <TextBlock Classes="secondary" Text="请检查以下影响，再决定是否继续。" TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+        <Grid Grid.Row="1" Margin="24,0,24,20"><Grid RowDefinitions="*,Auto" RowSpacing="14">
+            <Border BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1" CornerRadius="8" Padding="14">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <SelectableTextBlock Text="{Binding MessageText}" TextWrapping="Wrap" />
+                </ScrollViewer>
+            </Border>
+            <Border Grid.Row="1" Classes="dialog-note" IsVisible="{Binding IsDestructive}"><TextBlock Classes="secondary" Text="只修改索引及关联，不删除磁盘文件。" TextWrapping="Wrap" /></Border>
+        </Grid></Grid>
+        <Border Grid.Row="2" Classes="dialog-footer">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="取消" IsCancel="True" Command="{Binding CancelCommand}" />
+                <Button Content="{Binding ConfirmLabel}" Classes.primary="{Binding !IsDestructive}" Classes.danger="{Binding IsDestructive}" Command="{Binding ConfirmCommand}" />
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

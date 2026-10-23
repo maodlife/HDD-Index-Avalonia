@@ -21,8 +21,6 @@ public sealed class AvaloniaFileTreeInteraction : IFileTreeInteraction
         var dialog = new DeleteConfirmDialog(targetName)
         {
             Title = "确认删除",
-            Width = 400,
-            Height = 150,
         };
         return await dialog.ShowDialog<bool>(_owner);
     }
@@ -31,9 +29,7 @@ public sealed class AvaloniaFileTreeInteraction : IFileTreeInteraction
     {
         var dialog = new FolderSelectDialog(_owner)
         {
-            Title = "选择文件夹并填写标签",
-            Width = 450,
-            Height = 150,
+            Title = "添加磁盘索引",
         };
         var result = await dialog.ShowDialog<(string? Path, string? Tag)?>(_owner);
         return result is { Path: not null, Tag: not null }

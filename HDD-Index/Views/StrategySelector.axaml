@@ -4,7 +4,8 @@
              xmlns:models="using:HDD_Index.Models"
              x:Class="HDD_Index.Views.StrategySelector"
              x:DataType="vm:MainWindowViewModel">
-    <StackPanel Orientation="Horizontal" Spacing="8">
+    <StackPanel Spacing="8">
+      <StackPanel Orientation="Horizontal" Spacing="8">
         <ComboBox x:Name="StrategyPicker" MinWidth="112"
                   ItemsSource="{Binding RepoBrowser.StrategyOptions}"
                   SelectedItem="{Binding RepoBrowser.CurrentStrategyOption, Mode=TwoWay}"
@@ -40,5 +41,10 @@
                 </Flyout>
             </Button.Flyout>
         </Button>
+      </StackPanel>
+      <Border Classes="strategy-guidance" IsVisible="{Binding NeedsStrategySelection}">
+        <TextBlock Text="请先选择验证策略，再建立关联。" TextWrapping="Wrap" FontSize="12"
+                   AutomationProperties.LiveSetting="Polite" />
+      </Border>
     </StackPanel>
 </UserControl>

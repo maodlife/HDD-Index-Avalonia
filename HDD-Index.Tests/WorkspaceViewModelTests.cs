@@ -186,7 +186,7 @@ public class WorkspaceViewModelTests
     }
 
     [Fact]
-    public void OrganizeActions_RequireBothSelectionsAndCopyRequiresDirectory()
+    public async Task OrganizeActions_RequireStrategyAndBothSelectionsAndCopyRequiresDirectory()
     {
         var vm = new Fixture().ViewModel;
         vm.ViewModeTabIndex = 1;
@@ -196,10 +196,14 @@ public class WorkspaceViewModelTests
         vm.FileBrowser.CurrFileNodeSource.RowSelection!.Select(new IndexPath(0, 0));
         Assert.False(vm.CanLinkSelectedNodes);
         vm.RepoBrowser.RepoNodeSource.RowSelection!.Select(new IndexPath(0, 0));
+        Assert.False(vm.CanLinkSelectedNodes);
+        await vm.ChangeDeclareHoldingStrategyAsync(vm.RepoBrowser.CurrentRepoNode!, DeclareHoldingStrategyType.Default);
         Assert.True(vm.CanLinkSelectedNodes);
         Assert.True(vm.CanCopySelectedStructure);
 
         vm.RepoBrowser.RepoNodeSource.RowSelection.Select(new IndexPath(0, 1));
+        Assert.False(vm.CanLinkSelectedNodes);
+        await vm.ChangeDeclareHoldingStrategyAsync(vm.RepoBrowser.CurrentRepoNode!, DeclareHoldingStrategyType.Default);
         Assert.True(vm.CanLinkSelectedNodes);
         Assert.False(vm.CanCopySelectedStructure);
         Assert.False(vm.RepoBrowser.CurrentRepoNodeIsDirectory);
@@ -403,6 +407,32 @@ public class WorkspaceViewModelTests
         Assert.False(vm.HasDirtyFiles);
     }
 
+    [Fact]
+    public async Task FirstAssociation_RequiresInlineStrategyWithoutOpeningSelectionDialog()
+    {
+        var fixture = new Fixture();
+        var vm = fixture.ViewModel;
+        vm.RepoBrowser.RepoNodeSource.RowSelection!.Select(new IndexPath(0, 0));
+        vm.FileBrowser.CurrFileNodeSource.RowSelection!.Select(new IndexPath(0, 0));
+        var fileVm = vm.FileBrowser.CurrFileNodeSource.RowSelection.SelectedItem!;
+        Assert.True(vm.NeedsStrategySelection);
+        Assert.False(vm.CanLinkSelectedNodes);
+
+        await vm.RepositoryEditor.DeclareSelectedRepoNodeCommand.Execute(fileVm);
+        Assert.Equal(0, fixture.Interaction.StrategyDialogCalls);
+        Assert.Empty(fixture.RepoChild.SaveFileNodeDatas);
+        Assert.False(vm.HasDirtyFiles);
+        Assert.True(vm.IsOrganizeMode);
+        Assert.Equal(MessageDisplayKind.Informational, Assert.Single(fixture.Interaction.MessageRequests).DisplayKind);
+
+        await vm.ChangeDeclareHoldingStrategyAsync(vm.RepoBrowser.CurrentRepoNode!, DeclareHoldingStrategyType.Default);
+        Assert.False(vm.NeedsStrategySelection);
+        Assert.True(vm.CanLinkSelectedNodes);
+        await vm.RepositoryEditor.DeclareSelectedRepoNodeCommand.Execute(fileVm);
+        Assert.Single(fixture.RepoChild.SaveFileNodeDatas);
+        Assert.Equal(0, fixture.Interaction.StrategyDialogCalls);
+    }
+
     private sealed class Fixture
     {
         public RepoNode RepoChild { get; } = TestTreeFactory.Repo("Movies");
@@ -451,9 +481,12 @@ public class WorkspaceViewModelTests
     {
         public string? Rename { get; set; }
         public List<string> Messages { get; } = new();
+        public List<MessageRequest> MessageRequests { get; } = new();
+        public int StrategyDialogCalls { get; private set; }
         public Task ShowMessageAsync(MessageRequest request)
         {
             Messages.Add(request.Message);
+            MessageRequests.Add(request);
             return Task.CompletedTask;
         }
 
@@ -466,7 +499,11 @@ public class WorkspaceViewModelTests
             return PendingConfirmation ?? Task.FromResult(ConfirmResult);
         }
         public Task<DeclareHoldingStrategySelection> SelectInitialDeclareHoldingStrategyAsync(
-            IReadOnlyList<DeclareHoldingStrategyOption> options) => Task.FromResult(new DeclareHoldingStrategySelection(false, null));
+            IReadOnlyList<DeclareHoldingStrategyOption> options)
+        {
+            StrategyDialogCalls++;
+            return Task.FromResult(new DeclareHoldingStrategySelection(false, null));
+        }
         public Task<IReadOnlyList<string>?> SelectDeclareHoldingsToAbandonAsync(IReadOnlyList<string> repoNodePaths)
             => Task.FromResult<IReadOnlyList<string>?>(null);
         public Task<string?> RequestRenameAsync(string initialName) => Task.FromResult(Rename);

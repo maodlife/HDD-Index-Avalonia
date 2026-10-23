@@ -7,5 +7,6 @@ public partial class StartupWindow : Window
     public StartupWindow()
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
     }
 }

@@ -9,6 +9,7 @@ public partial class UnsavedChangesDialog : Window
     public UnsavedChangesDialog()
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         var vm = new UnsavedChangesDialogViewModel();
         DataContext = vm;
         vm.Window = this;
@@ -17,6 +18,7 @@ public partial class UnsavedChangesDialog : Window
     public UnsavedChangesDialog(IEnumerable<string> dirtyFilePaths)
     {
         InitializeComponent();
+        Behaviors.DialogFocus.Attach(this);
         var vm = new UnsavedChangesDialogViewModel(dirtyFilePaths);
         DataContext = vm;
         vm.Window = this;

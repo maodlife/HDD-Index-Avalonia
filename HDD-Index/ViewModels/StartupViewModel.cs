@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using System.Reactive.Linq;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using HDD_Index.Application.ExternalInteractions;
@@ -29,6 +30,19 @@ public sealed class StartupViewModel : ViewModelBase
 
     [Reactive] public bool IsBusy { get; private set; }
 
+    [Reactive] public string SelectedDataDirectory { get; private set; } = string.Empty;
+
+    [Reactive] public bool IsFirstRun { get; private set; }
+
+    public bool CanSelectDataDirectory => CanCreate || CanRepairDataDirectory;
+
+    public bool CanContinue => CanSelectDataDirectory && !IsBusy
+        && !string.IsNullOrWhiteSpace(SelectedDataDirectory);
+
+    public ICommand SelectDataDirectoryCommand { get; }
+
+    public ICommand ContinueCommand { get; }
+
     public ICommand CreateCommand { get; }
 
     public ICommand RepairDataDirectoryCommand { get; }
@@ -49,11 +63,55 @@ public sealed class StartupViewModel : ViewModelBase
         _startupInteraction = startupInteraction
                               ?? throw new ArgumentNullException(nameof(startupInteraction));
         _complete = complete ?? throw new ArgumentNullException(nameof(complete));
+        SelectDataDirectoryCommand = new AsyncRelayCommand(SelectDataDirectoryAsync);
+        ContinueCommand = new RelayCommand(Continue);
         CreateCommand = new AsyncRelayCommand(CreateAsync);
         RepairDataDirectoryCommand = new AsyncRelayCommand(RepairDataDirectoryAsync);
         RetryCommand = new RelayCommand(Retry);
         ExitCommand = new RelayCommand(() => _complete(null));
+        this.WhenAnyValue(x => x.SelectedDataDirectory, x => x.IsBusy)
+            .Subscribe(_ => this.RaisePropertyChanged(nameof(CanContinue)));
         ApplyResult(result);
+    }
+
+    private async Task SelectDataDirectoryAsync()
+    {
+        if (IsBusy || !CanSelectDataDirectory)
+            return;
+
+        IsBusy = true;
+        try
+        {
+            var selectedPath = await _startupInteraction.SelectDataDirectoryAsync(
+                CanRepairDataDirectory
+                    ? "选择包含 Repository 和磁盘索引的数据文件夹"
+                    : "选择保存 HDD Index 数据的文件夹");
+            if (!string.IsNullOrWhiteSpace(selectedPath))
+                SelectedDataDirectory = selectedPath;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void Continue()
+    {
+        if (!CanContinue)
+            return;
+
+        IsBusy = true;
+        try
+        {
+            var result = CanRepairDataDirectory
+                ? _startupService.RepairDataDirectory(_result.ConfigFilePath, SelectedDataDirectory)
+                : _startupService.CreateDefault(SelectedDataDirectory);
+            HandleResult(result);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     private async Task CreateAsync()
@@ -123,6 +181,7 @@ public sealed class StartupViewModel : ViewModelBase
     {
         _result = result;
         var issue = result.BlockingIssue;
+        IsFirstRun = result.State == ApplicationStartupState.FirstRun;
         CanCreate = result.State == ApplicationStartupState.FirstRun
                     || issue?.Kind is SessionLoadIssueKind.InitializationConflict
                         or SessionLoadIssueKind.InitializationFailed;
@@ -135,8 +194,8 @@ public sealed class StartupViewModel : ViewModelBase
 
         if (result.State == ApplicationStartupState.FirstRun)
         {
-            Heading = "欢迎使用 HDD Index";
-            Summary = "这是首次启动。选择一个数据文件夹后，应用会创建初始配置和空 Repository。";
+            Heading = "设置数据目录";
+            Summary = "选择用于保存索引数据的位置，继续后创建初始配置和空虚拟目录。";
         }
         else
         {
@@ -151,5 +210,7 @@ public sealed class StartupViewModel : ViewModelBase
             : $"{issue.Message}{Environment.NewLine}{Environment.NewLine}位置：{issue.FilePath}";
         this.RaisePropertyChanged(nameof(CanCreate));
         this.RaisePropertyChanged(nameof(CanRepairDataDirectory));
+        this.RaisePropertyChanged(nameof(CanSelectDataDirectory));
+        this.RaisePropertyChanged(nameof(CanContinue));
     }
 }
