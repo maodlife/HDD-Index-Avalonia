@@ -26,7 +26,6 @@
                 CornerRadius="4">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <TextBlock TextWrapping="Wrap"
-                           FontFamily="Consolas"
                            Text="{Binding Details}" />
             </ScrollViewer>
         </Border>
