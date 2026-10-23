@@ -11,6 +11,8 @@ public class FileNodeVM : TreeNodeVMBase<FileNodeVM>
     public override string Name => FileNode.Name;
     public bool IsDirectory => FileNode.IsDirectory;
 
+    public bool HasDeclarations => FileNode.DeclareRepoNodeDatas.Count > 0;
+
     public FileNode FileNode { get; }
 
     public IReadOnlyList<DeclareRepoNodeData> DeclareRepoNodeDatas
@@ -40,7 +42,10 @@ public class FileNodeVM : TreeNodeVMBase<FileNodeVM>
             this.RaisePropertyChanged(nameof(IsDirectory));
         }
         if ((presentation & TreeNodePresentation.Relationships) != 0)
+        {
             this.RaisePropertyChanged(nameof(NameBrushes));
+            this.RaisePropertyChanged(nameof(HasDeclarations));
+        }
     }
 
     public static FileNodeVM Create(FileNode fileNode)
