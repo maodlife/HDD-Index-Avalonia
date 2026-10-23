@@ -27,9 +27,17 @@ HDD Index 是一个基于 C#、.NET 9 和 Avalonia 的桌面端离线磁盘目�
 
 ## 截图
 
-![Repository 浏览界面](screenshots/20260503_163353_073_NUlxtN9Rwg_HDD_Index.png)
+### 浏览
 
-![Repository 与磁盘文件树编辑界面](screenshots/20260503_001748_362_g4rlaJeTLv.png)
+浏览虚拟目录，并查看所选节点的验证策略及跨磁盘存储位置。
+
+![浏览模式：Repository 虚拟目录与所选节点的存储位置](screenshots/browse.png)
+
+### 整理
+
+并排查看虚拟目录与磁盘文件索引，复制目录结构或建立关联。
+
+![整理模式：并排显示 Repository 与磁盘文件树，以及目录关联操作](screenshots/organize.png)
 
 ## 下载与升级
 
