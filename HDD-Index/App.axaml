@@ -11,6 +11,9 @@
   
     <Application.Styles>
         <FluentTheme />
+        <Style Selector=":is(Window)">
+            <Setter Property="Icon" Value="avares://HDD-Index/Assets/hdd-index.ico" />
+        </Style>
         <StyleInclude 
             Source="avares://Avalonia.Controls.TreeDataGrid/Themes/Fluent.axaml"/>
         <StyleInclude Source="/Styles/Workspace.axaml" />

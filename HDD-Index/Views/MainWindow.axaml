@@ -24,7 +24,8 @@
         <Border Classes="toolbar" Grid.Row="0" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="224,*,224" Margin="20,0">
                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <views:NodeIcon Kind="Disk" Width="20" Height="23" />
+                    <Image Source="avares://HDD-Index/Assets/hdd-index.png" Width="28" Height="28"
+                           AutomationProperties.Name="HDD Index" />
                     <TextBlock Text="HDD Index" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </StackPanel>
                 <Border Grid.Column="1" Classes="segment" HorizontalAlignment="Center" VerticalAlignment="Center">
